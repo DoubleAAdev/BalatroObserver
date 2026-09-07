@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Balatro Observer · v0.3.0</title>
-<meta name="observer-version" content="0.3.0">
+<title>Balatro Observer · v0.4.0</title>
+<meta name="observer-version" content="0.4.0">
 <style>
 :root{color-scheme:dark;font-family:Inter,Segoe UI,system-ui,sans-serif;background:#101716;color:#edf1e9;--muted:#93a69b;--line:#2b3932;--gold:#e8c67c}
 *{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
@@ -34,14 +34,16 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;p
 @media(min-width:1400px){.card{width:138px;min-height:185px}}
 @media(max-width:1000px){.sidebar{width:200px;padding:25px 12px}main{margin-left:200px;padding:28px 24px}.grid{grid-template-columns:1fr}}
 @media(max-width:700px){.sidebar{position:static;width:auto;padding:18px;border-right:0;border-bottom:1px solid var(--line)}.brand{margin:0 0 20px}.nav-label{display:none}.sidebar-foot{margin-top:12px;padding:8px 0 0;display:flex;gap:8px;flex-wrap:wrap}.sidebar-foot br{display:none}nav{display:flex;overflow:auto;gap:6px;padding-bottom:4px}nav button{white-space:nowrap;padding:9px 12px}nav .count{display:none}main{margin:0;padding:24px 18px}h1{font-size:31px}header{align-items:flex-start}.panel{padding:18px}.cards{gap:10px}.card{width:calc(50% - 5px);max-width:150px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.sortbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:22px;font-size:12px;color:var(--muted)}.sortbar select{background:#1d2a23;color:#e8eadf;border:1px solid var(--line);padding:9px;border-radius:7px}.sortbar .hint{margin:0}.card.with-description{width:235px;max-width:100%;min-height:220px}.card .description{font-size:12px;line-height:1.65;opacity:1}.card .description-note{font-size:10px;color:#d8bd7d}
 </style></head>
 <body>
 <aside class="sidebar"><div class="brand"><span class="logo">♠</span><div><strong>BALATRO</strong><small>OBSERVER</small></div></div>
 <div class="nav-label">Your run</div><nav aria-label="Observer sections" id="nav"></nav>
-<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.3.0</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
+<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.4.0</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
 <main><header><div><div class="eyebrow">The table, at a glance</div><h1 id="title">Run overview</h1><p id="description"></p></div><button id="pause">Ⅱ Pause updates</button></header>
 <div class="statusbar"><span id="status" role="status">Connecting to observer…</span><span id="meta" class="meta"></span></div>
 <div id="waiting" class="panel"><div class="empty"><span class="empty-icon">♧</span><strong id="waiting-title">Waiting for the table</strong><span id="waiting-text">Your run will appear here when the observer sends a fresh snapshot.</span></div></div>
+<div class="sortbar"><label for="sort">Sort cards</label><select id="sort"><option value="original">Game / canonical order</option><option value="rank-desc">Rank: high to low</option><option value="rank-asc">Rank: low to high</option><option value="suit">Suit, then rank</option><option value="name">Name</option></select><span class="hint">Viewer only · game order is unchanged</span></div>
 <div id="content" hidden><div id="stats" class="stats"></div><div id="panels" class="grid"></div></div>
 <div id="raw-view" hidden><details class="panel" open><summary>Latest raw snapshot</summary><pre id="raw">Waiting for data.</pre></details><p id="source" class="hint"></p></div>
 <footer>Live snapshots · Hidden cards stay hidden · Missing values appear as —</footer></main>
@@ -60,6 +62,7 @@ const sections={
  blinds:['◉','Blinds & tags','Blinds & skip tags','Current-ante blind choices, the next blind, the boss, and visible skip rewards.'],
  vouchers:['▱','Vouchers','Redeemed vouchers','Vouchers acquired in this run, including any starting deck vouchers.'],
  hand:['♠','Current hand','Current hand','Your cards on the table. Gold outlines mark selected cards.'],
+ remaining:['▥','Remaining cards','Remaining cards','The public unplayed deck view. Includes cards kept ambiguous by face-down effects; never draw order.'],
  deck:['▤','Deck','Your deck','Full deck composition, in canonical order. This is not the draw pile or its order.'],
  inventory:['✦','Jokers & items','Jokers & consumables','The supporting cast of your run.'],
  shop:['◇','Shop','The shop','Cards, vouchers, and boosters available in the current shop.'],
@@ -80,15 +83,37 @@ $('raw-view').hidden=active!=='raw';$('content').hidden=active==='raw'||!usable;
 function panel(title,badge,wide=true){const p=el('section',undefined,'panel'+(wide?' wide':'')),head=el('div',undefined,'panel-head');head.append(el('h2',title));if(badge!==undefined)head.append(el('span',badge,'pill'));p.append(head);$('panels').append(p);return p;}
 function empty(p,title,detail,icon='♧'){const e=el('div',undefined,'empty');e.append(el('span',icon,'empty-icon'),el('strong',title),el('span',detail));p.append(e);}
 function stat(label,v){const box=el('div',undefined,'stat');box.append(el('span',label),el('b',value(v)));$('stats').append(box);}
+let sortMode='original';
+try{sortMode=localStorage.getItem('observer-sort')||'original';}catch{}
+if(!['original','rank-desc','rank-asc','suit','name'].includes(sortMode))sortMode='original';
+$('sort').value=sortMode;
+$('sort').onchange=()=>{sortMode=$('sort').value;try{localStorage.setItem('observer-sort',sortMode);}catch{}render();};
+function sortedCards(list){
+ if(sortMode==='original')return list;
+ const rank=c=>({Ace:14,King:13,Queen:12,Jack:11}[c.rank]||Number(c.rank)||0);
+ const suits={Spades:0,Hearts:1,Clubs:2,Diamonds:3};
+ const ordered=list.filter(c=>c.visible!==false).map((c,i)=>({c,i})).sort((a,b)=>{
+  let order=0;
+  if(sortMode==='rank-desc')order=rank(b.c)-rank(a.c);
+  if(sortMode==='rank-asc')order=rank(a.c)-rank(b.c);
+  if(sortMode==='suit')order=(suits[a.c.suit]??4)-(suits[b.c.suit]??4)||rank(b.c)-rank(a.c);
+  if(sortMode==='name')order=(a.c.name||a.c.key||a.c.rank||'').localeCompare(b.c.name||b.c.key||b.c.rank||'');
+  return order||a.i-b.i;
+ }).map(x=>x.c);
+ let i=0;return list.map(c=>c.visible===false?c:ordered[i++]);
+}
 function cards(title,area,wide=true){
  const list=area?.cards||[],p=panel(title,list.length+(area?.capacity!==undefined?' / '+area.capacity:' cards'),wide);
  if(!list.length){empty(p,'Nothing here yet','Cards will appear automatically when this area is populated.');return;}
  const row=el('div',undefined,'cards');p.append(row);
- for(const c of list){const hidden=c.visible===false,suit={Hearts:'♥',Diamonds:'♦',Clubs:'♣',Spades:'♠'}[c.suit]||'♢',red=['Hearts','Diamonds'].includes(c.suit);
+ for(const c of sortedCards(list)){const hidden=c.visible===false,suit={Hearts:'♥',Diamonds:'♦',Clubs:'♣',Spades:'♠'}[c.suit]||'♢',red=['Hearts','Diamonds'].includes(c.suit);
  const box=el('div',undefined,'card'+(hidden?' hidden':!c.rank?' special':'')+(c.selected?' selected':''));row.append(box);
  if(hidden){box.append(el('span','?','corner'),el('div','▧','suit'),el('strong','Face down','card-name'),el('small','Slot '+value(c.slot)));continue;}
- if(c.rank){box.append(el('span',value(c.rank)+' '+suit,'corner'+(red?' red':'')),el('div',suit,'suit'+(red?' red':'')));if(c.key&&c.key!=='c_base')box.append(el('strong',pretty(c.key),'card-name'));}
+ if(c.rank){box.append(el('span',value(c.rank)+' '+suit,'corner'+(red?' red':'')),el('div',suit,'suit'+(red?' red':'')));if(c.key&&c.key!=='c_base')box.append(el('strong',c.name||pretty(c.key),'card-name'));}
  else{box.append(el('small',pretty(c.set||'Card')),el('div',c.set==='Joker'?'✦':'◇','suit'),el('strong',pretty(c.key),'card-name'));}
+ if(c.description){box.classList.add('with-description');box.append(el('p',c.description,'description'));if(c.description_complete===false)box.append(el('small','? = dynamic value not exported','description-note'));}
+ else if(c.set==='Joker')box.append(el('small','Description not available in this snapshot.'));
+ if(c.slot!==undefined)box.append(el('small','Game slot '+c.slot));
  box.title=c.key||[c.rank,c.suit].filter(Boolean).join(' ');
  const labels=[];if(c.selected)labels.push('Selected');if(c.debuff)labels.push('Debuffed');if(c.seal)labels.push(c.seal+' seal');
  for(const [k,v] of Object.entries(c.edition||{}))if(v)labels.push(pretty(k));
@@ -102,6 +127,7 @@ function blindPanels(s){
  for(const b of info.choices||[]){
   const p=panel(b.slot+' blind',b.status||'Unknown',false);
   p.append(el('div',b.name||pretty(b.key),'blind-name'));
+  if(b.description)p.append(el('p',b.description,'hint'));
   if(b.mult!==undefined)p.append(el('p','Base score multiplier: ×'+b.mult,'hint'));
   if(b.dollars!==undefined)p.append(el('p','Base reward: $'+b.dollars,'hint'));
   if(b.skip_tag)p.append(el('p','Skip tag: '+(b.skip_tag.name||pretty(b.skip_tag.key)),'hint'));
@@ -114,16 +140,19 @@ function render(){
  for(const [l,v] of [['Money',s.run?.dollars===undefined?undefined:'$'+s.run.dollars],['Ante',s.round?.ante],['Round',s.run?.round],['Score',s.run?.chips],['Hands left',s.round?.hands_left],['Discards left',s.round?.discards_left]])stat(l,v);
  const p=panel('Current blind',s.blind?.disabled?'Disabled':pretty(s.phase));
  p.append(el('div',s.blind?.name||'No active blind','blind-name'));
+ if(s.blind?.loc_debuff_text)p.append(el('p',s.blind.loc_debuff_text,'hint'));
+ if(s.blind?.disabled)p.append(el('p','Boss effect disabled','hint'));
  const row=el('div',undefined,'blind-values');for(const [l,v] of [['Target score',s.blind?.chips],['Reward',s.blind?.dollars===undefined?undefined:'$'+s.blind.dollars],['Stake',s.run?.stake]]){const x=el('div');x.append(el('small',l),el('span',value(v)));row.append(x);}p.append(row);
  cards('Current hand',s.hand);cards('Jokers',s.jokers,false);cards('Consumables',s.consumables,false);
  }else if(active==='blinds'){blindPanels(s);
  }else if(active==='vouchers'){if(s.vouchers)cards('Redeemed vouchers',{cards:s.vouchers});else empty(panel('Redeemed vouchers'),'Waiting for voucher information','Restart Balatro with the latest observer.');
  }else if(active==='hand'){
  stat('Cards in hand',s.hand?.cards?.length);stat('Hand capacity',s.hand?.capacity);stat('Selected',s.hand?.cards?.filter(c=>c.selected).length);stat('Hands left',s.round?.hands_left);stat('Discards left',s.round?.discards_left);cards('Current hand',s.hand);
+ }else if(active==='remaining'){stat('Draw pile count',s.deck?.draw_count);stat('Visible possible remaining',s.deck?.remaining_cards?.length);if(s.deck?.remaining_cards)cards('Remaining cards',{cards:s.deck.remaining_cards});else empty(panel('Remaining cards'),'Waiting for remaining deck data','Restart Balatro with the latest mod.');
  }else if(active==='deck'){
  stat('Full deck',s.deck?.cards?.length);stat('Draw pile',s.deck?.draw_count);stat('Discard pile',s.deck?.discard_count);
- for(const suit of ['Spades','Hearts','Clubs','Diamonds']){const list=s.deck?.cards?.filter(c=>c.suit===suit)||[];cards(suit,{cards:list},false);}
- const other=s.deck?.cards?.filter(c=>!['Spades','Hearts','Clubs','Diamonds'].includes(c.suit))||[];if(other.length)cards('Other cards',{cards:other});
+ if(sortMode!=='suit'){cards('Full deck',{cards:s.deck?.cards||[]});}else for(const suit of ['Spades','Hearts','Clubs','Diamonds']){const list=s.deck?.cards?.filter(c=>c.suit===suit)||[];cards(suit,{cards:list},false);}
+ const other=s.deck?.cards?.filter(c=>!['Spades','Hearts','Clubs','Diamonds'].includes(c.suit))||[];if(sortMode==='suit'&&other.length)cards('Other cards',{cards:other});
  }else if(active==='inventory'){cards('Jokers',s.jokers);cards('Consumables',s.consumables);}
  else if(active==='shop'){if(s.shop){stat('Money',s.run?.dollars===undefined?undefined:'$'+s.run.dollars);stat('Reroll cost',s.shop.reroll_cost===undefined?undefined:'$'+s.shop.reroll_cost);cards('Cards for sale',s.shop.cards);cards('Vouchers',s.shop.vouchers,false);cards('Booster packs',s.shop.boosters,false);}else empty(panel('Shop'),'The shop is closed','Enter the shop to see its current cards, vouchers, and boosters.','◇');}
  else if(active==='pack'){if(s.pack){stat('Picks remaining',s.pack.choices_left);cards('Pack choices',s.pack.cards);}else empty(panel('Open pack'),'No pack open','Open a booster pack to inspect its visible choices.','▣');}
@@ -141,19 +170,22 @@ async function tick(){
  if(location.protocol==='file:')throw new Error('Run node viewer-server.js and open http://127.0.0.1:8765 for live updates.');
  const r=await fetch('/state',{cache:'no-store',signal:AbortSignal.timeout(2000)});if(!r.ok)throw new Error('Viewer server returned '+r.status);
  const {state:s,stale,directory}=await r.json();if(paused)return;
- const wasUsable=usable;snapshot=s;usable=!!s&&!stale&&s.available;
+ // Keep the display stable during animations; raw data always shows the newest record.
+ // A new game session must never inherit the previous session's preview.
+ const previous=snapshot;
+ if(s&&snapshot&&s.session!==snapshot.session)snapshot=null;
+ if(s?.available)snapshot=s;
+ usable=!!snapshot;
  $('meta').textContent=s?'#'+s.sequence+' · '+new Date(s.observed_at*1000).toLocaleTimeString():'200 ms refresh';
  $('source').textContent='Source: '+directory+(s?' · Session '+s.session:'');
  $('raw').textContent=s?JSON.stringify(s,null,2):'No valid snapshots found.';
- counts(s);showVersion(s,stale);
- if(!s){status('Waiting for observer',true);$('waiting-title').textContent='Waiting for the table';$('waiting-text').textContent='Start Balatro with the observer mod enabled. Your run will appear automatically.';}
- else if(stale){status('Stale snapshot · waiting for fresh data',true);$('waiting-title').textContent='The table is quiet';$('waiting-text').textContent='No fresh export in over 3 seconds. Resume the game to reconnect. The last snapshot is available in Raw data.';}
- else if(!s.available){status('Observer unavailable · '+pretty(s.phase),true);$('waiting-title').textContent='Between the action';$('waiting-text').textContent='The game is paused, in a menu, or transitioning. Live sections return with the next available snapshot.';}
- else status('● Live · '+pretty(s.phase)+' · 200 ms refresh');
- // Metadata changes every export; rebuild cards only when game data changes.
- const {sequence,observed_at,...body}=s||{};const next=JSON.stringify(body);
- if(next!==lastBody||wasUsable!==usable){render();lastBody=next;}else select();
- }catch(e){if(!paused){usable=false;counts(null);showVersion(snapshot,true);status('Connection unavailable',true);$('waiting-title').textContent='Connection interrupted';$('waiting-text').textContent=e.message;select();}}
+ counts(snapshot);showVersion(s,stale);
+ if(s?.available&&!stale)status('● Live · '+pretty(s.phase)+' · 200 ms refresh');
+ else if(snapshot)status('Last preview · '+new Date(snapshot.observed_at*1000).toLocaleTimeString()+' · '+(stale?'waiting for fresh export':'updating when ready'),true);
+ else{status('Waiting for observer',true);$('waiting-title').textContent='Waiting for the table';$('waiting-text').textContent='Your first available snapshot will appear here automatically.';}
+ const {sequence,observed_at,...body}=snapshot||{};const next=JSON.stringify(body);
+ if(next!==lastBody||!previous!==!snapshot){render();lastBody=next;}else select();
+ }catch(e){if(!paused){usable=!!snapshot;counts(snapshot);showVersion(snapshot,true);status(snapshot?'Connection interrupted · keeping last preview':'Connection unavailable',true);$('waiting-title').textContent='Waiting for connection';$('waiting-text').textContent=e.message;select();}}
  finally{busy=false;}
 }
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'▶ Resume updates':'Ⅱ Pause updates';if(paused)status('Updates paused · frozen snapshot',true);else tick();};

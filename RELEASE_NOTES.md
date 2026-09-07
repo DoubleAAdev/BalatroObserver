@@ -1,42 +1,36 @@
-# v0.2.2 — Raw JSON and live local viewer
+# v0.4.0 — Remaining cards, descriptions, and stable previews
 
-Balatro Observer is a read-only Steamodded mod for viewing player-visible game data in two ways: raw JSON snapshot files and a live local HTML dashboard.
+This release implements the current local player-visible feature checklist.
 
-## Included in this release
+## New in the viewer
 
-- Raw state snapshots written every 200 ms to alternating state-0.json and state-1.json files.
-- A local dashboard with Overview, Current hand, Deck, Jokers & items, Shop, Open pack, Poker hands, and Raw data sections.
-- Automatic updates, pause/resume, hidden-card redaction, and clear unavailable/stale-data states.
-- Viewer and running-mod version indicators to help identify an outdated loaded mod.
-- Card displays without buy/sell labels.
-- A clearer README and mod description explaining both data access options.
-- Code comments explaining snapshot selection, local serving, loaded-version reporting, and stable live rendering.
+- **Remaining cards:** a dedicated section matching the public unplayed-deck view. Face-down ambiguity is preserved, so its count can exceed the actual draw-pile count. No draw order or hidden-slot identities are exported.
+- **Card sorting:** choose game/canonical order, rank ascending or descending, suit, or name. Sorting affects only the browser, persists across refreshes, and leaves face-down slots fixed.
+- **Boss effects:** show the current blind's cached effect text and available descriptions for current-ante blind choices.
+- **Joker descriptions:** display localization text with explicitly supported live values. Abstract Joker reports its multiplier per joker and its current total. Unsupported dynamic values display ?; custom tooltip callbacks are not executed.
+- **Stable previews:** keep the last available game preview during animations, pauses, stale exports, and connection interruptions. A status label identifies the retained preview. New sessions clear the previous session's preview, and Raw data always shows the newest received record.
 
-This is the first packaged GitHub release; it includes the viewer and versioning work from v0.2.0 and v0.2.1. Version 0.2.2 adds documentation and explanatory comments without changing the observation schema.
+Also includes the previously committed v0.3.0 features: Blinds & tags, redeemed vouchers, and Steamodded opened-pack support.
 
-## Install
+## Install or update
 
-1. Install Lovely and Steamodded.
-2. Download BalatroObserver-v0.2.2.zip and extract it into your Balatro Mods directory. The archive contains a BalatroObserver folder. On Windows, the manifest should end up at %APPDATA%/Balatro/Mods/BalatroObserver/BalatroObserver.json.
-3. Restart Balatro.
+Download BalatroObserver-v0.4.0.zip and extract its BalatroObserver folder into your Balatro Mods folder. Lovely and Steamodded are required. On Windows the mod manifest belongs at %APPDATA%/Balatro/Mods/BalatroObserver/BalatroObserver.json.
 
-## View your data
-
-**Raw files:** open state-0.json and state-1.json in %APPDATA%/Balatro/balatro_observer. Each is a snapshot; consumers must select the newest valid one.
-
-**Local HTML dashboard:** install Node.js 18 or newer, open a terminal in the installed BalatroObserver folder, run:
+Restart Balatro to load v0.4.0. From the mod folder, run:
 
 ```sh
 node viewer-server.js
 ```
 
-Then open http://127.0.0.1:8765. The server stays on your machine and reads the existing snapshot files. A custom save directory can be passed as the first command-line argument.
+Open http://127.0.0.1:8765 and refresh any existing viewer tab. Node.js 18 or newer is required for the local viewer. Raw snapshot files remain in %APPDATA%/Balatro/balatro_observer.
 
-If upgrading, refresh the page and restart Balatro to load v0.2.2. Restart the viewer server if it is already running.
+## Validation
 
-## Validation and limits
+Lua tests passed for visibility, remaining-card ambiguity, joker totals, boss text, blind/tag/voucher exports, pack phases, JSON encoding, and export failure handling. Node server tests and browser regression checks passed for all 11 sections, sorting, persistence, retained previews, session resets, pause, and mobile width.
 
-The automated Lua observer tests and Node viewer tests passed. Browser smoke checks passed for all eight sections, pause/navigation, mobile width, hidden cards, and stale-state hiding using controlled snapshot data.
+Browser checks use controlled snapshot fixtures. Comparison with the live game HUD remains a manual check.
 
-The export is limited to player-visible information. It does not include hidden card identities, draw order, seeds, RNG state, or future shops. Full deck composition is not an ordered draw pile. Real-game HUD comparison remains a manual check.
+## Update workflow
+
+The local “update missing” command now includes checklist review, implementation, versioning, ignored generated artifacts, validation, installed-mod synchronization, an explanatory commit, push, and a packaged GitHub release. The local checklist remains ignored and is not included in this release.
 

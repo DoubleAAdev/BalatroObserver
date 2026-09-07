@@ -13,3 +13,5 @@ The user requires this workflow after every completed mod or viewer update:
 7. After validation and installation, commit the completed version update and its related changes locally. The user explicitly requests this for every version/subversion update. Do not push unless asked.
 
 8. Before every code update, read missing.txt if present and compare each player-visible checklist item against both the exported state and browser. Implement missing coverage as part of the update, add relevant checks, and report any remaining limitations. Keep missing.txt local and ignored; do not delete or overwrite the user’s checklist. Do not infer hidden information from this list.
+
+9. The command "update missing" means: read the current local missing.txt, implement its missing player-visible website/collector features, update versions and ignore generated artifacts, test, sync and hash-verify the installed mod, commit with an explanation, push to the configured GitHub remote, and publish a versioned release with explanatory notes and an installable ZIP. This command explicitly authorizes pushing and publishing for that update. Preserve the checklist itself.

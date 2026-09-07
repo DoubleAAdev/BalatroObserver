@@ -47,7 +47,7 @@ Unknown scalar values are omitted. Arrays remain JSON arrays even when empty. Sc
 
 No seed, RNG state, future shops, unopened pack contents, draw order, internal card IDs, arbitrary `ability.extra`, callbacks, game actions or opponent state are exported. The collector does not call scoring, random, card tooltip or action functions. It does not modify game objects. Deck composition follows the full deck viewer in [Steamodded's source](https://github.com/Steamodded/smods/blob/main/src/overrides.lua).
 
-Dynamic joker tooltip values, custom editions/enhancements, dynamic tag effects and multiplayer HUD data need explicit visibility-reviewed adapters. They are not fully represented in this first schema. [Multiplayer's state](https://github.com/Balatro-Multiplayer/BalatroMultiplayer/blob/dev/core.lua) contains concealed opponent values and visibility settings, so copying it would be unsafe. Custom mods that alter visibility need separate verification. This mod does not establish multiplayer ruleset approval or guarantee compatibility with every mod version.
+Joker descriptions use the loaded localization text and explicit adapters for supported vanilla dynamic values (including Abstract Joker). Unsupported dynamic placeholders display ? instead of guessed values. Custom tooltip callbacks, custom editions/enhancements, dynamic tag effects, and multiplayer HUD data still need explicit visibility-reviewed adapters. [Multiplayer's state](https://github.com/Balatro-Multiplayer/BalatroMultiplayer/blob/dev/core.lua) contains concealed opponent values and visibility settings, so copying it would be unsafe. Custom mods that alter visibility need separate verification. This mod does not establish multiplayer ruleset approval or guarantee compatibility with every mod version.
 
 ## Validation
 
@@ -59,16 +59,22 @@ Live smoke test: start a run, compare a snapshot to the HUD and full deck viewer
 
 Run `node viewer-server.js` from this folder, then open http://127.0.0.1:8765. Requires Node.js 18 or newer. The viewer automatically reads `%APPDATA%/Balatro/balatro_observer` and refreshes every 200 ms. For another save location, run `node viewer-server.js "D:\path\to\balatro_observer"`. Set the `PORT` environment variable to change the default port of 8765.
 
-`observer.html` displays the current hand, jokers, consumables, run counters, blind, shop, pack, poker hands, full deck composition, and raw snapshot. Unavailable or stale snapshots hide the game panels; missing fields display an em dash. Pause updates freezes the display and labels it as paused. The server listens only on localhost and reads the existing exports without modifying the mod. Open the HTTP URL rather than double-clicking the HTML file, because browsers cannot automatically read these local files.
+`observer.html` displays the current hand, jokers, consumables, run counters, blind, shop, pack, poker hands, full deck composition, and raw snapshot. During transitions, stale exports, or a lost connection, the browser keeps the last available preview with a status label; a new session clears the old preview. Raw data always shows the latest received record, including unavailable records; missing fields display an em dash. Pause updates freezes the display and labels it as paused. The server listens only on localhost and reads the existing exports without modifying the mod. Open the HTTP URL rather than double-clicking the HTML file, because browsers cannot automatically read these local files.
 
 Viewer checks: `node --test tests/test_viewer.cjs`.
 
 ## Release versions and installation
 
-Current release: **0.3.0**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
+Current release: **0.4.0**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
 
 Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Restart its Node server if viewer-server.js changed.
 
 Release 0.2.1 removes buy/sell labels from displayed cards. Generated local artifacts are ignored; release changes are committed after validation and installation.
 
 Release 0.3.0 adds Blinds & tags and Vouchers sections and fixes opened-pack exports for Steamodded’s booster phase. Before each code update, the local missing.txt checklist is reviewed against collector and browser coverage.
+
+Release 0.4.0 adds Remaining cards, rank/suit/name sorting that only affects the viewer, joker descriptions with supported live values, boss effects, and a persistent last preview. The local "update missing" workflow also commits, pushes, and publishes a release.
+
+The deck.remaining_cards field is the canonical public unplayed composition. It includes wheel-flipped cards outside the draw pile to preserve face-down ambiguity and can exceed draw_count. It contains no draw order, IDs, or hidden-slot links. Current boss effect text is exported as blind.loc_debuff_text; blind choice descriptions use the loaded localization text.
+
+Optional browser check: install Playwright and Chromium, then run node tests/test_viewer_browser.cjs. PLAYWRIGHT_MODULE and BROWSER_EXECUTABLE may point to existing installations.

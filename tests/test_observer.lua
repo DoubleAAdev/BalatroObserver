@@ -40,7 +40,7 @@ assert(not pcall(JSON.encode, math.huge))
 
 -- Exercise the actual update hook with fake SMODS and LÖVE objects.
 _G.G = G
-SMODS = {current_mod = {id = 'BalatroObserver', version = '0.3.0'}, load_file = function(file) return loadfile(file) end}
+SMODS = {current_mod = {id = 'BalatroObserver', version = '0.4.0'}, load_file = function(file) return loadfile(file) end}
 local writes, called, fail = {}, 0, false
 love = {timer = {getTime = function() return 1 end}, filesystem = {
     createDirectory = function() return true end,
@@ -53,9 +53,9 @@ Game:update(0.1)
 Game:update(0.2)
 assert(called == 3 and writes['balatro_observer/state-0.json'] and writes['balatro_observer/state-1.json'])
 assert(BalatroObserver.last_export_ok)
-assert(BalatroObserver.version == '0.3.0')
-assert(BalatroObserver.snapshot().mod_version == '0.3.0')
-assert(writes['balatro_observer/state-1.json']:find('0.3.0', 1, true))
+assert(BalatroObserver.version == '0.4.0')
+assert(BalatroObserver.snapshot().mod_version == '0.4.0')
+assert(writes['balatro_observer/state-1.json']:find('0.4.0', 1, true))
 fail = true
 Game:update(0.2)
 assert(not BalatroObserver.last_export_ok and called == 4)
@@ -102,3 +102,48 @@ G.SETTINGS = {paused = true}
 assert(observer.snapshot(G).blinds == nil and observer.snapshot(G).vouchers == nil)
 G.SETTINGS = nil
 print('PASS: visible blinds, skip tags, vouchers, Steamodded packs and visibility guards')
+
+-- Remaining composition follows the visible unplayed viewer, not draw order.
+G.STATE = G.STATES.SELECTING_HAND
+a.area, b.area = G.deck, G.hand
+b.ability.wheel_flipped = true
+G.playing_cards = {a, b}
+G.deck.cards = {a}
+local remaining = observer.snapshot(G)
+assert(#remaining.deck.remaining_cards == 2, 'wheel-flipped ambiguity lost')
+assert(remaining.hand.cards[1].rank == nil)
+local remaining_json = JSON.encode(remaining.deck.remaining_cards)
+G.playing_cards = {b, a}
+assert(JSON.encode(observer.snapshot(G).deck.remaining_cards) == remaining_json)
+b.ability.wheel_flipped = nil
+assert(#observer.snapshot(G).deck.remaining_cards == 1)
+assert(observer.snapshot(G).deck.remaining_cards[1].rank == 'Ace')
+assert(not remaining_json:find('slot') and not remaining_json:find('selected'))
+G.localization = {descriptions = {
+    Joker = {
+        j_abstract = {text = {'{C:mult}+#1#{} Mult for each Joker card', '{C:inactive}(Currently +#2# Mult)'}},
+        j_custom = {text = {'Custom effect #1#'}}
+    },
+    Blind = {bl_hook = {text = {'Discards {C:attention}2{} random cards per hand'}}}
+}}
+local abstract = {facing = 'front', config = {center = {key = 'j_abstract', name = 'Abstract Joker'}},
+    ability = {set = 'Joker', extra = 3}}
+G.jokers = {cards = {abstract, abstract, abstract, abstract}}
+G.GAME.blind = {name = 'The Hook', loc_debuff_text = 'Discards 2 random cards per hand', disabled = false}
+local descriptions = observer.snapshot(G)
+assert(descriptions.jokers.cards[1].description == '+3 Mult for each Joker card (Currently +12 Mult)')
+assert(descriptions.jokers.cards[1].description_complete)
+assert(descriptions.blinds.boss.description == 'Discards 2 random cards per hand')
+assert(descriptions.blind.loc_debuff_text == 'Discards 2 random cards per hand')
+table.remove(G.jokers.cards)
+assert(observer.snapshot(G).jokers.cards[1].description:find('+9 Mult', 1, true))
+abstract.facing = 'back'
+assert(observer.snapshot(G).jokers.cards[1].description == nil)
+abstract.facing = 'front'
+abstract.config.center.key = 'j_custom'
+abstract.config.center.loc_vars = function() error('callback must not run') end
+abstract.ability.extra = {secret = 'SECRET'}
+local custom = observer.snapshot(G).jokers.cards[1]
+assert(custom.description == 'Custom effect ?' and not custom.description_complete)
+assert(not JSON.encode(custom):find('SECRET'))
+print('PASS: remaining deck ambiguity, dynamic joker descriptions and boss text')
