@@ -1,6 +1,10 @@
 # Balatro Observer
 
-Read-only Steamodded mod. Copy this directory into `%APPDATA%/Balatro/Mods/BalatroObserver` and restart Balatro with Steamodded installed. Keep the JSON manifest and the three Lua modules together. No files in the game installation are modified.
+Read-only Steamodded mod. Install both **Lovely and Steamodded** first, following the [Steamodded installation guide](https://docs.smods.dev/Installation/). Lovely alone does not load this mod. Confirm that Balatro's main menu has a **Mods** button.
+
+Copy this directory into `%APPDATA%/Balatro/Mods/BalatroObserver` and restart Balatro. Keep `BalatroObserver.json`, `main.lua`, `json.lua`, and `observer.lua` directly inside that folder. The Steamodded folder must be alongside `BalatroObserver` inside `Mods`. No files in the game installation are modified by BalatroObserver.
+
+If there is no **Mods** button, check the Lovely/Steamodded installation first. If the button is present but Balatro Observer is missing or disabled, check the folder layout and its dependency status in the Mods menu.
 
 Every 200 ms after a game update, the mod writes alternating `state-0.json` and `state-1.json` files under `balatro_observer` in LÖVE's save directory (normally `%APPDATA%/Balatro/balatro_observer` on Windows). `love.filesystem.getSaveDirectory()` gives the actual location. The files contain snapshots, not a recording of every action.
 
