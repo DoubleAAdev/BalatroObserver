@@ -65,7 +65,7 @@ Viewer checks: `node --test tests/test_viewer.cjs`.
 
 ## Release versions and installation
 
-Current release: **0.6.0**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
+Current release: **0.6.1**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
 
 Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Restart its Node server if viewer-server.js changed.
 
@@ -96,3 +96,6 @@ Adds 214 locally bundled images from [Balatro Wiki](https://balatrowiki.org/), m
 Shop previews now retain the last observed inventory for the current browser page session, with a timestamp and an inaccessible-shop notice. New game sessions clear the history. Mail-In Rebate, Gros Michel, money-based jokers and additional vanilla tooltip values now have explicit scalar adapters; unsupported modded values remain unknown.
 
 Additional browser regression check: node tests/test_wiki_shop.cjs.
+
+
+Release 0.6.1 removes six obsolete demo vouchers from the image library and installed assets (208 wiki images remain), gives booster wrappers their native 114:186 proportions with taller containers, and fixes nested joker fields containing underscores such as chip_mod and s_mult. Unknown custom fields remain unexported.

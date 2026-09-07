@@ -1,15 +1,9 @@
-# v0.6.0 — Wiki artwork, live joker values, and shop history
+# v0.6.1 — Joker values and artwork fixes
 
-- Bundle all 214 unique article images from the seven requested Balatro Wiki pages. Add mapped artwork for Tarot, Planet and Spectral cards, vouchers, blinds and stakes. Edition overlays, including negative, apply to consumable artwork.
-- Add a searchable image library with seven page filters. This is a reference catalog, separate from the current run. All artwork loads locally.
-- Credit Balatro Wiki visibly and include per-image sources and licensing information. Preserve the Balatro Calculator credit and MIT notice.
-- Expand explicit vanilla joker tooltip adapters: Mail-In Rebate payout and target rank, Gros Michel and Cavendish odds, Bull and Bootstraps totals, Castle and Ancient Joker targets, The Idol, and additional supported counters. Hidden cards remain redacted; no tooltip callbacks or RNG functions are invoked.
-- Retain the last observed shop inventory after leaving, with its observation time and an information notice that the shop is currently inaccessible. A newly observed empty shop replaces the old inventory; new sessions clear shop history. History lasts for the current browser page session.
+- Fix nested joker field names containing underscores. Wee Joker, suit jokers such as Greedy Joker, Runner, Green Joker, Mystic Summit and other existing adapters now show their exported live values correctly. Missing/non-scalar custom values still remain unknown; no values are invented.
+- Remove the six obsolete demo vouchers from the image library, source assets and installed mod. The library now contains 208 credited Balatro Wiki images.
+- Give all 32 booster pack wrappers their native 114:186 proportions and taller containers on desktop and mobile.
 
-Validation: Lua collector/privacy checks, HTTP/static-route tests, existing browser regression checks, 225 edition/enhancement/seal combinations, and new tests decoding all 214 images, filtering, mobile layout, and shop-history transitions.
+Validation: Lua collector/privacy regression checks, HTTP tests, existing browser checks, 225 card-art combinations, and all 208 wiki images decoded. Pack geometry checked on desktop/mobile; demo vouchers verified absent.
 
-Limitations: custom tooltip callbacks and unsupported dynamic values still show ?. Negative artwork is a CSS approximation. Restart Balatro to load the installed collector; refresh the viewer after updating.
-
-Install: extract BalatroObserver-v0.6.0.zip into %APPDATA%/Balatro/Mods so that BalatroObserver/BalatroObserver.json is directly inside that folder. Lovely and Steamodded are required. Run node viewer-server.js from BalatroObserver and open http://127.0.0.1:8765.
-
-Includes the requested Booster Packs addition in v0.6.0: all 32 vanilla wrapper variants and the seventh image-library filter. No unopened pack contents are exported.
+Install the ZIP into %APPDATA%/Balatro/Mods. Restart Balatro to load the fixed collector, restart node viewer-server.js, and refresh http://127.0.0.1:8765.

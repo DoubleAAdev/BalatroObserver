@@ -72,7 +72,7 @@ return function(JSON)
         local a, key = c.ability or {}, ((c.config or {}).center or {}).key
         local vars = {}
         for i, path in ipairs(joker_fields[key] or {}) do
-            local parent, child = path:match('^(%w+)%.(%w+)$')
+            local parent, child = path:match('^([%w_]+)%.([%w_]+)$')
             vars[i] = scalar(parent and type(a[parent]) == 'table' and a[parent][child] or (not parent and a[path] or nil))
         end
         local n = type(a.extra) == 'number' and scalar(a.extra) or nil

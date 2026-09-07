@@ -176,3 +176,25 @@ assert(not observer.snapshot(G).jokers.cards[1].description_complete)
 abstract.facing = 'back'
 assert(observer.snapshot(G).jokers.cards[1].description == nil)
 print('PASS: changing Mail-In Rebate target, payout, Gros Michel odds, Bull totals and scalar privacy')
+
+-- Nested Lua field identifiers can include underscores (the previous parser lost them).
+abstract.facing = 'front'
+for _, fixture in ipairs({
+    {'j_wee', {chips=40,chip_mod=8}, '+#2# per 2; currently +#1#', '+8 per 2; currently +40'},
+    {'j_greedy_joker', {s_mult=3,suit='Diamonds'}, '+#1# Mult for #2#', '+3 Mult for Diamonds'},
+    {'j_runner', {chips=30,chip_mod=15}, '+#2# per Straight; currently +#1#', '+15 per Straight; currently +30'},
+    {'j_green_joker', {hand_add=1,discard_sub=1}, '+#1# per hand; -#2# per discard', '+1 per hand; -1 per discard'},
+    {'j_mystic_summit', {mult=15,d_remaining=0}, '+#1# with #2# discards', '+15 with 0 discards'}
+}) do
+    abstract.config.center.key = fixture[1]
+    abstract.ability.extra = fixture[2]
+    G.localization.descriptions.Joker[fixture[1]] = {text={fixture[3]}}
+    local exported = observer.snapshot(G).jokers.cards[1]
+    assert(exported.description == fixture[4], exported.description)
+    assert(exported.description_complete)
+end
+abstract.config.center.key = 'j_wee'
+abstract.ability.extra = {chips=40,chip_mod={secret='SECRET'}}
+assert(not observer.snapshot(G).jokers.cards[1].description_complete)
+assert(not JSON.encode(observer.snapshot(G)):find('SECRET'))
+print('PASS: underscore fields resolve Wee, suit jokers, Runner, Green Joker and Mystic Summit; non-scalars remain private')

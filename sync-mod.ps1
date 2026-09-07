@@ -33,6 +33,12 @@ foreach ($name in $files) {
         throw "Installed file verification failed: $name"
     }
 }
+# Remove only obsolete demo voucher files shipped in v0.6.0.
+foreach ($obsolete in @('Magnet', 'Electromagnet', 'Pattern', 'Tesselation', 'BigSpoon', 'BigGoldSpoon')) {
+    $obsoleteFile = Join-Path $target ('assets/wiki/' + $obsolete + '.png')
+    if (Test-Path -LiteralPath $obsoleteFile) { Remove-Item -LiteralPath $obsoleteFile -Force }
+    if (Test-Path -LiteralPath $obsoleteFile) { throw "Obsolete demo artwork remains: $obsolete" }
+}
 Write-Output "Installed Balatro Observer v$($release.version) to $target"
 Write-Output "Verified all $($files.Count) release files. Restart Balatro to load the updated mod."
 
