@@ -147,3 +147,32 @@ local custom = observer.snapshot(G).jokers.cards[1]
 assert(custom.description == 'Custom effect ?' and not custom.description_complete)
 assert(not JSON.encode(custom):find('SECRET'))
 print('PASS: remaining deck ambiguity, dynamic joker descriptions and boss text')
+
+-- Round targets and money are public tooltip values; never read target card IDs.
+G.localization.descriptions.Joker.j_mail = {text = {'Earn $#1# for each discarded #2#'}}
+G.localization.descriptions.Joker.j_gros_michel = {text = {'+#1# Mult, #2# in #3# chance'}}
+G.localization.descriptions.Joker.j_bull = {text = {'+#1# Chips per dollar (Currently +#2#)'}}
+G.GAME.current_round.mail_card = {rank = 'Queen', id = 'SECRET'}
+G.GAME.probabilities = {normal = 2, seed = 'SECRET'}
+abstract.config.center.key = 'j_mail'
+abstract.ability.extra = 5
+assert(observer.snapshot(G).jokers.cards[1].description == 'Earn $5 for each discarded Queen')
+G.GAME.current_round.mail_card.rank = 'Ace'
+assert(observer.snapshot(G).jokers.cards[1].description == 'Earn $5 for each discarded Ace')
+G.GAME.current_round.mail_card.rank = nil
+assert(not observer.snapshot(G).jokers.cards[1].description_complete)
+abstract.config.center.key = 'j_gros_michel'
+abstract.ability.extra = {mult = 15, odds = 6, secret = 'SECRET'}
+assert(observer.snapshot(G).jokers.cards[1].description == '+15 Mult, 2 in 6 chance')
+assert(not JSON.encode(observer.snapshot(G)):find('SECRET'))
+abstract.config.center.key = 'j_bull'
+abstract.ability.extra = 2
+G.GAME.dollars = 17
+assert(observer.snapshot(G).jokers.cards[1].description == '+2 Chips per dollar (Currently +34)')
+G.GAME.dollars = -4
+assert(observer.snapshot(G).jokers.cards[1].description == '+2 Chips per dollar (Currently +0)')
+G.GAME.dollars = {secret = 'SECRET'}
+assert(not observer.snapshot(G).jokers.cards[1].description_complete)
+abstract.facing = 'back'
+assert(observer.snapshot(G).jokers.cards[1].description == nil)
+print('PASS: changing Mail-In Rebate target, payout, Gros Michel odds, Bull totals and scalar privacy')

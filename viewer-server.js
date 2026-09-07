@@ -26,6 +26,12 @@ const publicFiles = new Map([
   ['/assets/Jokers.png', ['assets/Jokers.png', 'image/png']],
   ['/credits', ['THIRD_PARTY_NOTICES.md', 'text/plain; charset=utf-8']]
 ]);
+for(const item of require('./assets/wiki-art.json')){
+ const type={'.png':'image/png','.gif':'image/gif','.jpg':'image/jpeg','.webp':'image/webp'}[path.extname(item.file)];
+ if(!/^assets\/wiki\/[^/\\]+$/.test(item.file)||!type)throw new Error('Invalid bundled artwork path');
+ publicFiles.set('/'+item.file,[item.file,type]);
+}
+publicFiles.set('/assets/wiki-art.js',['assets/wiki-art.js','text/javascript; charset=utf-8']);
 function createServer(directory) {
   return http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -38,9 +44,9 @@ function createServer(directory) {
       } else if (url.pathname === '/' || url.pathname === '/observer.html') {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.end(await fs.readFile(path.join(__dirname, 'observer.html')));
-      } else if (publicFiles.has(url.pathname)) {
+      } else if (publicFiles.has(decodeURIComponent(url.pathname))) {
         // Explicit routes keep private mod files and arbitrary paths inaccessible.
-        const [file, contentType] = publicFiles.get(url.pathname);
+        const [file, contentType] = publicFiles.get(decodeURIComponent(url.pathname));
         res.setHeader('Content-Type', contentType);
         res.end(await fs.readFile(path.join(__dirname, file)));
       } else {

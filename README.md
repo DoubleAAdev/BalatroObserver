@@ -65,7 +65,7 @@ Viewer checks: `node --test tests/test_viewer.cjs`.
 
 ## Release versions and installation
 
-Current release: **0.5.0**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
+Current release: **0.6.0**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
 
 Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Restart its Node server if viewer-server.js changed.
 
@@ -83,8 +83,16 @@ Release 0.4.1 arranges Full deck and Remaining cards like the in-game deck viewe
 
 ## Card artwork and credits
 
-Version 0.5.0 reuses the card, enhancement, edition, seal, and vanilla joker sprite atlases from [Balatro Calculator by Saffron Haas (efhiii)](https://efhiii.github.io/balatro-calculator/) and adapts its layer-compositing approach. Card faces, foil/holographic/polychrome editions, and seals render together. Negative uses a CSS inversion approximation. Custom cards without a mapped sprite retain a labeled fallback. The artwork is bundled locally; no external requests are needed to render it. See [third-party notices](THIRD_PARTY_NOTICES.md) and the bundled MIT license. Balatro and its original game artwork belong to their respective owners.
+Version 0.6.0 reuses the card, enhancement, edition, seal, and vanilla joker sprite atlases from [Balatro Calculator by Saffron Haas (efhiii)](https://efhiii.github.io/balatro-calculator/) and adapts its layer-compositing approach. Card faces, foil/holographic/polychrome editions, and seals render together. Negative uses a CSS inversion approximation. Custom cards without a mapped sprite retain a labeled fallback. The artwork is bundled locally; no external requests are needed to render it. See [third-party notices](THIRD_PARTY_NOTICES.md) and the bundled MIT license. Balatro and its original game artwork belong to their respective owners.
 
-Keep the assets folder and THIRD_PARTY_NOTICES.md alongside observer.html and viewer-server.js when installing or packaging the viewer. Restart the viewer server after upgrading to 0.5.0 so the new local asset routes are available.
+Keep the assets folder and THIRD_PARTY_NOTICES.md alongside observer.html and viewer-server.js when installing or packaging the viewer. Restart the viewer server after upgrading to 0.6.0 so the new local asset routes are available.
 
 Card-art regression check: run node tests/test_card_art.cjs with the same Playwright environment. It covers all 225 supported enhancement/edition/seal combinations and verifies face-down redaction and local-only asset loading.
+
+## Release 0.6.0
+
+Adds 177 locally bundled images from [Balatro Wiki](https://balatrowiki.org/), mapped consumable/voucher/blind/stake artwork, and a searchable reference image library. See THIRD_PARTY_NOTICES.md and assets/wiki-art.json for image credits, sources and licensing. The reference catalog is not current-run data.
+
+Shop previews now retain the last observed inventory for the current browser page session, with a timestamp and an inaccessible-shop notice. New game sessions clear the history. Mail-In Rebate, Gros Michel, money-based jokers and additional vanilla tooltip values now have explicit scalar adapters; unsupported modded values remain unknown.
+
+Additional browser regression check: node tests/test_wiki_shop.cjs.

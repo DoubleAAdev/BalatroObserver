@@ -1,36 +1,13 @@
-# v0.4.0 — Remaining cards, descriptions, and stable previews
+# v0.6.0 — Wiki artwork, live joker values, and shop history
 
-This release implements the current local player-visible feature checklist.
+- Bundle all 177 unique article images from the six requested Balatro Wiki pages. Add mapped artwork for Tarot, Planet and Spectral cards, vouchers, blinds and stakes. Edition overlays, including negative, apply to consumable artwork.
+- Add a searchable image library with six page filters. This is a reference catalog, separate from the current run. All artwork loads locally.
+- Credit Balatro Wiki visibly and include per-image sources and licensing information. Preserve the Balatro Calculator credit and MIT notice.
+- Expand explicit vanilla joker tooltip adapters: Mail-In Rebate payout and target rank, Gros Michel and Cavendish odds, Bull and Bootstraps totals, Castle and Ancient Joker targets, The Idol, and additional supported counters. Hidden cards remain redacted; no tooltip callbacks or RNG functions are invoked.
+- Retain the last observed shop inventory after leaving, with its observation time and an information notice that the shop is currently inaccessible. A newly observed empty shop replaces the old inventory; new sessions clear shop history. History lasts for the current browser page session.
 
-## New in the viewer
+Validation: Lua collector/privacy checks, HTTP/static-route tests, existing browser regression checks, 225 edition/enhancement/seal combinations, and new tests decoding all 177 images, filtering, mobile layout, and shop-history transitions.
 
-- **Remaining cards:** a dedicated section matching the public unplayed-deck view. Face-down ambiguity is preserved, so its count can exceed the actual draw-pile count. No draw order or hidden-slot identities are exported.
-- **Card sorting:** choose game/canonical order, rank ascending or descending, suit, or name. Sorting affects only the browser, persists across refreshes, and leaves face-down slots fixed.
-- **Boss effects:** show the current blind's cached effect text and available descriptions for current-ante blind choices.
-- **Joker descriptions:** display localization text with explicitly supported live values. Abstract Joker reports its multiplier per joker and its current total. Unsupported dynamic values display ?; custom tooltip callbacks are not executed.
-- **Stable previews:** keep the last available game preview during animations, pauses, stale exports, and connection interruptions. A status label identifies the retained preview. New sessions clear the previous session's preview, and Raw data always shows the newest received record.
+Limitations: custom tooltip callbacks and unsupported dynamic values still show ?. Negative artwork is a CSS approximation. Restart Balatro to load the installed collector; refresh the viewer after updating.
 
-Also includes the previously committed v0.3.0 features: Blinds & tags, redeemed vouchers, and Steamodded opened-pack support.
-
-## Install or update
-
-Download BalatroObserver-v0.4.0.zip and extract its BalatroObserver folder into your Balatro Mods folder. Lovely and Steamodded are required. On Windows the mod manifest belongs at %APPDATA%/Balatro/Mods/BalatroObserver/BalatroObserver.json.
-
-Restart Balatro to load v0.4.0. From the mod folder, run:
-
-```sh
-node viewer-server.js
-```
-
-Open http://127.0.0.1:8765 and refresh any existing viewer tab. Node.js 18 or newer is required for the local viewer. Raw snapshot files remain in %APPDATA%/Balatro/balatro_observer.
-
-## Validation
-
-Lua tests passed for visibility, remaining-card ambiguity, joker totals, boss text, blind/tag/voucher exports, pack phases, JSON encoding, and export failure handling. Node server tests and browser regression checks passed for all 11 sections, sorting, persistence, retained previews, session resets, pause, and mobile width.
-
-Browser checks use controlled snapshot fixtures. Comparison with the live game HUD remains a manual check.
-
-## Update workflow
-
-The local “update missing” command now includes checklist review, implementation, versioning, ignored generated artifacts, validation, installed-mod synchronization, an explanatory commit, push, and a packaged GitHub release. The local checklist remains ignored and is not included in this release.
-
+Install: extract BalatroObserver-v0.6.0.zip into %APPDATA%/Balatro/Mods so that BalatroObserver/BalatroObserver.json is directly inside that folder. Lovely and Steamodded are required. Run node viewer-server.js from BalatroObserver and open http://127.0.0.1:8765.

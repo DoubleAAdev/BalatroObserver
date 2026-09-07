@@ -22,3 +22,6 @@ __pycache__/
 /test-results/
 /playwright-report/
 /coverage/
+
+# Local research, packaging and runtime helpers
+/work/

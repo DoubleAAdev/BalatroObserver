@@ -38,7 +38,19 @@ return function(JSON)
         j_square={'extra.chips','extra.chip_mod'}, j_seance={'extra.poker_hand'},
         j_riff_raff={'extra'}, j_vampire={'extra','x_mult'}, j_hologram={'extra','x_mult'},
         j_vagabond={'extra'}, j_baron={'extra'}, j_rocket={'extra.dollars','extra.increase'},
-        j_obelisk={'extra','x_mult'}
+        j_obelisk={'extra','x_mult'}, j_photograph={'extra'}, j_gift={'extra'},
+        j_turtle_bean={'extra.h_size','extra.h_mod'}, j_to_the_moon={'extra'},
+        j_lucky_cat={'extra','x_mult'}, j_baseball={'extra'}, j_trading={'extra'},
+        j_flash={'extra','mult'}, j_popcorn={'mult','extra'}, j_ramen={'x_mult','extra'},
+        j_walkie_talkie={'extra.chips','extra.mult'}, j_selzer={'extra'}, j_smiley={'extra'},
+        j_campfire={'extra','x_mult'}, j_stuntman={'extra.chip_mod','extra.h_size'},
+        j_invisible={'extra','invis_rounds'}, j_shoot_the_moon={'extra'},
+        j_drivers_license={'extra','driver_tally'}, j_caino={'extra','caino_xmult'},
+        j_triboulet={'extra'}, j_yorick={'extra.xmult','extra.discards','yorick_discards','x_mult'},
+        j_perkeo={'extra'}, j_rough_gem={'extra'}, j_arrowhead={'extra'}, j_onyx_agate={'extra'},
+        j_glass={'extra','x_mult'}, j_flower_pot={'extra'}, j_wee={'extra.chips','extra.chip_mod'},
+        j_merry_andy={'d_size','h_size'}, j_seeing_double={'extra'}, j_matador={'extra'},
+        j_hit_the_road={'extra','x_mult'}
     }
     local function description(G, set, key, vars)
         local item = (((G.localization or {}).descriptions or {})[set] or {})[key]
@@ -64,6 +76,40 @@ return function(JSON)
             vars[i] = scalar(parent and type(a[parent]) == 'table' and a[parent][child] or (not parent and a[path] or nil))
         end
         local n = type(a.extra) == 'number' and scalar(a.extra) or nil
+        local game = G.GAME or {}
+        local round = game.current_round or {}
+        local extra = type(a.extra) == 'table' and a.extra or {}
+        local probability = scalar((game.probabilities or {}).normal)
+        -- These are the scalar values used by vanilla's visible tooltip definitions.
+        -- Do not invoke loc_vars or calculate callbacks from installed mods.
+        if key == 'j_mail' then vars = {n, scalar((round.mail_card or {}).rank)}
+        elseif key == 'j_gros_michel' then vars = {scalar(extra.mult), probability, scalar(extra.odds)}
+        elseif key == 'j_cavendish' then vars = {scalar(extra.Xmult), probability, scalar(extra.odds)}
+        elseif key == 'j_space' or key == 'j_8_ball' or key == 'j_business' or key == 'j_hallucination' then vars = {probability, n}
+        elseif key == 'j_reserved_parking' then vars = {scalar(extra.dollars), probability, scalar(extra.odds)}
+        elseif key == 'j_bloodstone' then vars = {probability, scalar(extra.odds), scalar(extra.Xmult)}
+        elseif key == 'j_ancient' then vars = {n, scalar((round.ancient_card or {}).suit)}
+        elseif key == 'j_castle' then vars = {scalar(extra.chip_mod), scalar((round.castle_card or {}).suit), scalar(extra.chips)}
+        elseif key == 'j_idol' then vars = {n, scalar((round.idol_card or {}).rank), scalar((round.idol_card or {}).suit)}
+        elseif key == 'j_bull' then
+            local dollars = scalar(game.dollars)
+            vars = {n, type(dollars) == 'number' and n and n * math.max(0, dollars) or nil}
+        elseif key == 'j_bootstraps' then
+            local mult, dollars, money = scalar(extra.mult), scalar(extra.dollars), scalar(game.dollars)
+            local buffer = scalar(game.dollar_buffer) or 0
+            vars = {mult, dollars, type(mult) == 'number' and type(dollars) == 'number' and dollars > 0 and type(money) == 'number' and type(buffer) == 'number' and mult * math.floor((money + buffer)/dollars) or nil}
+        elseif key == 'j_erosion' then
+            local size = scalar(game.starting_deck_size)
+            vars = {n, type(size) == 'number' and n and math.max(0,n*(size-#(G.playing_cards or {}))) or nil, size}
+        elseif key == 'j_troubadour' then vars = {scalar(extra.h_size), type(extra.h_plays) == 'number' and -extra.h_plays or nil}
+        elseif key == 'j_loyalty_card' then
+            local remaining, every = scalar(a.loyalty_remaining), scalar(extra.every)
+            vars = {scalar(extra.Xmult), type(every) == 'number' and every + 1 or nil, remaining == 0 and 'Active!' or (remaining and tostring(remaining)..' hands remaining' or nil)}
+        elseif key == 'j_satellite' then
+            local count = 0
+            for _, used in pairs(game.consumeable_usage or {}) do if type(used) == 'table' and used.set == 'Planet' then count = count + 1 end end
+            vars = {n, n and count*n}
+        end
         if key == 'j_abstract' then vars = {n, n and n * #((G.jokers or {}).cards or {})}
         elseif key == 'j_blue_joker' then vars = {n, n and n * #((G.deck or {}).cards or {})}
         elseif key == 'j_fortune_teller' then vars = {n, scalar(((G.GAME or {}).consumeable_usage_total or {}).tarot)}
