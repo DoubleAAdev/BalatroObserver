@@ -13,7 +13,9 @@ if ([IO.Path]::GetFullPath($releaseRoot).TrimEnd('\') -eq $target.TrimEnd('\')) 
     throw 'Run this script from the source project, not the installed mod folder.'
 }
 $files = @('BalatroObserver.json', 'main.lua', 'observer.lua', 'json.lua',
-    'observer.html', 'viewer-server.js', 'README.md', 'LICENSE')
+    'observer.html', 'viewer-server.js', 'README.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
+    'assets/8BitDeck_opt2.png', 'assets/Enhancers.png', 'assets/Editions.png',
+    'assets/Jokers.png', 'assets/LICENSE-balatro-calculator.txt')
 foreach ($name in $files) {
     if (-not (Test-Path -LiteralPath (Join-Path $releaseRoot $name) -PathType Leaf)) {
         throw "Missing release file: $name"
@@ -23,6 +25,7 @@ New-Item -ItemType Directory -Path $target -Force | Out-Null
 foreach ($name in $files) {
     $sourceFile = Join-Path $releaseRoot $name
     $targetFile = Join-Path $target $name
+    New-Item -ItemType Directory -Path (Split-Path -Parent $targetFile) -Force | Out-Null
     Copy-Item -LiteralPath $sourceFile -Destination $targetFile -Force
     if ((Get-FileHash -LiteralPath $sourceFile).Hash -ne (Get-FileHash -LiteralPath $targetFile).Hash) {
         throw "Installed file verification failed: $name"

@@ -19,6 +19,13 @@ async function readState(directory) {
   const state = newest(records);
   return { state, stale: !state || Date.now() / 1000 - state.observed_at > 3, directory };
 }
+const publicFiles = new Map([
+  ['/assets/8BitDeck_opt2.png', ['assets/8BitDeck_opt2.png', 'image/png']],
+  ['/assets/Enhancers.png', ['assets/Enhancers.png', 'image/png']],
+  ['/assets/Editions.png', ['assets/Editions.png', 'image/png']],
+  ['/assets/Jokers.png', ['assets/Jokers.png', 'image/png']],
+  ['/credits', ['THIRD_PARTY_NOTICES.md', 'text/plain; charset=utf-8']]
+]);
 function createServer(directory) {
   return http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -31,6 +38,11 @@ function createServer(directory) {
       } else if (url.pathname === '/' || url.pathname === '/observer.html') {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.end(await fs.readFile(path.join(__dirname, 'observer.html')));
+      } else if (publicFiles.has(url.pathname)) {
+        // Explicit routes keep private mod files and arbitrary paths inaccessible.
+        const [file, contentType] = publicFiles.get(url.pathname);
+        res.setHeader('Content-Type', contentType);
+        res.end(await fs.readFile(path.join(__dirname, file)));
       } else {
         res.writeHead(404); res.end('Not found');
       }

@@ -30,6 +30,13 @@ test('file recovery, staleness and HTTP integration',async()=>{
     assert.match(await (await fetch(base)).text(),/Balatro Observer/);
     assert.equal((await (await fetch(base+'/state')).json()).state.sequence,3);
     assert.equal((await fetch(base+'/main.lua')).status,404);
+    for (const asset of ['8BitDeck_opt2.png','Enhancers.png','Editions.png','Jokers.png']) {
+      const response=await fetch(base+'/assets/'+asset);
+      assert.equal(response.status,200);assert.equal(response.headers.get('content-type'),'image/png');
+      assert.deepEqual(Buffer.from(await response.arrayBuffer()).subarray(0,8),Buffer.from([137,80,78,71,13,10,26,10]));
+    }
+    assert.match(await (await fetch(base+'/credits')).text(),/Copyright \(c\) 2024 Saffron Haas/);
+    assert.equal((await fetch(base+'/assets/main.lua')).status,404);
+    assert.equal((await fetch(base+'/assets/%2e%2e/main.lua')).status,404);
   } finally {if(server)await new Promise(resolve=>server.close(resolve));await fs.rm(dir,{recursive:true,force:true});}
 });
-
