@@ -65,7 +65,7 @@ Viewer checks: `node --test tests/test_viewer.cjs`.
 
 ## Release versions and installation
 
-Current release: **0.6.1**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
+Current release: **0.7.0**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
 
 Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Restart its Node server if viewer-server.js changed.
 
@@ -99,3 +99,14 @@ Additional browser regression check: node tests/test_wiki_shop.cjs.
 
 
 Release 0.6.1 removes six obsolete demo vouchers from the image library and installed assets (208 wiki images remain), gives booster wrappers their native 114:186 proportions with taller containers, and fixes nested joker fields containing underscores such as chip_mod and s_mult. Unknown custom fields remain unexported.
+
+
+## Release 0.7.0
+
+The website is titled **Balatro Observer**. The image-library gallery has been removed; the artwork used in run views remains bundled and credited. A new **Balatro Observer** button above the in-game deck pile opens the local website. Start the Node viewer server first and restart Balatro after installing this release.
+
+Overview and Current hand now include a **Selected hand score** estimate powered by the locally bundled [Balatro Calculator](https://efhiii.github.io/balatro-calculator/) engine. It uses the actual selection and joker order, held cards, public dynamic counters, hand chips/mult, editions, seals and supported permanent bonuses. Random effects show a range. Stale exports suppress the score. This does not simulate installed custom-mod callbacks; unsupported/hidden inputs show an explanation instead. Calculator estimates can differ from the game with special blind rules or modded effects.
+
+The collector now exports `score_vars` (only already-reviewed public tooltip scalars), visible playing-card `perma_bonus`, `run.deck_key`, and `scoring_context.loyalty_remaining`. Face-down cards do not expose these fields. The vanilla description audit covers all 150 jokers with no unresolved placeholders in initialized states; custom localization and custom dynamic callbacks still require explicit adapters.
+
+Checks: `node --test tests/test_score.cjs tests/test_viewer.cjs`, `node tests/test_score_browser.cjs`, `lua tests/test_launcher.lua`, and the existing collector/browser checks. UI-hook tests cover placement above the deck, a single button per deck, and click-only URL opening; live-game visual verification remains necessary.

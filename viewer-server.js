@@ -32,6 +32,7 @@ for(const item of require('./assets/wiki-art.json')){
  publicFiles.set('/'+item.file,[item.file,type]);
 }
 publicFiles.set('/assets/wiki-art.js',['assets/wiki-art.js','text/javascript; charset=utf-8']);
+for(const file of ['score-preview.js','assets/calculator/balatro-sim.js','assets/calculator/joker-ids.js'])publicFiles.set('/'+file,[file,'text/javascript; charset=utf-8']);
 function createServer(directory) {
   return http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');

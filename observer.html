@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Balatro Observer · v0.6.1</title>
-<meta name="observer-version" content="0.6.1">
+<title>Balatro Observer</title>
+<meta name="observer-version" content="0.7.0">
 <style>
 :root{color-scheme:dark;font-family:Inter,Segoe UI,system-ui,sans-serif;background:#101716;color:#edf1e9;--muted:#93a69b;--line:#2b3932;--gold:#e8c67c}
 *{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
@@ -65,13 +65,14 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;p
 .deck-fan,.deck-row-empty{min-height:145px}
 footer a{color:#afc5b1;text-underline-offset:3px}
 @media(max-width:700px){.card>.card-art{width:99.4px;height:133px}}
-.wiki-card{width:100%;height:100%;object-fit:fill;image-rendering:pixelated}.blind-art{width:84px;height:84px;object-fit:contain;image-rendering:pixelated;float:right;margin:0 0 15px 20px}.stake-art{display:inline-block;width:30px;height:30px;object-fit:contain;vertical-align:middle;margin-left:10px;image-rendering:pixelated}.wiki-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:16px}.wiki-tile{display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 8px;border:1px solid var(--line);border-radius:9px;background:#1e2b23;color:#e4e7d9;text-decoration:none;text-align:center;font-size:12px}.wiki-tile:hover{border-color:var(--gold)}.wiki-reference{width:100%;height:142px;object-fit:contain;image-rendering:pixelated}.sortbar input{flex:1;min-width:160px;background:#1d2a23;border:1px solid var(--line);border-radius:7px;color:#edf1e9;padding:10px}
+.wiki-card{width:100%;height:100%;object-fit:fill;image-rendering:pixelated}.blind-art{width:84px;height:84px;object-fit:contain;image-rendering:pixelated;float:right;margin:0 0 15px 20px}.stake-art{display:inline-block;width:30px;height:30px;object-fit:contain;vertical-align:middle;margin-left:10px;image-rendering:pixelated}
 .card>.booster-art{height:auto;aspect-ratio:114/186}.card.booster-card{min-height:230px}.booster-art .wiki-card{object-fit:contain}
+.predicted-score{font-size:38px;color:var(--gold);font-variant-numeric:tabular-nums}#score-preview a{display:inline-block;margin-top:12px;color:#afc5b1;font-size:12px}.brand strong{font-size:17px;letter-spacing:0}
 </style></head>
 <body>
-<aside class="sidebar"><div class="brand"><span class="logo">♠</span><div><strong>BALATRO</strong><small>OBSERVER</small></div></div>
+<aside class="sidebar"><div class="brand"><span class="logo">♠</span><div><strong>Balatro Observer</strong></div></div>
 <div class="nav-label">Your run</div><nav aria-label="Observer sections" id="nav"></nav>
-<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.6.1</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
+<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.7.0</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
 <main><header><div><div class="eyebrow">The table, at a glance</div><h1 id="title">Run overview</h1><p id="description"></p></div><button id="pause">Ⅱ Pause updates</button></header>
 <div class="statusbar"><span id="status" role="status">Connecting to observer…</span><span id="meta" class="meta"></span></div>
 <div id="waiting" class="panel"><div class="empty"><span class="empty-icon">♧</span><strong id="waiting-title">Waiting for the table</strong><span id="waiting-text">Your run will appear here when the observer sends a fresh snapshot.</span></div></div>
@@ -80,6 +81,9 @@ footer a{color:#afc5b1;text-underline-offset:3px}
 <div id="raw-view" hidden><details class="panel" open><summary>Latest raw snapshot</summary><pre id="raw">Waiting for data.</pre></details><p id="source" class="hint"></p></div>
 <footer>Live snapshots · Hidden cards stay hidden · Missing values appear as —<br>Card sprites and edition rendering adapted from <a href="https://efhiii.github.io/balatro-calculator/" target="_blank" rel="noopener noreferrer">Balatro Calculator by Saffron Haas (efhiii)</a> · <a href="/credits" target="_blank" rel="noopener">Credits &amp; license</a><br>Additional artwork from <a href="https://balatrowiki.org/" target="_blank" rel="noopener noreferrer">Balatro Wiki</a> · Original game art © its respective owners</footer></main>
 <script src="/assets/wiki-art.js"></script>
+<script src="/assets/calculator/balatro-sim.js"></script>
+<script src="/assets/calculator/joker-ids.js"></script>
+<script src="/score-preview.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const viewerVersion=document.querySelector('meta[name=observer-version]').content;
@@ -91,7 +95,6 @@ function showVersion(s,stale){
 }
 
 const sections={
- reference:['▧','Image library','Balatro image library','Reference artwork from Balatro Wiki. This catalog does not describe your current run.'],
  overview:['◈','Overview','Run overview','A little perspective before your next big hand.'],
  blinds:['◉','Blinds & tags','Blinds & skip tags','Current-ante blind choices, the next blind, the boss, and visible skip rewards.'],
  vouchers:['▱','Vouchers','Redeemed vouchers','Vouchers acquired in this run, including any starting deck vouchers.'],
@@ -104,7 +107,7 @@ const sections={
  poker:['≋','Poker hands','Poker hands','Hand levels, scoring values, and play counts.'],
  raw:['⌘','Raw data','Under the hood','The latest snapshot, exactly as the observer exports it.']
 };
-let lastShop=null,shopSession=null;
+let lastShop=null,shopSession=null,scoreLive=false;
 let active='overview',paused=false,busy=false,snapshot=null,usable=false,lastBody='';
 function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
 const value=v=>v===undefined||v===null?'—':String(v);
@@ -114,8 +117,8 @@ for(const [id,[icon,label]] of Object.entries(sections)){const b=el('button');b.
 try{const saved=sessionStorage.getItem('observer-section');if(sections[saved])active=saved;}catch{}
 function select(){for(const id of Object.keys(sections)){const b=$('nav-'+id);if(id===active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
 $('title').textContent=sections[active][2];$('description').textContent=sections[active][3];
-document.querySelector('.sortbar').hidden=['deck','remaining','raw','reference'].includes(active);
-$('raw-view').hidden=active!=='raw';$('content').hidden=active==='raw'||(!usable&&active!=='reference');$('waiting').hidden=active==='raw'||active==='reference'||usable;}
+document.querySelector('.sortbar').hidden=['deck','remaining','raw'].includes(active);
+$('raw-view').hidden=active!=='raw';$('content').hidden=active==='raw'||!usable;$('waiting').hidden=active==='raw'||usable;}
 function panel(title,badge,wide=true){const p=el('section',undefined,'panel'+(wide?' wide':'')),head=el('div',undefined,'panel-head');head.append(el('h2',title));if(badge!==undefined)head.append(el('span',badge,'pill'));p.append(head);$('panels').append(p);return p;}
 function empty(p,title,detail,icon='♧'){const e=el('div',undefined,'empty');e.append(el('span',icon,'empty-icon'),el('strong',title),el('span',detail));p.append(e);}
 function stat(label,v){const box=el('div',undefined,'stat');box.append(el('span',label),el('b',value(v)));$('stats').append(box);}
@@ -157,19 +160,6 @@ function wikiImage(file,label,cls='wiki-icon'){
 }
 function namedArt(name){return WIKI_ART.find(a=>a.name.toLowerCase()===String(name||'').toLowerCase());}
 function blindArt(p,b){const file=WIKI_KEYS[b?.key]||namedArt(b?.name)?.file;if(file)p.append(wikiImage(file,b.name||pretty(b.key),'blind-art'));}
-function referenceLibrary(){
- if(document.querySelector('.wiki-gallery'))return;
- $('stats').replaceChildren();$('panels').replaceChildren();
- const p=panel('From Balatro Wiki',WIKI_ART.length+' images');
- const controls=el('div',undefined,'sortbar'),search=el('input'),filter=el('select');
- search.type='search';search.placeholder='Find a card, voucher, stake or blind';search.setAttribute('aria-label','Search image library');
- for(const name of ['All','Tarot_cards','Planet_cards','Spectral_cards','Vouchers','Stakes','Blinds_and_Antes','Booster_Packs']){const option=el('option',name.replaceAll('_',' '));option.value=name;filter.append(option);}
- filter.setAttribute('aria-label','Filter wiki page');controls.append(search,filter);p.append(controls);
- const grid=el('div',undefined,'wiki-gallery');p.append(grid);
- const show=()=>{grid.replaceChildren();for(const item of WIKI_ART.filter(a=>(filter.value==='All'||a.pages.includes(filter.value))&&a.name.toLowerCase().includes(search.value.toLowerCase()))){
-  const tile=el('a',undefined,'wiki-tile');tile.href='https://balatrowiki.org/w/'+encodeURIComponent(item.name.replaceAll(' ','_'));tile.target='_blank';tile.rel='noopener noreferrer';tile.append(wikiImage(item.file,item.name,'wiki-reference'),el('span',item.name));grid.append(tile);
- }if(!grid.children.length)grid.append(el('p','No matching images.','hint'));};search.oninput=show;filter.onchange=show;show();$('stats').hidden=true;
-}
 function cardArtwork(c){
  const art=el('div',undefined,'card-art');art.setAttribute('aria-hidden','true');
  if(c.visible===false){art.append(atlasLayer('enhancement',0,2,'art-back'));return art;}
@@ -272,10 +262,22 @@ function blindPanels(s){
   if(b.skip_tag)p.append(el('p','Skip tag: '+(b.skip_tag.name||pretty(b.skip_tag.key)),'hint'));
  }
 }
+function scorePanel(s){
+ const p=panel('Selected hand score','Balatro Calculator');p.id='score-preview';
+ const prediction=scoreLive?ObserverScore.preview(s):{message:'Waiting for a fresh playable snapshot.'};
+ if(prediction.message){p.append(el('p',prediction.message,'hint'));return;}
+ const format=score=>{const n=score[0]*10**score[1];return Number.isFinite(n)&&n<1e15?Math.floor(n+1e-7).toLocaleString():score[0].toFixed(3)+'e'+score[1];};
+ const low=format(prediction.low),high=format(prediction.high);
+ p.append(el('div',low===high?low:low+' – '+high,'predicted-score'));
+ p.append(el('p',prediction.hand+' · '+prediction.selected+' selected · '+(low===high?'Estimated score':'Estimated random-effect range'),'hint'));
+ p.append(el('p','Uses your current card and joker order. Calculator estimates may differ with modded effects or blind rules.','hint'));
+ const credit=el('a','Powered by Balatro Calculator');credit.href='https://efhiii.github.io/balatro-calculator/';credit.target='_blank';credit.rel='noopener noreferrer';p.append(credit);
+}
 function render(){
- select();if(active==='reference'){referenceLibrary();return;}if(!snapshot||!usable||active==='raw')return;
+ select();if(!snapshot||!usable||active==='raw')return;
  const s=snapshot;$('stats').replaceChildren();$('panels').replaceChildren();
  if(active==='overview'){
+ scorePanel(s);
  for(const [l,v] of [['Money',s.run?.dollars===undefined?undefined:'$'+s.run.dollars],['Ante',s.round?.ante],['Round',s.run?.round],['Score',s.run?.chips],['Hands left',s.round?.hands_left],['Discards left',s.round?.discards_left]])stat(l,v);
  const p=panel('Current blind',s.blind?.disabled?'Disabled':pretty(s.phase));
  blindArt(p,s.blind);p.append(el('div',s.blind?.name||'No active blind','blind-name'));
@@ -286,6 +288,7 @@ function render(){
  }else if(active==='blinds'){blindPanels(s);
  }else if(active==='vouchers'){if(s.vouchers)cards('Redeemed vouchers',{cards:s.vouchers});else empty(panel('Redeemed vouchers'),'Waiting for voucher information','Restart Balatro with the latest observer.');
  }else if(active==='hand'){
+ scorePanel(s);
  stat('Cards in hand',s.hand?.cards?.length);stat('Hand capacity',s.hand?.capacity);stat('Selected',s.hand?.cards?.filter(c=>c.selected).length);stat('Hands left',s.round?.hands_left);stat('Discards left',s.round?.discards_left);cards('Current hand',s.hand);
  }else if(active==='remaining'){stat('Draw pile count',s.deck?.draw_count);stat('Visible possible remaining',s.deck?.remaining_cards?.length);if(s.deck?.remaining_cards)deckRows('Remaining cards',s.deck.remaining_cards);else empty(panel('Remaining cards'),'Waiting for remaining deck data','Restart Balatro with the latest mod.');
  }else if(active==='deck'){
@@ -314,7 +317,8 @@ async function tick(){
  const {state:s,stale,directory}=await r.json();if(paused)return;
  // Keep the display stable during animations; raw data always shows the newest record.
  // A new game session must never inherit the previous session's preview.
- const previous=snapshot;
+ const previous=snapshot,previousScoreLive=scoreLive;
+ scoreLive=!!s?.available&&!stale;
  if(s&&s.session!==shopSession){lastShop=null;shopSession=s.session;}
  if(s?.available&&s.shop)lastShop={shop:s.shop,observed_at:s.observed_at};
  if(s&&snapshot&&s.session!==snapshot.session)snapshot=null;
@@ -328,8 +332,8 @@ async function tick(){
  else if(snapshot)status('Last preview · '+new Date(snapshot.observed_at*1000).toLocaleTimeString()+' · '+(stale?'waiting for fresh export':'updating when ready'),true);
  else{status('Waiting for observer',true);$('waiting-title').textContent='Waiting for the table';$('waiting-text').textContent='Your first available snapshot will appear here automatically.';}
  const {sequence,observed_at,...body}=snapshot||{};const next=JSON.stringify(body);
- if(next!==lastBody||!previous!==!snapshot){render();lastBody=next;}else select();
- }catch(e){if(!paused){usable=!!snapshot;counts(snapshot);showVersion(snapshot,true);status(snapshot?'Connection interrupted · keeping last preview':'Connection unavailable',true);$('waiting-title').textContent='Waiting for connection';$('waiting-text').textContent=e.message;select();}}
+ if(next!==lastBody||!previous!==!snapshot||previousScoreLive!==scoreLive){render();lastBody=next;}else select();
+ }catch(e){if(!paused){scoreLive=false;usable=!!snapshot;render();counts(snapshot);showVersion(snapshot,true);status(snapshot?'Connection interrupted · keeping last preview':'Connection unavailable',true);$('waiting-title').textContent='Waiting for connection';$('waiting-text').textContent=e.message;select();}}
  finally{busy=false;}
 }
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'▶ Resume updates':'Ⅱ Pause updates';if(paused)status('Updates paused · frozen snapshot',true);else tick();};

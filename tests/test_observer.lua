@@ -40,7 +40,7 @@ assert(not pcall(JSON.encode, math.huge))
 
 -- Exercise the actual update hook with fake SMODS and LÖVE objects.
 _G.G = G
-SMODS = {current_mod = {id = 'BalatroObserver', version = '0.5.0'}, load_file = function(file) return loadfile(file) end}
+SMODS = {current_mod = {id = 'BalatroObserver', version = '0.7.0'}, load_file = function(file) return loadfile(file) end}
 local writes, called, fail = {}, 0, false
 love = {timer = {getTime = function() return 1 end}, filesystem = {
     createDirectory = function() return true end,
@@ -53,9 +53,9 @@ Game:update(0.1)
 Game:update(0.2)
 assert(called == 3 and writes['balatro_observer/state-0.json'] and writes['balatro_observer/state-1.json'])
 assert(BalatroObserver.last_export_ok)
-assert(BalatroObserver.version == '0.5.0')
-assert(BalatroObserver.snapshot().mod_version == '0.5.0')
-assert(writes['balatro_observer/state-1.json']:find('0.5.0', 1, true))
+assert(BalatroObserver.version == '0.7.0')
+assert(BalatroObserver.snapshot().mod_version == '0.7.0')
+assert(writes['balatro_observer/state-1.json']:find('0.7.0', 1, true))
 fail = true
 Game:update(0.2)
 assert(not BalatroObserver.last_export_ok and called == 4)
@@ -198,3 +198,22 @@ abstract.ability.extra = {chips=40,chip_mod={secret='SECRET'}}
 assert(not observer.snapshot(G).jokers.cards[1].description_complete)
 assert(not JSON.encode(observer.snapshot(G)):find('SECRET'))
 print('PASS: underscore fields resolve Wee, suit jokers, Runner, Green Joker and Mystic Summit; non-scalars remain private')
+
+abstract.config.center.key = 'j_diet_cola'
+G.localization.descriptions.Joker.j_diet_cola = {text={'Sell to create a #1#'}}
+G.localization.descriptions.Tag = {tag_double={name='Double Tag'}}
+local diet = observer.snapshot(G).jokers.cards[1]
+assert(diet.description=='Sell to create a Double Tag' and diet.description_complete)
+assert(diet.score_vars['1']=='Double Tag')
+abstract.facing='back'
+assert(observer.snapshot(G).jokers.cards[1].score_vars==nil)
+abstract.facing='front'
+local playing=card('Ace')
+playing.ability.perma_bonus=17
+G.hand.cards={playing};G.GAME.selected_back={effect={center={key='b_plasma',seed='SECRET'}}}
+local score=observer.snapshot(G)
+assert(score.hand.cards[1].perma_bonus==17 and score.run.deck_key=='b_plasma')
+assert(not JSON.encode(score):find('SECRET'))
+playing.facing='back'
+assert(observer.snapshot(G).hand.cards[1].perma_bonus==nil)
+print('PASS: Diet Cola tag, score variables and permanent chips are visible-only')

@@ -9,6 +9,7 @@ local function snapshot()
     return state
 end
 BalatroObserver = {version = mod.version or 'unknown', snapshot = snapshot}
+load('launcher.lua')()
 
 -- Alternate complete files so a consumer can recover from an interrupted write.
 -- Each file is a self-contained JSON record; readers select the greatest sequence.

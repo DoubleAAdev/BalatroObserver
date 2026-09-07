@@ -25,3 +25,5 @@ __pycache__/
 
 # Local research, packaging and runtime helpers
 /work/
+
+# Local game-source audit and screenshot files remain under /work/.

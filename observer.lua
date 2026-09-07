@@ -109,6 +109,8 @@ return function(JSON)
             local count = 0
             for _, used in pairs(game.consumeable_usage or {}) do if type(used) == 'table' and used.set == 'Planet' then count = count + 1 end end
             vars = {n, n and count*n}
+        elseif key == 'j_diet_cola' then
+            vars = {scalar((((G.localization or {}).descriptions or {}).Tag or {}).tag_double and G.localization.descriptions.Tag.tag_double.name)}
         end
         if key == 'j_abstract' then vars = {n, n and n * #((G.jokers or {}).cards or {})}
         elseif key == 'j_blue_joker' then vars = {n, n and n * #((G.deck or {}).cards or {})}
@@ -120,7 +122,12 @@ return function(JSON)
         elseif key == 'j_blackboard' then vars = {n, 'Spades', 'Clubs'}
         elseif key == 'j_trousers' then vars = {n, 'Two Pair', scalar(a.mult)}
         end
-        return description(G, 'Joker', key, vars)
+        local text, complete = description(G, 'Joker', key, vars)
+        local score_vars = {}
+        for i, v in pairs(vars) do
+            if type(i) == 'number' then score_vars[tostring(i)] = scalar(v) end
+        end
+        return text, complete, score_vars
     end
     local function card(c, roster, G)
         if not roster and c.facing ~= 'front' then return {visible = false} end
@@ -136,7 +143,11 @@ return function(JSON)
         if not roster then
             if ability.set == 'Joker' and G then
                 out.name = scalar(center.name)
-                out.description, out.description_complete = joker_description(G, c)
+                out.description, out.description_complete, out.score_vars = joker_description(G, c)
+            end
+            -- Public chip bonus displayed on a face-up playing card, not arbitrary ability data.
+            if ability.set == 'Default' or ability.set == 'Enhanced' then
+                out.perma_bonus = scalar(ability.perma_bonus or 0)
             end
             out.debuff = c.debuff == true
             out.selected = c.highlighted == true
@@ -208,6 +219,13 @@ return function(JSON)
         result.available = true
         result.blinds, result.vouchers = run_info(G, game)
         result.run = fields(game, {'dollars', 'chips', 'round', 'stake'})
+        result.run.deck_key = scalar((((game.selected_back or {}).effect or {}).center or {}).key)
+        result.scoring_context = {loyalty_remaining={}}
+        for i, c in ipairs((G.jokers or {}).cards or {}) do
+            if c.facing == 'front' and (((c.config or {}).center or {}).key == 'j_loyalty_card') then
+                result.scoring_context.loyalty_remaining[tostring(i)] = scalar((c.ability or {}).loyalty_remaining)
+            end
+        end
         result.round = fields(game.current_round, {'hands_left', 'discards_left', 'hands_played', 'discards_used'})
         result.round.ante = scalar((game.round_resets or {}).ante)
         result.blind = fields(game.blind, {'name', 'chips', 'dollars', 'disabled', 'loc_debuff_text'})

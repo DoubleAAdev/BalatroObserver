@@ -44,3 +44,8 @@ The 208 original image files are bundled unchanged in assets/wiki/. assets/wiki-
 Booster pack artwork also comes from https://balatrowiki.org/w/Booster_Packs, under the same attribution and licensing terms. All 32 vanilla pack wrapper variants are mapped independently.
 
 Version 0.6.1 omits the six obsolete demo vouchers: Magnet, Electromagnet, Pattern, Tesselation, Silver Spoon (BigSpoon), and Heirloom (BigGoldSpoon).
+
+
+## Local scoring engine (v0.7.0)
+
+assets/calculator/balatro-sim.js is bundled from Balatro Calculator by Saffron Haas (efhiii), commit 55322d59197ba08c16874a54b59ac0d443c8ab32, under the MIT notice above. The only engine change is a CommonJS export. Joker ID mappings derive from its sprite coordinates. score-preview.js adapts the public snapshots to that engine; selected/held-card order is preserved and no external run-data requests are made.
