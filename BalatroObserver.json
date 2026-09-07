@@ -1,0 +1,10 @@
+{
+  "id": "BalatroObserver",
+  "name": "Balatro Observer",
+  "author": ["BalatroMPAI"],
+  "description": "Read-only player-visible state export.",
+  "prefix": "bobs",
+  "main_file": "main.lua",
+  "version": "0.1.0",
+  "dependencies": ["Steamodded (>=1.0.0~BETA)"]
+}
