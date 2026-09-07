@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Balatro Observer</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,Segoe UI,system-ui,sans-serif;background:#101716;color:#edf1e9;--muted:#93a69b;--line:#2b3932;--gold:#e8c67c}
+*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
+.sidebar{position:fixed;inset:0 auto 0 0;width:240px;background:#141e1a;border-right:1px solid var(--line);padding:32px 20px;display:flex;flex-direction:column;z-index:2}
+.brand{display:flex;align-items:center;gap:12px;margin:0 10px 42px}.logo{display:grid;place-items:center;width:39px;height:46px;background:var(--gold);color:#202a22;border-radius:7px;transform:rotate(-8deg);font-size:28px}.brand strong{font-size:18px;letter-spacing:1px}.brand small{display:block;color:var(--muted);font-size:10px;letter-spacing:3px;margin-top:5px}
+.nav-label,.eyebrow{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}.nav-label{padding:0 14px;margin-bottom:12px}
+nav{display:grid;gap:5px}nav button{display:flex;align-items:center;gap:12px;border:1px solid transparent;background:transparent;color:#a9b8af;text-align:left;padding:12px 14px;border-radius:8px;font-size:13px}
+nav button:hover{background:#1e2d25;color:white}nav button[aria-current=page]{background:#2c392a;border-color:#47553a;color:#f3dca2}nav .icon{width:20px;font-size:19px;text-align:center}nav .count{margin-left:auto;font:11px ui-monospace,monospace;opacity:.7}
+.sidebar-foot{margin-top:auto;padding:24px 12px 0;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.9}.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#91bd91;margin-right:7px}
+main{margin-left:240px;max-width:1740px;padding:36px 44px}
+header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:30px}h1{font-family:Georgia,serif;font-size:38px;letter-spacing:-1px;font-weight:normal;margin:8px 0 10px}#description{font-size:13px;color:var(--muted);margin:0;line-height:1.7}
+#pause{background:#1d2a23;color:#d6dfd5;border:1px solid #38493d;padding:10px 16px;border-radius:7px;font-size:12px;white-space:nowrap}
+.statusbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:13px 0;margin-bottom:26px;font-size:11px;color:var(--muted)}
+#status{color:#a9cfa8}#status[data-kind=bad]{color:#e8c67c}.meta{font:11px ui-monospace,monospace}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:24px}
+.stat{background:linear-gradient(135deg,#1e2b23,#19231f);border:1px solid var(--line);border-radius:10px;padding:20px}.stat b{display:block;font-size:29px;font-weight:500;margin-top:12px;font-variant-numeric:tabular-nums}.stat:first-child b{color:var(--gold)}.stat span{color:var(--muted);font-size:11px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.wide{grid-column:1/-1}
+.panel{background:#17211c;border:1px solid var(--line);border-radius:12px;padding:24px;min-width:0}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}h2{font-weight:500;font-size:15px;margin:0}.pill{font:11px ui-monospace,monospace;color:var(--gold);background:#30372a;border:1px solid #444b34;padding:5px 9px;border-radius:20px}.hint{color:var(--muted);font-size:12px;line-height:1.8;margin:16px 0 0}
+.cards{display:flex;gap:14px;flex-wrap:wrap;padding-top:5px}.card{position:relative;display:flex;flex-direction:column;gap:7px;background:linear-gradient(145deg,#f3eedf,#dcd8c9);color:#26332e;border-radius:9px;padding:12px;width:126px;min-height:174px;box-shadow:0 5px 0 #080d0b55,0 7px 18px #0002;border:2px solid #f4f0e2;overflow-wrap:anywhere}
+.card.selected{border-color:var(--gold);box-shadow:0 0 0 2px #a98e4b,0 10px 22px #0004;transform:translateY(-5px)}.card.hidden{background:repeating-linear-gradient(45deg,#2a4e45,#2a4e45 5px,#224137 5px,#224137 10px);border-color:#668472;color:#dce8dc}
+.card.special{background:linear-gradient(145deg,#344a3b,#23362c);border-color:#5e7560;color:#e7e9d2}
+.corner{font-family:Georgia,serif;font-size:18px;font-weight:bold}.suit{font-family:Georgia,serif;font-size:47px;text-align:center;line-height:1.2;margin:3px 0}.card-name{font-size:12px;font-weight:600;line-height:1.45}.card small{font-size:10px;line-height:1.5;opacity:.8}.card .tags{margin-top:auto;font-size:9px;line-height:1.7}.red{color:#b34c4c}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:170px;text-align:center;color:var(--muted);gap:12px;width:100%;font-size:13px;line-height:1.8}.empty-icon{font-family:Georgia,serif;font-size:35px;color:#617966}.empty strong{color:#d5ded1;font-size:17px;font-weight:500}
+table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;padding:13px 12px;border-bottom:1px solid var(--line);white-space:nowrap}th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:500}td:nth-child(3){color:#8bb8d4}td:nth-child(4){color:#dc9090}tr:last-child td{border-bottom:0}
+.scroll{overflow:auto}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 ui-monospace,monospace;color:#b7cdbb;max-height:70vh;overflow:auto}summary{cursor:pointer;font-size:13px}footer{color:#708579;font-size:11px;line-height:1.8;margin:28px 0}
+[hidden]{display:none!important}.blind-name{font-family:Georgia,serif;font-size:28px;margin:10px 0 20px;color:var(--gold)}.blind-values{display:flex;gap:35px;color:#c1cfc2;font-size:13px}.blind-values small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px}
+@media(min-width:1400px){.card{width:138px;min-height:185px}}
+@media(max-width:1000px){.sidebar{width:200px;padding:25px 12px}main{margin-left:200px;padding:28px 24px}.grid{grid-template-columns:1fr}}
+@media(max-width:700px){.sidebar{position:static;width:auto;padding:18px;border-right:0;border-bottom:1px solid var(--line)}.brand{margin:0 0 20px}.nav-label,.sidebar-foot{display:none}nav{display:flex;overflow:auto;gap:6px;padding-bottom:4px}nav button{white-space:nowrap;padding:9px 12px}nav .count{display:none}main{margin:0;padding:24px 18px}h1{font-size:31px}header{align-items:flex-start}.panel{padding:18px}.cards{gap:10px}.card{width:calc(50% - 5px);max-width:150px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style></head>
+<body>
+<aside class="sidebar"><div class="brand"><span class="logo">♠</span><div><strong>BALATRO</strong><small>OBSERVER</small></div></div>
+<div class="nav-label">Your run</div><nav aria-label="Observer sections" id="nav"></nav>
+<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br>One snapshot every 200 ms<br>Always respect the face-down.</div></aside>
+<main><header><div><div class="eyebrow">The table, at a glance</div><h1 id="title">Run overview</h1><p id="description"></p></div><button id="pause">Ⅱ Pause updates</button></header>
+<div class="statusbar"><span id="status" role="status">Connecting to observer…</span><span id="meta" class="meta"></span></div>
+<div id="waiting" class="panel"><div class="empty"><span class="empty-icon">♧</span><strong id="waiting-title">Waiting for the table</strong><span id="waiting-text">Your run will appear here when the observer sends a fresh snapshot.</span></div></div>
+<div id="content" hidden><div id="stats" class="stats"></div><div id="panels" class="grid"></div></div>
+<div id="raw-view" hidden><details class="panel" open><summary>Latest raw snapshot</summary><pre id="raw">Waiting for data.</pre></details><p id="source" class="hint"></p></div>
+<footer>Live snapshots · Hidden cards stay hidden · Missing values appear as —</footer></main>
+<script>
+const $=id=>document.getElementById(id);
+const sections={
+ overview:['◈','Overview','Run overview','A little perspective before your next big hand.'],
+ hand:['♠','Current hand','Current hand','Your cards on the table. Gold outlines mark selected cards.'],
+ deck:['▤','Deck','Your deck','Full deck composition, in canonical order. This is not the draw pile or its order.'],
+ inventory:['✦','Jokers & items','Jokers & consumables','The supporting cast of your run.'],
+ shop:['◇','Shop','The shop','Cards, vouchers, and boosters available in the current shop.'],
+ pack:['▣','Open pack','Inside the pack','Visible choices from your currently opened pack.'],
+ poker:['≋','Poker hands','Poker hands','Hand levels, scoring values, and play counts.'],
+ raw:['⌘','Raw data','Under the hood','The latest snapshot, exactly as the observer exports it.']
+};
+let active='overview',paused=false,busy=false,snapshot=null,usable=false,lastBody='';
+function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
+const value=v=>v===undefined||v===null?'—':String(v);
+const pretty=v=>v?String(v).replace(/^[a-z]_/, '').replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase()):'Unknown card';
+function status(text,bad=false){$('status').textContent=text;$('status').dataset.kind=bad?'bad':'ok';}
+for(const [id,[icon,label]] of Object.entries(sections)){const b=el('button');b.id='nav-'+id;b.append(el('span',icon,'icon'),el('span',label),el('span','','count'));b.onclick=()=>{active=id;try{sessionStorage.setItem('observer-section',id);}catch{}select();render();};$('nav').append(b);}
+try{const saved=sessionStorage.getItem('observer-section');if(sections[saved])active=saved;}catch{}
+function select(){for(const id of Object.keys(sections)){const b=$('nav-'+id);if(id===active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
+$('title').textContent=sections[active][2];$('description').textContent=sections[active][3];
+$('raw-view').hidden=active!=='raw';$('content').hidden=active==='raw'||!usable;$('waiting').hidden=active==='raw'||usable;}
+function panel(title,badge,wide=true){const p=el('section',undefined,'panel'+(wide?' wide':'')),head=el('div',undefined,'panel-head');head.append(el('h2',title));if(badge!==undefined)head.append(el('span',badge,'pill'));p.append(head);$('panels').append(p);return p;}
+function empty(p,title,detail,icon='♧'){const e=el('div',undefined,'empty');e.append(el('span',icon,'empty-icon'),el('strong',title),el('span',detail));p.append(e);}
+function stat(label,v){const box=el('div',undefined,'stat');box.append(el('span',label),el('b',value(v)));$('stats').append(box);}
+function cards(title,area,wide=true){
+ const list=area?.cards||[],p=panel(title,list.length+(area?.capacity!==undefined?' / '+area.capacity:' cards'),wide);
+ if(!list.length){empty(p,'Nothing here yet','Cards will appear automatically when this area is populated.');return;}
+ const row=el('div',undefined,'cards');p.append(row);
+ for(const c of list){const hidden=c.visible===false,suit={Hearts:'♥',Diamonds:'♦',Clubs:'♣',Spades:'♠'}[c.suit]||'♢',red=['Hearts','Diamonds'].includes(c.suit);
+ const box=el('div',undefined,'card'+(hidden?' hidden':!c.rank?' special':'')+(c.selected?' selected':''));row.append(box);
+ if(hidden){box.append(el('span','?','corner'),el('div','▧','suit'),el('strong','Face down','card-name'),el('small','Slot '+value(c.slot)));continue;}
+ if(c.rank){box.append(el('span',value(c.rank)+' '+suit,'corner'+(red?' red':'')),el('div',suit,'suit'+(red?' red':'')));if(c.key&&c.key!=='c_base')box.append(el('strong',pretty(c.key),'card-name'));}
+ else{box.append(el('small',pretty(c.set||'Card')),el('div',c.set==='Joker'?'✦':'◇','suit'),el('strong',pretty(c.key),'card-name'));}
+ box.title=c.key||[c.rank,c.suit].filter(Boolean).join(' ');
+ const labels=[];if(c.selected)labels.push('Selected');if(c.debuff)labels.push('Debuffed');if(c.seal)labels.push(c.seal+' seal');
+ for(const [k,v] of Object.entries(c.edition||{}))if(v)labels.push(pretty(k));
+ for(const [k,v] of Object.entries(c.stickers||{}))if(v!==false&&v!=null)labels.push(v===true?pretty(k):pretty(k)+': '+v);
+ if(c.cost!==undefined)labels.push('Buy $'+c.cost);if(c.sell_cost!==undefined)labels.push('Sell $'+c.sell_cost);
+ if(labels.length)box.append(el('small',labels.join(' · '),'tags'));
+ }}
+function render(){
+ select();if(!snapshot||!usable||active==='raw')return;
+ const s=snapshot;$('stats').replaceChildren();$('panels').replaceChildren();
+ if(active==='overview'){
+ for(const [l,v] of [['Money',s.run?.dollars===undefined?undefined:'$'+s.run.dollars],['Ante',s.round?.ante],['Round',s.run?.round],['Score',s.run?.chips],['Hands left',s.round?.hands_left],['Discards left',s.round?.discards_left]])stat(l,v);
+ const p=panel('Current blind',s.blind?.disabled?'Disabled':pretty(s.phase));
+ p.append(el('div',s.blind?.name||'No active blind','blind-name'));
+ const row=el('div',undefined,'blind-values');for(const [l,v] of [['Target score',s.blind?.chips],['Reward',s.blind?.dollars===undefined?undefined:'$'+s.blind.dollars],['Stake',s.run?.stake]]){const x=el('div');x.append(el('small',l),el('span',value(v)));row.append(x);}p.append(row);
+ cards('Current hand',s.hand);cards('Jokers',s.jokers,false);cards('Consumables',s.consumables,false);
+ }else if(active==='hand'){
+ stat('Cards in hand',s.hand?.cards?.length);stat('Hand capacity',s.hand?.capacity);stat('Selected',s.hand?.cards?.filter(c=>c.selected).length);stat('Hands left',s.round?.hands_left);stat('Discards left',s.round?.discards_left);cards('Current hand',s.hand);
+ }else if(active==='deck'){
+ stat('Full deck',s.deck?.cards?.length);stat('Draw pile',s.deck?.draw_count);stat('Discard pile',s.deck?.discard_count);
+ for(const suit of ['Spades','Hearts','Clubs','Diamonds']){const list=s.deck?.cards?.filter(c=>c.suit===suit)||[];cards(suit,{cards:list},false);}
+ const other=s.deck?.cards?.filter(c=>!['Spades','Hearts','Clubs','Diamonds'].includes(c.suit))||[];if(other.length)cards('Other cards',{cards:other});
+ }else if(active==='inventory'){cards('Jokers',s.jokers);cards('Consumables',s.consumables);}
+ else if(active==='shop'){if(s.shop){stat('Money',s.run?.dollars===undefined?undefined:'$'+s.run.dollars);stat('Reroll cost',s.shop.reroll_cost===undefined?undefined:'$'+s.shop.reroll_cost);cards('Cards for sale',s.shop.cards);cards('Vouchers',s.shop.vouchers,false);cards('Booster packs',s.shop.boosters,false);}else empty(panel('Shop'),'The shop is closed','Enter the shop to see its current cards, vouchers, and boosters.','◇');}
+ else if(active==='pack'){if(s.pack){stat('Picks remaining',s.pack.choices_left);cards('Pack choices',s.pack.cards);}else empty(panel('Open pack'),'No pack open','Open a booster pack to inspect its visible choices.','▣');}
+ else if(active==='poker'){
+ const p=panel('Hand levels'),wrap=el('div',undefined,'scroll'),t=el('table'),head=el('thead'),hr=el('tr'),body=el('tbody');
+ for(const x of ['Hand','Level','Chips','Mult','Played','This round']){const th=el('th',x);th.scope='col';hr.append(th);}head.append(hr);t.append(head,body);
+ for(const [name,h] of Object.entries(s.poker_hands||{})){const tr=el('tr');for(const x of [name,h.level,h.chips,h.mult,h.played,h.played_this_round])tr.append(el('td',value(x)));body.append(tr);}wrap.append(t);p.append(wrap);
+ }
+ $('stats').hidden=!$('stats').children.length;
+}
+function counts(s){for(const [id,n] of Object.entries({hand:s?.hand?.cards?.length,deck:s?.deck?.cards?.length,inventory:s?.jokers?.cards?.length,shop:s?.shop?.cards?.cards?.length,pack:s?.pack?.cards?.cards?.length})){$('nav-'+id).querySelector('.count').textContent=usable?value(n):'';}}
+async function tick(){
+ if(paused||busy)return;busy=true;
+ try{
+ if(location.protocol==='file:')throw new Error('Run node viewer-server.js and open http://127.0.0.1:8765 for live updates.');
+ const r=await fetch('/state',{cache:'no-store',signal:AbortSignal.timeout(2000)});if(!r.ok)throw new Error('Viewer server returned '+r.status);
+ const {state:s,stale,directory}=await r.json();if(paused)return;
+ const wasUsable=usable;snapshot=s;usable=!!s&&!stale&&s.available;
+ $('meta').textContent=s?'#'+s.sequence+' · '+new Date(s.observed_at*1000).toLocaleTimeString():'200 ms refresh';
+ $('source').textContent='Source: '+directory+(s?' · Session '+s.session:'');
+ $('raw').textContent=s?JSON.stringify(s,null,2):'No valid snapshots found.';
+ counts(s);
+ if(!s){status('Waiting for observer',true);$('waiting-title').textContent='Waiting for the table';$('waiting-text').textContent='Start Balatro with the observer mod enabled. Your run will appear automatically.';}
+ else if(stale){status('Stale snapshot · waiting for fresh data',true);$('waiting-title').textContent='The table is quiet';$('waiting-text').textContent='No fresh export in over 3 seconds. Resume the game to reconnect. The last snapshot is available in Raw data.';}
+ else if(!s.available){status('Observer unavailable · '+pretty(s.phase),true);$('waiting-title').textContent='Between the action';$('waiting-text').textContent='The game is paused, in a menu, or transitioning. Live sections return with the next available snapshot.';}
+ else status('● Live · '+pretty(s.phase)+' · 200 ms refresh');
+ const {sequence,observed_at,...body}=s||{};const next=JSON.stringify(body);
+ if(next!==lastBody||wasUsable!==usable){render();lastBody=next;}else select();
+ }catch(e){if(!paused){usable=false;counts(null);status('Connection unavailable',true);$('waiting-title').textContent='Connection interrupted';$('waiting-text').textContent=e.message;select();}}
+ finally{busy=false;}
+}
+$('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'▶ Resume updates':'Ⅱ Pause updates';if(paused)status('Updates paused · frozen snapshot',true);else tick();};
+select();tick();setInterval(tick,200);
+</script></body></html>
+
+
