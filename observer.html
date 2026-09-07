@@ -162,7 +162,7 @@ function referenceLibrary(){
  const p=panel('From Balatro Wiki',WIKI_ART.length+' images');
  const controls=el('div',undefined,'sortbar'),search=el('input'),filter=el('select');
  search.type='search';search.placeholder='Find a card, voucher, stake or blind';search.setAttribute('aria-label','Search image library');
- for(const name of ['All','Tarot_cards','Planet_cards','Spectral_cards','Vouchers','Stakes','Blinds_and_Antes']){const option=el('option',name.replaceAll('_',' '));option.value=name;filter.append(option);}
+ for(const name of ['All','Tarot_cards','Planet_cards','Spectral_cards','Vouchers','Stakes','Blinds_and_Antes','Booster_Packs']){const option=el('option',name.replaceAll('_',' '));option.value=name;filter.append(option);}
  filter.setAttribute('aria-label','Filter wiki page');controls.append(search,filter);p.append(controls);
  const grid=el('div',undefined,'wiki-gallery');p.append(grid);
  const show=()=>{grid.replaceChildren();for(const item of WIKI_ART.filter(a=>(filter.value==='All'||a.pages.includes(filter.value))&&a.name.toLowerCase().includes(search.value.toLowerCase()))){

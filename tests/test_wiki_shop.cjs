@@ -20,7 +20,7 @@ const art=require('../assets/wiki-art.json');
   await page.locator('#nav-reference').click();
   assert.equal(await page.locator('.wiki-tile').count(),art.length);
   await page.evaluate(async()=>{await Promise.all(WIKI_ART.map(a=>{const i=new Image();i.src='/'+a.file;return i.decode();}));});
-  for(const category of ['Tarot_cards','Planet_cards','Spectral_cards','Vouchers','Stakes','Blinds_and_Antes']){
+  for(const category of ['Tarot_cards','Planet_cards','Spectral_cards','Vouchers','Stakes','Blinds_and_Antes','Booster_Packs']){
    await page.getByLabel('Filter wiki page').selectOption(category);
    assert.equal(await page.locator('.wiki-tile').count(),art.filter(a=>a.pages.includes(category)).length);
   }
@@ -30,7 +30,18 @@ const art=require('../assets/wiki-art.json');
   response={...response,state:{...base,sequence:2,run:{...base.run,dollars:21}}};
   await page.waitForFunction(()=>document.querySelector('#raw').textContent.includes('21'));
   assert.equal(await page.getByLabel('Search image library').inputValue(),'Pluto');
+  // Every vanilla pack variant maps to its distinct wrapper, never its contents.
+  const boosterKeys=["p_arcana_normal_1", "p_arcana_normal_2", "p_arcana_normal_3", "p_arcana_normal_4", "p_arcana_jumbo_1", "p_arcana_jumbo_2", "p_arcana_mega_1", "p_arcana_mega_2", "p_celestial_normal_1", "p_celestial_normal_2", "p_celestial_normal_3", "p_celestial_normal_4", "p_celestial_jumbo_1", "p_celestial_jumbo_2", "p_celestial_mega_1", "p_celestial_mega_2", "p_standard_normal_1", "p_standard_normal_2", "p_standard_normal_3", "p_standard_normal_4", "p_standard_jumbo_1", "p_standard_jumbo_2", "p_standard_mega_1", "p_standard_mega_2", "p_buffoon_normal_1", "p_buffoon_normal_2", "p_buffoon_jumbo_1", "p_buffoon_mega_1", "p_spectral_normal_1", "p_spectral_normal_2", "p_spectral_jumbo_1", "p_spectral_mega_1"];
+  response={...response,state:{...base,sequence:10,shop:{...base.shop,boosters:{cards:boosterKeys.map(key=>({visible:true,key,set:'Booster'}))}}}};
+  await page.waitForFunction(()=>document.querySelector('#raw').textContent.includes('p_spectral_mega_1'));
   await page.locator('#nav-shop').click();
+  assert.equal(await page.locator('.wiki-card').count(),2+boosterKeys.length);
+  const sources=await page.locator('.wiki-card').evaluateAll(images=>images.map(i=>i.getAttribute('src')));
+  assert.ok(sources.some(src=>src.endsWith('/Arcana_Normal_4.png')));
+  assert.ok(sources.some(src=>src.endsWith('/Spectral_Mega_1.png')));
+  response={state:base,stale:false,directory:'fixture'};
+  await page.waitForFunction(()=>document.querySelectorAll('.wiki-card').length===2);
+
   assert.equal(await page.locator('.wiki-card').count(),2);
   response={...response,state:{...base,sequence:2,phase:'SELECTING_HAND',shop:undefined}};
   await page.waitForFunction(()=>document.querySelector('#panels').textContent.includes('Last observed shop'));
@@ -47,7 +58,7 @@ const art=require('../assets/wiki-art.json');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   assert.match(await page.locator('footer').textContent(),/Balatro Wiki/);
   assert.deepEqual(errors,[]);
-  console.log('PASS: all 177 images decode, six categories, consumable/voucher/negative/blind/stake art, search, shop history/reset and mobile layout');
+  console.log('PASS: all 214 images decode, seven categories, consumable/voucher/negative/blind/stake art, search, shop history/reset and mobile layout');
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});
 

@@ -38,7 +38,8 @@
     "source": "https://balatrowiki.org/images/The_Fool.png",
     "pages": [
       "Tarot_cards",
-      "Planet_cards"
+      "Planet_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -71,7 +72,8 @@
     "name": "The Emperor",
     "source": "https://balatrowiki.org/images/The_Emperor.png",
     "pages": [
-      "Tarot_cards"
+      "Tarot_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -79,7 +81,8 @@
     "name": "The Hierophant",
     "source": "https://balatrowiki.org/images/The_Hierophant.png",
     "pages": [
-      "Tarot_cards"
+      "Tarot_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -111,7 +114,8 @@
     "name": "The Hermit",
     "source": "https://balatrowiki.org/images/The_Hermit.png",
     "pages": [
-      "Tarot_cards"
+      "Tarot_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -136,7 +140,8 @@
     "name": "The Hanged Man",
     "source": "https://balatrowiki.org/images/The_Hanged_Man.png",
     "pages": [
-      "Tarot_cards"
+      "Tarot_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -144,7 +149,8 @@
     "name": "Death",
     "source": "https://balatrowiki.org/images/Death.png",
     "pages": [
-      "Tarot_cards"
+      "Tarot_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -152,7 +158,8 @@
     "name": "Temperance",
     "source": "https://balatrowiki.org/images/Temperance.png",
     "pages": [
-      "Tarot_cards"
+      "Tarot_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -168,7 +175,8 @@
     "name": "The Tower",
     "source": "https://balatrowiki.org/images/The_Tower.png",
     "pages": [
-      "Tarot_cards"
+      "Tarot_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -232,7 +240,8 @@
     "name": "The World",
     "source": "https://balatrowiki.org/images/The_World.png",
     "pages": [
-      "Tarot_cards"
+      "Tarot_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -374,7 +383,8 @@
     "name": "Pluto",
     "source": "https://balatrowiki.org/images/Pluto.png",
     "pages": [
-      "Planet_cards"
+      "Planet_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -382,7 +392,8 @@
     "name": "Mercury",
     "source": "https://balatrowiki.org/images/Mercury.png",
     "pages": [
-      "Planet_cards"
+      "Planet_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -390,7 +401,8 @@
     "name": "Uranus",
     "source": "https://balatrowiki.org/images/Uranus.png",
     "pages": [
-      "Planet_cards"
+      "Planet_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -398,7 +410,8 @@
     "name": "Venus",
     "source": "https://balatrowiki.org/images/Venus.png",
     "pages": [
-      "Planet_cards"
+      "Planet_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -406,7 +419,8 @@
     "name": "Saturn",
     "source": "https://balatrowiki.org/images/Saturn.png",
     "pages": [
-      "Planet_cards"
+      "Planet_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -414,7 +428,8 @@
     "name": "Jupiter",
     "source": "https://balatrowiki.org/images/Jupiter.png",
     "pages": [
-      "Planet_cards"
+      "Planet_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -422,7 +437,8 @@
     "name": "Earth",
     "source": "https://balatrowiki.org/images/Earth.png",
     "pages": [
-      "Planet_cards"
+      "Planet_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -430,7 +446,8 @@
     "name": "Mars",
     "source": "https://balatrowiki.org/images/Mars.png",
     "pages": [
-      "Planet_cards"
+      "Planet_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -447,7 +464,8 @@
     "source": "https://balatrowiki.org/images/Telescope.png",
     "pages": [
       "Planet_cards",
-      "Vouchers"
+      "Vouchers",
+      "Booster_Packs"
     ]
   },
   {
@@ -516,7 +534,8 @@
     "source": "https://balatrowiki.org/images/Observatory.png",
     "pages": [
       "Planet_cards",
-      "Vouchers"
+      "Vouchers",
+      "Booster_Packs"
     ]
   },
   {
@@ -525,7 +544,8 @@
     "source": "https://balatrowiki.org/images/Crystal_Ball.png",
     "pages": [
       "Planet_cards",
-      "Vouchers"
+      "Vouchers",
+      "Booster_Packs"
     ]
   },
   {
@@ -616,7 +636,8 @@
     "name": "Incantation",
     "source": "https://balatrowiki.org/images/Incantation.png",
     "pages": [
-      "Spectral_cards"
+      "Spectral_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -664,7 +685,8 @@
     "name": "Ectoplasm",
     "source": "https://balatrowiki.org/images/Ectoplasm.png",
     "pages": [
-      "Spectral_cards"
+      "Spectral_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -672,7 +694,8 @@
     "name": "Immolate",
     "source": "https://balatrowiki.org/images/Immolate.png",
     "pages": [
-      "Spectral_cards"
+      "Spectral_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -729,7 +752,8 @@
     "name": "Challenge Deck",
     "source": "https://balatrowiki.org/images/Challenge_Deck.png",
     "pages": [
-      "Spectral_cards"
+      "Spectral_cards",
+      "Booster_Packs"
     ]
   },
   {
@@ -738,7 +762,8 @@
     "source": "https://balatrowiki.org/images/Omen_Globe.png",
     "pages": [
       "Spectral_cards",
-      "Vouchers"
+      "Vouchers",
+      "Booster_Packs"
     ]
   },
   {
@@ -1443,7 +1468,304 @@
     "name": "Brainstorm",
     "source": "https://balatrowiki.org/images/Brainstorm.png",
     "pages": [
-      "Blinds_and_Antes"
+      "Blinds_and_Antes",
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Booster_Packs.png",
+    "name": "Booster Packs",
+    "source": "https://balatrowiki.org/images/Booster_Packs.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Red_Card.png",
+    "name": "Red Card",
+    "source": "https://balatrowiki.org/images/Red_Card.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Arcana_Normal_1.png",
+    "name": "Arcana Normal 1",
+    "source": "https://balatrowiki.org/images/Arcana_Normal_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Arcana_Normal_2.png",
+    "name": "Arcana Normal 2",
+    "source": "https://balatrowiki.org/images/Arcana_Normal_2.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Arcana_Normal_3.png",
+    "name": "Arcana Normal 3",
+    "source": "https://balatrowiki.org/images/Arcana_Normal_3.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Arcana_Normal_4.png",
+    "name": "Arcana Normal 4",
+    "source": "https://balatrowiki.org/images/Arcana_Normal_4.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Arcana_Jumbo_1.png",
+    "name": "Arcana Jumbo 1",
+    "source": "https://balatrowiki.org/images/Arcana_Jumbo_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Arcana_Jumbo_2.png",
+    "name": "Arcana Jumbo 2",
+    "source": "https://balatrowiki.org/images/Arcana_Jumbo_2.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Arcana_Mega_1.png",
+    "name": "Arcana Mega 1",
+    "source": "https://balatrowiki.org/images/Arcana_Mega_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Arcana_Mega_2.png",
+    "name": "Arcana Mega 2",
+    "source": "https://balatrowiki.org/images/Arcana_Mega_2.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Celestial_Normal_1.png",
+    "name": "Celestial Normal 1",
+    "source": "https://balatrowiki.org/images/Celestial_Normal_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Celestial_Normal_2.png",
+    "name": "Celestial Normal 2",
+    "source": "https://balatrowiki.org/images/Celestial_Normal_2.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Celestial_Normal_3.png",
+    "name": "Celestial Normal 3",
+    "source": "https://balatrowiki.org/images/Celestial_Normal_3.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Celestial_Normal_4.png",
+    "name": "Celestial Normal 4",
+    "source": "https://balatrowiki.org/images/Celestial_Normal_4.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Celestial_Jumbo_1.png",
+    "name": "Celestial Jumbo 1",
+    "source": "https://balatrowiki.org/images/Celestial_Jumbo_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Celestial_Jumbo_2.png",
+    "name": "Celestial Jumbo 2",
+    "source": "https://balatrowiki.org/images/Celestial_Jumbo_2.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Celestial_Mega_1.png",
+    "name": "Celestial Mega 1",
+    "source": "https://balatrowiki.org/images/Celestial_Mega_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Celestial_Mega_2.png",
+    "name": "Celestial Mega 2",
+    "source": "https://balatrowiki.org/images/Celestial_Mega_2.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Standard_Normal_1.png",
+    "name": "Standard Normal 1",
+    "source": "https://balatrowiki.org/images/Standard_Normal_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Standard_Normal_2.png",
+    "name": "Standard Normal 2",
+    "source": "https://balatrowiki.org/images/Standard_Normal_2.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Standard_Normal_3.png",
+    "name": "Standard Normal 3",
+    "source": "https://balatrowiki.org/images/Standard_Normal_3.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Standard_Normal_4.png",
+    "name": "Standard Normal 4",
+    "source": "https://balatrowiki.org/images/Standard_Normal_4.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Standard_Jumbo_1.png",
+    "name": "Standard Jumbo 1",
+    "source": "https://balatrowiki.org/images/Standard_Jumbo_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Standard_Jumbo_2.png",
+    "name": "Standard Jumbo 2",
+    "source": "https://balatrowiki.org/images/Standard_Jumbo_2.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Standard_Mega_1.png",
+    "name": "Standard Mega 1",
+    "source": "https://balatrowiki.org/images/Standard_Mega_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Standard_Mega_2.png",
+    "name": "Standard Mega 2",
+    "source": "https://balatrowiki.org/images/Standard_Mega_2.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Buffoon_Normal_1.png",
+    "name": "Buffoon Normal 1",
+    "source": "https://balatrowiki.org/images/Buffoon_Normal_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Buffoon_Normal_2.png",
+    "name": "Buffoon Normal 2",
+    "source": "https://balatrowiki.org/images/Buffoon_Normal_2.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Buffoon_Jumbo_1.png",
+    "name": "Buffoon Jumbo 1",
+    "source": "https://balatrowiki.org/images/Buffoon_Jumbo_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Buffoon_Mega_1.png",
+    "name": "Buffoon Mega 1",
+    "source": "https://balatrowiki.org/images/Buffoon_Mega_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Spectral_Normal_1.png",
+    "name": "Spectral Normal 1",
+    "source": "https://balatrowiki.org/images/Spectral_Normal_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Spectral_Normal_2.png",
+    "name": "Spectral Normal 2",
+    "source": "https://balatrowiki.org/images/Spectral_Normal_2.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Spectral_Jumbo_1.png",
+    "name": "Spectral Jumbo 1",
+    "source": "https://balatrowiki.org/images/Spectral_Jumbo_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Spectral_Mega_1.png",
+    "name": "Spectral Mega 1",
+    "source": "https://balatrowiki.org/images/Spectral_Mega_1.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Hack.png",
+    "name": "Hack",
+    "source": "https://balatrowiki.org/images/Hack.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Juggler.png",
+    "name": "Juggler",
+    "source": "https://balatrowiki.org/images/Juggler.png",
+    "pages": [
+      "Booster_Packs"
+    ]
+  },
+  {
+    "file": "assets/wiki/Banner.png",
+    "name": "Banner",
+    "source": "https://balatrowiki.org/images/Banner.png",
+    "pages": [
+      "Booster_Packs"
     ]
   }
 ]

@@ -91,7 +91,7 @@ Card-art regression check: run node tests/test_card_art.cjs with the same Playwr
 
 ## Release 0.6.0
 
-Adds 177 locally bundled images from [Balatro Wiki](https://balatrowiki.org/), mapped consumable/voucher/blind/stake artwork, and a searchable reference image library. See THIRD_PARTY_NOTICES.md and assets/wiki-art.json for image credits, sources and licensing. The reference catalog is not current-run data.
+Adds 214 locally bundled images from [Balatro Wiki](https://balatrowiki.org/), mapped consumable/voucher/blind/stake/booster artwork, and a searchable reference image library. See THIRD_PARTY_NOTICES.md and assets/wiki-art.json for image credits, sources and licensing. The reference catalog is not current-run data.
 
 Shop previews now retain the last observed inventory for the current browser page session, with a timestamp and an inaccessible-shop notice. New game sessions clear the history. Mail-In Rebate, Gros Michel, money-based jokers and additional vanilla tooltip values now have explicit scalar adapters; unsupported modded values remain unknown.
 
