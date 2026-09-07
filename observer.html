@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Balatro Observer</title>
+<title>Balatro Observer · v0.2.1</title>
+<meta name="observer-version" content="0.2.1">
 <style>
 :root{color-scheme:dark;font-family:Inter,Segoe UI,system-ui,sans-serif;background:#101716;color:#edf1e9;--muted:#93a69b;--line:#2b3932;--gold:#e8c67c}
 *{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
@@ -32,12 +33,12 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;p
 [hidden]{display:none!important}.blind-name{font-family:Georgia,serif;font-size:28px;margin:10px 0 20px;color:var(--gold)}.blind-values{display:flex;gap:35px;color:#c1cfc2;font-size:13px}.blind-values small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px}
 @media(min-width:1400px){.card{width:138px;min-height:185px}}
 @media(max-width:1000px){.sidebar{width:200px;padding:25px 12px}main{margin-left:200px;padding:28px 24px}.grid{grid-template-columns:1fr}}
-@media(max-width:700px){.sidebar{position:static;width:auto;padding:18px;border-right:0;border-bottom:1px solid var(--line)}.brand{margin:0 0 20px}.nav-label,.sidebar-foot{display:none}nav{display:flex;overflow:auto;gap:6px;padding-bottom:4px}nav button{white-space:nowrap;padding:9px 12px}nav .count{display:none}main{margin:0;padding:24px 18px}h1{font-size:31px}header{align-items:flex-start}.panel{padding:18px}.cards{gap:10px}.card{width:calc(50% - 5px);max-width:150px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.sidebar{position:static;width:auto;padding:18px;border-right:0;border-bottom:1px solid var(--line)}.brand{margin:0 0 20px}.nav-label{display:none}.sidebar-foot{margin-top:12px;padding:8px 0 0;display:flex;gap:8px;flex-wrap:wrap}.sidebar-foot br{display:none}nav{display:flex;overflow:auto;gap:6px;padding-bottom:4px}nav button{white-space:nowrap;padding:9px 12px}nav .count{display:none}main{margin:0;padding:24px 18px}h1{font-size:31px}header{align-items:flex-start}.panel{padding:18px}.cards{gap:10px}.card{width:calc(50% - 5px);max-width:150px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style></head>
 <body>
 <aside class="sidebar"><div class="brand"><span class="logo">♠</span><div><strong>BALATRO</strong><small>OBSERVER</small></div></div>
 <div class="nav-label">Your run</div><nav aria-label="Observer sections" id="nav"></nav>
-<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br>One snapshot every 200 ms<br>Always respect the face-down.</div></aside>
+<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.2.1</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
 <main><header><div><div class="eyebrow">The table, at a glance</div><h1 id="title">Run overview</h1><p id="description"></p></div><button id="pause">Ⅱ Pause updates</button></header>
 <div class="statusbar"><span id="status" role="status">Connecting to observer…</span><span id="meta" class="meta"></span></div>
 <div id="waiting" class="panel"><div class="empty"><span class="empty-icon">♧</span><strong id="waiting-title">Waiting for the table</strong><span id="waiting-text">Your run will appear here when the observer sends a fresh snapshot.</span></div></div>
@@ -46,6 +47,13 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;p
 <footer>Live snapshots · Hidden cards stay hidden · Missing values appear as —</footer></main>
 <script>
 const $=id=>document.getElementById(id);
+const viewerVersion=document.querySelector('meta[name=observer-version]').content;
+function showVersion(s,stale){
+ const version=s?.mod_version;
+ $('mod-version').textContent=version?'Mod v'+version+(stale?' (last snapshot)':''):'Mod version: '+(s?'unreported':'waiting');
+ $('version-note').textContent=!s?'Waiting for game':!version?'Restart Balatro to load v'+viewerVersion:version!==viewerVersion?'Version mismatch — restart Balatro':stale?'Waiting for fresh export':'Versions match';
+}
+
 const sections={
  overview:['◈','Overview','Run overview','A little perspective before your next big hand.'],
  hand:['♠','Current hand','Current hand','Your cards on the table. Gold outlines mark selected cards.'],
@@ -82,7 +90,6 @@ function cards(title,area,wide=true){
  const labels=[];if(c.selected)labels.push('Selected');if(c.debuff)labels.push('Debuffed');if(c.seal)labels.push(c.seal+' seal');
  for(const [k,v] of Object.entries(c.edition||{}))if(v)labels.push(pretty(k));
  for(const [k,v] of Object.entries(c.stickers||{}))if(v!==false&&v!=null)labels.push(v===true?pretty(k):pretty(k)+': '+v);
- if(c.cost!==undefined)labels.push('Buy $'+c.cost);if(c.sell_cost!==undefined)labels.push('Sell $'+c.sell_cost);
  if(labels.length)box.append(el('small',labels.join(' · '),'tags'));
  }}
 function render(){
@@ -121,14 +128,14 @@ async function tick(){
  $('meta').textContent=s?'#'+s.sequence+' · '+new Date(s.observed_at*1000).toLocaleTimeString():'200 ms refresh';
  $('source').textContent='Source: '+directory+(s?' · Session '+s.session:'');
  $('raw').textContent=s?JSON.stringify(s,null,2):'No valid snapshots found.';
- counts(s);
+ counts(s);showVersion(s,stale);
  if(!s){status('Waiting for observer',true);$('waiting-title').textContent='Waiting for the table';$('waiting-text').textContent='Start Balatro with the observer mod enabled. Your run will appear automatically.';}
  else if(stale){status('Stale snapshot · waiting for fresh data',true);$('waiting-title').textContent='The table is quiet';$('waiting-text').textContent='No fresh export in over 3 seconds. Resume the game to reconnect. The last snapshot is available in Raw data.';}
  else if(!s.available){status('Observer unavailable · '+pretty(s.phase),true);$('waiting-title').textContent='Between the action';$('waiting-text').textContent='The game is paused, in a menu, or transitioning. Live sections return with the next available snapshot.';}
  else status('● Live · '+pretty(s.phase)+' · 200 ms refresh');
  const {sequence,observed_at,...body}=s||{};const next=JSON.stringify(body);
  if(next!==lastBody||wasUsable!==usable){render();lastBody=next;}else select();
- }catch(e){if(!paused){usable=false;counts(null);status('Connection unavailable',true);$('waiting-title').textContent='Connection interrupted';$('waiting-text').textContent=e.message;select();}}
+ }catch(e){if(!paused){usable=false;counts(null);showVersion(snapshot,true);status('Connection unavailable',true);$('waiting-title').textContent='Connection interrupted';$('waiting-text').textContent=e.message;select();}}
  finally{busy=false;}
 }
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'▶ Resume updates':'Ⅱ Pause updates';if(paused)status('Updates paused · frozen snapshot',true);else tick();};

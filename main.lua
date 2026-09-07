@@ -2,7 +2,12 @@ local mod = SMODS.current_mod
 local function load(name) return assert(SMODS.load_file(name, mod.id))() end
 local JSON = load('json.lua')
 local observer = load('observer.lua')(JSON)
-BalatroObserver = {snapshot = function() return observer.snapshot(G) end}
+local function snapshot()
+    local state = observer.snapshot(G)
+    state.mod_version = mod.version or 'unknown'
+    return state
+end
+BalatroObserver = {version = mod.version or 'unknown', snapshot = snapshot}
 
 -- Alternate complete files so a consumer can recover from an interrupted write.
 -- Each file is a self-contained JSON record; readers select the greatest sequence.
@@ -16,7 +21,7 @@ function Game:update(dt)
     if elapsed < 0.2 then return end
     elapsed = 0
     local ok = pcall(function()
-        local state = observer.snapshot(G)
+        local state = snapshot()
         sequence = sequence + 1
         state.session, state.sequence = session, sequence
         state.observed_at = os.time()

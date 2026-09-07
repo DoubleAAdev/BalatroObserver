@@ -1,2 +1,13 @@
-.test-runtime
-tests
+# Local test runtimes, downloaded dependencies, and QA artifacts
+/.test-runtime/
+/node_modules/
+
+# Generated observer snapshots
+/balatro_observer/
+/state-0.json
+/state-1.json
+
+# Runtime logs and caches
+*.log
+__pycache__/
+*.pyc
