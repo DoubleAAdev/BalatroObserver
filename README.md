@@ -65,7 +65,7 @@ Viewer checks: `node --test tests/test_viewer.cjs`.
 
 ## Release versions and installation
 
-Current release: **0.7.0**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
+Current release: **0.7.1**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
 
 Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Restart its Node server if viewer-server.js changed.
 
@@ -110,3 +110,6 @@ Overview and Current hand now include a **Selected hand score** estimate powered
 The collector now exports `score_vars` (only already-reviewed public tooltip scalars), visible playing-card `perma_bonus`, `run.deck_key`, and `scoring_context.loyalty_remaining`. Face-down cards do not expose these fields. The vanilla description audit covers all 150 jokers with no unresolved placeholders in initialized states; custom localization and custom dynamic callbacks still require explicit adapters.
 
 Checks: `node --test tests/test_score.cjs tests/test_viewer.cjs`, `node tests/test_score_browser.cjs`, `lua tests/test_launcher.lua`, and the existing collector/browser checks. UI-hook tests cover placement above the deck, a single button per deck, and click-only URL opening; live-game visual verification remains necessary.
+
+
+Release 0.7.1 — Random image fixes: corrects Caino's canonical key in the portrait and calculator mappings, including its legendary face layer.

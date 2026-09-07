@@ -7,7 +7,7 @@ const {createServer}=require('../viewer-server');
  try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],requests=[];
   page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
-  const base={schema_version:1,session:'score',sequence:1,observed_at:Date.now()/1000,available:true,phase:'SELECTING_HAND',mod_version:'0.7.0',scoring_context:{},hand:{cards:[{key:'c_base',rank:'Ace',suit:'Spades',visible:true,selected:true,slot:1}]},poker_hands:{'High Card':{level:1,chips:5,mult:1}},jokers:{cards:[{key:'j_joker',set:'Joker',visible:true,score_vars:{1:4},description:'+4 Mult'}]}};
+  const base={schema_version:1,session:'score',sequence:1,observed_at:Date.now()/1000,available:true,phase:'SELECTING_HAND',mod_version:'0.7.1',scoring_context:{},hand:{cards:[{key:'c_base',rank:'Ace',suit:'Spades',visible:true,selected:true,slot:1}]},poker_hands:{'High Card':{level:1,chips:5,mult:1}},jokers:{cards:[{key:'j_joker',set:'Joker',visible:true,score_vars:{1:4},description:'+4 Mult'}]}};
   let response={state:base,stale:false,directory:'fixture'};
   await page.route('**/state',r=>r.fulfill({json:response}));
   await page.goto('http://127.0.0.1:'+server.address().port);

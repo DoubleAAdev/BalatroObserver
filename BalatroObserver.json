@@ -7,7 +7,7 @@
   "description": "View player-visible Balatro data through raw JSON snapshots and a live local HTML dashboard.",
   "prefix": "bobs",
   "main_file": "main.lua",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "dependencies": [
     "Steamodded (>=1.0.0~BETA)"
   ]

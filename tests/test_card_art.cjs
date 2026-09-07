@@ -13,7 +13,7 @@ const {createServer}=require('../viewer-server');
   for(const key of keys)for(const edition of editions)for(const seal of seals)matrix.push({
    visible:true,rank:key==='m_stone'?undefined:'Jack',suit:key==='m_stone'?undefined:'Spades',key,seal,edition:edition?{[edition]:true}:{}
   });
-  let payload={state:{schema_version:1,available:true,session:'art-test',sequence:1,observed_at:Math.floor(Date.now()/1000),phase:'SELECTING_HAND',mod_version:'0.7.0',
+  let payload={state:{schema_version:1,available:true,session:'art-test',sequence:1,observed_at:Math.floor(Date.now()/1000),phase:'SELECTING_HAND',mod_version:'0.7.1',
    hand:{cards:matrix.slice(0,25)}},stale:false,directory:'fixture'};
   await page.route('**/state',r=>r.fulfill({json:payload}));
   await page.goto('http://127.0.0.1:'+server.address().port);
@@ -54,6 +54,11 @@ const {createServer}=require('../viewer-server');
   assert.equal(await page.locator('.card').nth(1).locator('.art-seal').getAttribute('data-seal'),'Purple');
   assert.equal(await page.locator('.card').nth(2).locator('.art-fallback').count(),1);
   assert.match(await page.locator('footer').textContent(),/Saffron Haas/);
+  payload={...payload,state:{...payload.state,sequence:4,hand:{cards:[{visible:true,set:'Joker',key:'j_caino',name:'Caino'}]}}};
+  await page.waitForFunction(()=>document.querySelectorAll('.card').length===1);
+  assert.equal(await page.locator('.art-joker').getAttribute('data-tile'),'joker:3,8');
+  assert.equal(await page.locator('.art-soul').getAttribute('data-tile'),'joker:3,9');
+  assert.equal(await page.locator('.art-fallback').count(),0);
   assert.ok(requests.every(url=>url.startsWith('http://127.0.0.1:')));
   assert.deepEqual(errors,[]);
   console.log('PASS: 225 enhancement/edition/seal combinations, seal layering, negative isolation, stone redaction, joker sprites, custom fallback, hidden-card redaction, local assets and credit');

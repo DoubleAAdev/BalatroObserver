@@ -29,3 +29,8 @@ test('all vanilla IDs, unsupported custom jokers, missing score data and privacy
  s.jokers.cards=[{key:'j_wee'}];assert.match(preview(s).message,/Missing/);
  delete s.scoring_context;assert.match(preview(s).message,/Restart Balatro/);
 });
+test('canonical Caino key maps to the legendary calculator ID',()=>{
+ const s=base();s.jokers.cards=[{key:'j_caino',score_vars:{1:1,2:3}}];
+ assert.equal(require('../assets/calculator/joker-ids.json').j_caino,83);
+ assert.equal(score(s),48);
+});
