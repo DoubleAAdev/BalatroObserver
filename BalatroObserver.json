@@ -1,7 +1,7 @@
 {
   "id": "BalatroObserver",
   "name": "Balatro Observer",
-  "author": ["BalatroMPAI"],
+  "author": ["DoubleAAdev"],
   "description": "Read-only player-visible state export.",
   "prefix": "bobs",
   "main_file": "main.lua",
