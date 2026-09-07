@@ -9,9 +9,9 @@ const { createServer } = require('../viewer-server');
     const page = await browser.newPage({ viewport: {width: 1440, height: 1000} });
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    const base = {schema_version:1, session:'test-session', sequence:1, observed_at:Math.floor(Date.now()/1000), available:true, phase:'SELECTING_HAND', mod_version:'0.4.0',
+    const base = {schema_version:1, session:'test-session', sequence:1, observed_at:Math.floor(Date.now()/1000), available:true, phase:'SELECTING_HAND', mod_version:'0.4.1',
       hand:{cards:[{visible:true,rank:'2',suit:'Hearts',slot:1},{visible:false,slot:2},{visible:true,rank:'Ace',suit:'Spades',slot:3}]},
-      deck:{cards:[],remaining_cards:[{visible:true,rank:'King',suit:'Clubs'}],draw_count:1},
+      deck:{cards:['Diamonds','Clubs','Hearts','Spades'].flatMap(suit=>['2','3','4','5','6','7','8','9','10','Jack','Queen','King','Ace'].map(rank=>({visible:true,rank,suit}))).concat([{visible:true,rank:'Ace',suit:'Spades'},{visible:true,key:'m_stone'}]),remaining_cards:[{visible:true,rank:'King',suit:'Clubs'}],draw_count:1},
       jokers:{cards:[{visible:true,set:'Joker',key:'j_abstract',name:'Abstract Joker',description:'+3 Mult for each Joker card (Currently +12 Mult)',description_complete:true}]},
       blind:{name:'The Hook',loc_debuff_text:'Discards 2 random cards per hand'},blinds:{choices:[{slot:'Boss',name:'The Hook',description:'Discards 2 random cards per hand'}]},vouchers:[]};
     let response = {state:base, stale:false, directory:'test'};
@@ -22,11 +22,18 @@ const { createServer } = require('../viewer-server');
     await page.locator('#nav-inventory').click();
     assert.match(await page.locator('#panels').textContent(),/Currently \+12 Mult/);
     await page.locator('#nav-remaining').click();
-    assert.match(await page.locator('#panels').textContent(),/King/);
+    assert.match(await page.locator('.deck-card').getAttribute('aria-label'),/King/);
     for (const section of ['overview','blinds','vouchers','hand','deck','inventory','shop','pack','poker','raw','remaining']) {
       await page.locator('#nav-'+section).click();
       assert.equal(await page.locator('#nav-'+section).getAttribute('aria-current'),'page');
     }
+    await page.locator('#nav-deck').click();
+    assert.deepEqual(await page.locator('.deck-suit-row').evaluateAll(rows=>rows.map(r=>r.dataset.suit)),['Spades','Hearts','Clubs','Diamonds','Other']);
+    assert.deepEqual(await page.locator('.deck-suit-row[data-suit="Spades"] .deck-card').evaluateAll(cards=>cards.map(c=>c.dataset.rank)),['Ace','Ace','King','Queen','Jack','10','9','8','7','6','5','4','3','2']);
+    assert.equal(await page.locator('.deck-card').count(),54);
+    assert.equal(await page.locator('.deck-card[data-rank="10"][data-suit="Spades"] .deck-pip').count(),10);
+    assert.equal(await page.locator('#sort').isVisible(),false);
+    if(process.env.VIEWER_SCREENSHOT_PATH)await page.screenshot({path:process.env.VIEWER_SCREENSHOT_PATH,fullPage:true});
     await page.locator('#nav-hand').click();
     await page.locator('#sort').selectOption('rank-desc');
     assert.match(await page.locator('.card').nth(0).textContent(),/Ace/);
@@ -55,6 +62,7 @@ const { createServer } = require('../viewer-server');
     await page.locator('#pause').click();
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    assert.equal(await page.locator('.deck-mat').evaluate(e=>e.scrollWidth>e.clientWidth),true);
     response={...response,state:{...base,session:'new-session',sequence:1,available:false}};
     await page.locator('#waiting:not([hidden])').waitFor();
     assert.equal(await page.locator('#content').isVisible(),false);
@@ -63,7 +71,7 @@ const { createServer } = require('../viewer-server');
     await page.reload();
     assert.equal(await page.locator('#sort').inputValue(),'rank-desc');
     assert.deepEqual(errors,[]);
-    console.log('PASS: 11 sections, descriptions, remaining cards, sorting, retained previews, session reset, pause, mobile and persistence');
+    console.log('PASS: suit rows, Ace-to-2 ordering, duplicates, pips, deck scrolling, 11 sections, descriptions, remaining cards, sorting, retained previews, session reset, pause, mobile and persistence');
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

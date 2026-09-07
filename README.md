@@ -65,7 +65,7 @@ Viewer checks: `node --test tests/test_viewer.cjs`.
 
 ## Release versions and installation
 
-Current release: **0.4.0**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
+Current release: **0.4.1**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
 
 Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Restart its Node server if viewer-server.js changed.
 
@@ -78,3 +78,5 @@ Release 0.4.0 adds Remaining cards, rank/suit/name sorting that only affects the
 The deck.remaining_cards field is the canonical public unplayed composition. It includes wheel-flipped cards outside the draw pile to preserve face-down ambiguity and can exceed draw_count. It contains no draw order, IDs, or hidden-slot links. Current boss effect text is exported as blind.loc_debuff_text; blind choice descriptions use the loaded localization text.
 
 Optional browser check: install Playwright and Chromium, then run node tests/test_viewer_browser.cjs. PLAYWRIGHT_MODULE and BROWSER_EXECUTABLE may point to existing installations.
+
+Release 0.4.1 arranges Full deck and Remaining cards like the in-game deck viewer: Spades, Hearts, Clubs, Diamonds in separate overlapping rows, each ordered Ace to 2. Duplicates are preserved; other cards have a separate row. Clubs are blue and Diamonds orange, matching the reference palette. These two deck views use fixed suit/rank ordering; other card areas retain the sorting selector. Narrow screens scroll inside the deck area.

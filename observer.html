@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Balatro Observer · v0.4.0</title>
-<meta name="observer-version" content="0.4.0">
+<title>Balatro Observer · v0.4.1</title>
+<meta name="observer-version" content="0.4.1">
 <style>
 :root{color-scheme:dark;font-family:Inter,Segoe UI,system-ui,sans-serif;background:#101716;color:#edf1e9;--muted:#93a69b;--line:#2b3932;--gold:#e8c67c}
 *{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
@@ -35,11 +35,32 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;p
 @media(max-width:1000px){.sidebar{width:200px;padding:25px 12px}main{margin-left:200px;padding:28px 24px}.grid{grid-template-columns:1fr}}
 @media(max-width:700px){.sidebar{position:static;width:auto;padding:18px;border-right:0;border-bottom:1px solid var(--line)}.brand{margin:0 0 20px}.nav-label{display:none}.sidebar-foot{margin-top:12px;padding:8px 0 0;display:flex;gap:8px;flex-wrap:wrap}.sidebar-foot br{display:none}nav{display:flex;overflow:auto;gap:6px;padding-bottom:4px}nav button{white-space:nowrap;padding:9px 12px}nav .count{display:none}main{margin:0;padding:24px 18px}h1{font-size:31px}header{align-items:flex-start}.panel{padding:18px}.cards{gap:10px}.card{width:calc(50% - 5px);max-width:150px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .sortbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:22px;font-size:12px;color:var(--muted)}.sortbar select{background:#1d2a23;color:#e8eadf;border:1px solid var(--line);padding:9px;border-radius:7px}.sortbar .hint{margin:0}.card.with-description{width:235px;max-width:100%;min-height:220px}.card .description{font-size:12px;line-height:1.65;opacity:1}.card .description-note{font-size:10px;color:#d8bd7d}
+
+/* One row per suit, as in the game's deck viewer. Overflow stays inside the mat. */
+.deck-mat{overflow-x:auto;padding:20px 12px 24px;background:radial-gradient(ellipse at top,#36524c,#223a34);border:1px solid #496158;border-radius:10px}
+.deck-suit-row{display:flex;align-items:center;min-width:max-content;gap:12px;margin-bottom:8px}
+.deck-suit-row:last-child{margin-bottom:0}
+.deck-suit-label{width:40px;flex:none;text-align:center;color:#e5eadd}
+.deck-suit-label b{display:block;font:27px Georgia,serif}.deck-suit-label small{font:11px ui-monospace,monospace;color:#b5c5b7}
+.deck-fan{display:flex;align-items:center;min-height:154px;padding:10px 5px}
+.deck-card{--ink:#243c38;position:relative;flex:0 0 96px;width:96px;height:140px;background:#faf9f2;color:var(--ink);border:1px solid #a9b5ae;border-radius:6px;box-shadow:0 4px 6px #0a171b55;transition:transform .15s;outline-offset:3px}
+.deck-card+.deck-card{margin-left:-24px}
+.deck-card:hover,.deck-card:focus-visible{transform:translateY(-12px);z-index:3;outline:2px solid var(--gold)}
+.deck-card[data-suit=Hearts]{--ink:#ce3039}.deck-card[data-suit=Clubs]{--ink:#087fc0}.deck-card[data-suit=Diamonds]{--ink:#cf8000}
+.deck-card .deck-corner{position:absolute;top:5px;left:6px;display:flex;flex-direction:column;align-items:center;font:bold 14px/1 Georgia,serif;gap:2px}
+.deck-card .deck-corner.bottom{top:auto;left:auto;right:6px;bottom:5px;transform:rotate(180deg)}
+.deck-pips{position:absolute;inset:21px 18px}.deck-pip{position:absolute;font:21px/1 Georgia,serif;transform:translate(-50%,-50%)}
+.deck-card .ace-pip{font-size:49px}.deck-face{position:absolute;inset:25px 22px;display:grid;place-content:center;text-align:center;font:38px/1 Georgia,serif;border:2px double currentColor;background:repeating-linear-gradient(45deg,transparent,transparent 4px,#879b8914 4px,#879b8914 8px)}
+.deck-face small{font-size:22px;margin-top:4px}.deck-badge{position:absolute;bottom:5px;left:5px;right:24px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:8px system-ui;background:#ebdfb5;color:#374136;border-radius:2px}
+.deck-card.face-down{background:repeating-linear-gradient(45deg,#335b79,#335b79 4px,#294b67 4px,#294b67 8px);color:#e3eced}
+.deck-row-empty{color:#b2c5b7;font-size:12px;padding:30px 12px;min-height:154px;display:flex;align-items:center}
+.deck-mat::-webkit-scrollbar{height:9px}.deck-mat::-webkit-scrollbar-thumb{background:#687f6b;border-radius:9px}
+@media(prefers-reduced-motion:reduce){.deck-card{transition:none}}
 </style></head>
 <body>
 <aside class="sidebar"><div class="brand"><span class="logo">♠</span><div><strong>BALATRO</strong><small>OBSERVER</small></div></div>
 <div class="nav-label">Your run</div><nav aria-label="Observer sections" id="nav"></nav>
-<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.4.0</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
+<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.4.1</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
 <main><header><div><div class="eyebrow">The table, at a glance</div><h1 id="title">Run overview</h1><p id="description"></p></div><button id="pause">Ⅱ Pause updates</button></header>
 <div class="statusbar"><span id="status" role="status">Connecting to observer…</span><span id="meta" class="meta"></span></div>
 <div id="waiting" class="panel"><div class="empty"><span class="empty-icon">♧</span><strong id="waiting-title">Waiting for the table</strong><span id="waiting-text">Your run will appear here when the observer sends a fresh snapshot.</span></div></div>
@@ -63,7 +84,7 @@ const sections={
  vouchers:['▱','Vouchers','Redeemed vouchers','Vouchers acquired in this run, including any starting deck vouchers.'],
  hand:['♠','Current hand','Current hand','Your cards on the table. Gold outlines mark selected cards.'],
  remaining:['▥','Remaining cards','Remaining cards','The public unplayed deck view. Includes cards kept ambiguous by face-down effects; never draw order.'],
- deck:['▤','Deck','Your deck','Full deck composition, in canonical order. This is not the draw pile or its order.'],
+ deck:['▤','Deck','Your deck','Full deck composition in suit rows, Ace to 2. This is not the draw pile or its order.'],
  inventory:['✦','Jokers & items','Jokers & consumables','The supporting cast of your run.'],
  shop:['◇','Shop','The shop','Cards, vouchers, and boosters available in the current shop.'],
  pack:['▣','Open pack','Inside the pack','Visible choices from your currently opened pack.'],
@@ -79,6 +100,7 @@ for(const [id,[icon,label]] of Object.entries(sections)){const b=el('button');b.
 try{const saved=sessionStorage.getItem('observer-section');if(sections[saved])active=saved;}catch{}
 function select(){for(const id of Object.keys(sections)){const b=$('nav-'+id);if(id===active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
 $('title').textContent=sections[active][2];$('description').textContent=sections[active][3];
+document.querySelector('.sortbar').hidden=['deck','remaining','raw'].includes(active);
 $('raw-view').hidden=active!=='raw';$('content').hidden=active==='raw'||!usable;$('waiting').hidden=active==='raw'||usable;}
 function panel(title,badge,wide=true){const p=el('section',undefined,'panel'+(wide?' wide':'')),head=el('div',undefined,'panel-head');head.append(el('h2',title));if(badge!==undefined)head.append(el('span',badge,'pill'));p.append(head);$('panels').append(p);return p;}
 function empty(p,title,detail,icon='♧'){const e=el('div',undefined,'empty');e.append(el('span',icon,'empty-icon'),el('strong',title),el('span',detail));p.append(e);}
@@ -120,6 +142,55 @@ function cards(title,area,wide=true){
  for(const [k,v] of Object.entries(c.stickers||{}))if(v!==false&&v!=null)labels.push(v===true?pretty(k):pretty(k)+': '+v);
  if(labels.length)box.append(el('small',labels.join(' · '),'tags'));
  }}
+const deckSuits=['Spades','Hearts','Clubs','Diamonds'];
+const deckSymbols={Spades:'♠',Hearts:'♥',Clubs:'♣',Diamonds:'♦'};
+const deckRank=c=>({Ace:14,King:13,Queen:12,Jack:11}[c.rank]||Number(c.rank)||0);
+function deckCard(c){
+ const hidden=c.visible===false, symbol=deckSymbols[c.suit]||'◇',short={Ace:'A',King:'K',Queen:'Q',Jack:'J'}[c.rank]||c.rank||'?';
+ const e=el('div',undefined,'deck-card'+(hidden?' face-down':''));
+ e.tabIndex=0;e.dataset.rank=hidden?'':value(c.rank);e.dataset.suit=hidden?'':value(c.suit);
+ const traits=[];
+ if(c.key&&c.key!=='c_base')traits.push(pretty(c.key));
+ if(c.seal)traits.push(c.seal+' seal');
+ for(const [k,v] of Object.entries(c.edition||{}))if(v)traits.push(pretty(k));
+ const label=hidden?'Face down':(c.rank?c.rank+' of '+value(c.suit):pretty(c.key))+(traits.length?' · '+traits.join(' · '):'');
+ e.title=label;e.setAttribute('aria-label',label);
+ if(hidden){e.append(el('div','?','deck-face'));return e;}
+ for(const bottom of [false,true]){const corner=el('span',undefined,'deck-corner'+(bottom?' bottom':''));corner.setAttribute('aria-hidden','true');corner.append(el('span',short),el('span',symbol));e.append(corner);}
+ if(['King','Queen','Jack'].includes(c.rank)){const face=el('div',undefined,'deck-face');face.setAttribute('aria-hidden','true');face.append(el('span',short),el('small',symbol));e.append(face);}
+ else{
+ const pips=el('div',undefined,'deck-pips');pips.setAttribute('aria-hidden','true');
+ const n=deckRank(c),positions=[];
+ if(n===14||n===1||n===0)positions.push([50,50]);
+ else if(n===2)positions.push([50,10],[50,90]);
+ else if(n===3)positions.push([50,10],[50,50],[50,90]);
+ else{
+ const rows=n<=5?[10,90]:n<=8?[10,50,90]:[10,37,63,90];
+ for(const y of rows)positions.push([14,y],[86,y]);
+ if(n===5||n===7||n===9)positions.push([50,n===7?30:50]);
+ if(n===8||n===10)positions.push([50,28],[50,72]);
+ }
+ for(const [x,y] of positions){const pip=el('span',symbol,'deck-pip'+(n===14||n===0?' ace-pip':''));pip.style.left=x+'%';pip.style.top=y+'%';pips.append(pip);}e.append(pips);
+ }
+ if(traits.length)e.append(el('span',traits.join(' · '),'deck-badge'));
+ return e;
+}
+function deckRows(title,list){
+ const p=panel(title,list.length+' cards');
+ p.append(el('p','Spades · Hearts · Clubs · Diamonds — Ace to 2. Hover or focus a card for its details.','hint'));
+ const mat=el('div',undefined,'deck-mat');mat.style.marginTop='18px';mat.tabIndex=0;mat.setAttribute('aria-label',title+' by suit; scroll horizontally to see all cards');p.append(mat);
+ const groups=deckSuits.map(suit=>[suit,list.filter(c=>c.visible!==false&&c.suit===suit)]);
+ const other=list.filter(c=>c.visible===false||!deckSuits.includes(c.suit));if(other.length)groups.push(['Other',other]);
+ for(const [suit,group] of groups){
+ const row=el('section',undefined,'deck-suit-row');row.dataset.suit=suit;row.setAttribute('aria-label',suit+' · '+group.length+' cards');
+ const label=el('div',undefined,'deck-suit-label');label.append(el('b',deckSymbols[suit]||'◇'),el('small',group.length));label.title=suit;row.append(label);
+ const fan=el('div',undefined,'deck-fan');row.append(fan);mat.append(row);
+ // Stable rank ordering retains every duplicate and never mutates the export.
+ const ordered=group.map((c,i)=>({c,i})).sort((a,b)=>deckRank(b.c)-deckRank(a.c)||a.i-b.i);
+ for(const {c} of ordered)fan.append(deckCard(c));
+ if(!group.length)fan.append(el('span','No cards in '+suit.toLowerCase(),'deck-row-empty'));
+ }
+}
 function blindPanels(s){
  const info=s.blinds;
  if(!info){empty(panel('Blinds & skip tags'),'Waiting for blind information','Restart Balatro with the latest observer to export the current ante.');return;}
@@ -148,11 +219,10 @@ function render(){
  }else if(active==='vouchers'){if(s.vouchers)cards('Redeemed vouchers',{cards:s.vouchers});else empty(panel('Redeemed vouchers'),'Waiting for voucher information','Restart Balatro with the latest observer.');
  }else if(active==='hand'){
  stat('Cards in hand',s.hand?.cards?.length);stat('Hand capacity',s.hand?.capacity);stat('Selected',s.hand?.cards?.filter(c=>c.selected).length);stat('Hands left',s.round?.hands_left);stat('Discards left',s.round?.discards_left);cards('Current hand',s.hand);
- }else if(active==='remaining'){stat('Draw pile count',s.deck?.draw_count);stat('Visible possible remaining',s.deck?.remaining_cards?.length);if(s.deck?.remaining_cards)cards('Remaining cards',{cards:s.deck.remaining_cards});else empty(panel('Remaining cards'),'Waiting for remaining deck data','Restart Balatro with the latest mod.');
+ }else if(active==='remaining'){stat('Draw pile count',s.deck?.draw_count);stat('Visible possible remaining',s.deck?.remaining_cards?.length);if(s.deck?.remaining_cards)deckRows('Remaining cards',s.deck.remaining_cards);else empty(panel('Remaining cards'),'Waiting for remaining deck data','Restart Balatro with the latest mod.');
  }else if(active==='deck'){
  stat('Full deck',s.deck?.cards?.length);stat('Draw pile',s.deck?.draw_count);stat('Discard pile',s.deck?.discard_count);
- if(sortMode!=='suit'){cards('Full deck',{cards:s.deck?.cards||[]});}else for(const suit of ['Spades','Hearts','Clubs','Diamonds']){const list=s.deck?.cards?.filter(c=>c.suit===suit)||[];cards(suit,{cards:list},false);}
- const other=s.deck?.cards?.filter(c=>!['Spades','Hearts','Clubs','Diamonds'].includes(c.suit))||[];if(sortMode==='suit'&&other.length)cards('Other cards',{cards:other});
+ deckRows('Full deck',s.deck?.cards||[]);
  }else if(active==='inventory'){cards('Jokers',s.jokers);cards('Consumables',s.consumables);}
  else if(active==='shop'){if(s.shop){stat('Money',s.run?.dollars===undefined?undefined:'$'+s.run.dollars);stat('Reroll cost',s.shop.reroll_cost===undefined?undefined:'$'+s.shop.reroll_cost);cards('Cards for sale',s.shop.cards);cards('Vouchers',s.shop.vouchers,false);cards('Booster packs',s.shop.boosters,false);}else empty(panel('Shop'),'The shop is closed','Enter the shop to see its current cards, vouchers, and boosters.','◇');}
  else if(active==='pack'){if(s.pack){stat('Picks remaining',s.pack.choices_left);cards('Pack choices',s.pack.cards);}else empty(panel('Open pack'),'No pack open','Open a booster pack to inspect its visible choices.','▣');}
