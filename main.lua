@@ -4,6 +4,7 @@ local JSON = load('json.lua')
 local observer = load('observer.lua')(JSON)
 local function snapshot()
     local state = observer.snapshot(G)
+    -- Report the loaded mod version, not a newer manifest copied to disk mid-run.
     state.mod_version = mod.version or 'unknown'
     return state
 end

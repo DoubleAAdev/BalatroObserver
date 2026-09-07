@@ -2,6 +2,7 @@ const http = require('node:http');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
+// An unavailable observation can be newest: never fall back to an older playable state.
 function newest(records) {
   return records.filter(s => s && s.schema_version === 1 &&
     typeof s.available === 'boolean' && typeof s.session === 'string' &&
@@ -10,6 +11,7 @@ function newest(records) {
       (a.session === b.session ? b.sequence - a.sequence : b.session.localeCompare(a.session)))[0] || null;
 }
 async function readState(directory) {
+  // One slot can be partially written while the other remains a valid snapshot.
   const records = await Promise.all([0, 1].map(async slot => {
     try { return JSON.parse(await fs.readFile(path.join(directory, 'state-' + slot + '.json'), 'utf8')); }
     catch { return null; }
@@ -42,6 +44,7 @@ if (require.main === module) {
   const port = Number(process.env.PORT || 8765);
   const server = createServer(directory);
   server.on('error', err => { console.error(err.message); process.exitCode = 1; });
+  // Serve locally so the dashboard can read snapshots without browser file access.
   server.listen(port, '127.0.0.1', () => {
     console.log('Observer viewer: http://127.0.0.1:' + port);
     console.log('Reading: ' + directory);

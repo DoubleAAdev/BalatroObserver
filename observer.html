@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Balatro Observer · v0.2.1</title>
-<meta name="observer-version" content="0.2.1">
+<title>Balatro Observer · v0.2.2</title>
+<meta name="observer-version" content="0.2.2">
 <style>
 :root{color-scheme:dark;font-family:Inter,Segoe UI,system-ui,sans-serif;background:#101716;color:#edf1e9;--muted:#93a69b;--line:#2b3932;--gold:#e8c67c}
 *{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
@@ -38,7 +38,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;p
 <body>
 <aside class="sidebar"><div class="brand"><span class="logo">♠</span><div><strong>BALATRO</strong><small>OBSERVER</small></div></div>
 <div class="nav-label">Your run</div><nav aria-label="Observer sections" id="nav"></nav>
-<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.2.1</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
+<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.2.2</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
 <main><header><div><div class="eyebrow">The table, at a glance</div><h1 id="title">Run overview</h1><p id="description"></p></div><button id="pause">Ⅱ Pause updates</button></header>
 <div class="statusbar"><span id="status" role="status">Connecting to observer…</span><span id="meta" class="meta"></span></div>
 <div id="waiting" class="panel"><div class="empty"><span class="empty-icon">♧</span><strong id="waiting-title">Waiting for the table</strong><span id="waiting-text">Your run will appear here when the observer sends a fresh snapshot.</span></div></div>
@@ -48,6 +48,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;p
 <script>
 const $=id=>document.getElementById(id);
 const viewerVersion=document.querySelector('meta[name=observer-version]').content;
+// Snapshot metadata identifies the mod loaded by Balatro, even before a restart.
 function showVersion(s,stale){
  const version=s?.mod_version;
  $('mod-version').textContent=version?'Mod v'+version+(stale?' (last snapshot)':''):'Mod version: '+(s?'unreported':'waiting');
@@ -133,6 +134,7 @@ async function tick(){
  else if(stale){status('Stale snapshot · waiting for fresh data',true);$('waiting-title').textContent='The table is quiet';$('waiting-text').textContent='No fresh export in over 3 seconds. Resume the game to reconnect. The last snapshot is available in Raw data.';}
  else if(!s.available){status('Observer unavailable · '+pretty(s.phase),true);$('waiting-title').textContent='Between the action';$('waiting-text').textContent='The game is paused, in a menu, or transitioning. Live sections return with the next available snapshot.';}
  else status('● Live · '+pretty(s.phase)+' · 200 ms refresh');
+ // Metadata changes every export; rebuild cards only when game data changes.
  const {sequence,observed_at,...body}=s||{};const next=JSON.stringify(body);
  if(next!==lastBody||wasUsable!==usable){render();lastBody=next;}else select();
  }catch(e){if(!paused){usable=false;counts(null);showVersion(snapshot,true);status('Connection unavailable',true);$('waiting-title').textContent='Connection interrupted';$('waiting-text').textContent=e.message;select();}}

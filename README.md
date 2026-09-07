@@ -1,5 +1,20 @@
 # Balatro Observer
 
+View player-visible Balatro game data through **raw JSON snapshot files** or a **live local HTML dashboard**. This read-only Steamodded mod exports the current state every 200 ms.
+
+## Two ways to view your data
+
+| View | How to open it | What it provides |
+| --- | --- | --- |
+| Raw JSON files | Open state-0.json and state-1.json in %APPDATA%/Balatro/balatro_observer | Structured snapshots for inspection and external tools |
+| Local HTML dashboard | Run node viewer-server.js from the mod folder, then open http://127.0.0.1:8765 | Automatically updating sections for the run, hand, deck, jokers, shop, packs, and poker hands |
+
+The dashboard requires Node.js 18 or newer. The raw exports only require the mod. Both views use the same exported information; the dashboard also has a Raw data section.
+
+## Install the mod
+
+Download the mod ZIP from [GitHub Releases](https://github.com/DoubleAAdev/BalatroObserver/releases/latest) and extract its BalatroObserver folder into your Balatro Mods directory. You can also use a source checkout.
+
 Read-only Steamodded mod. Install both **Lovely and Steamodded** first, following the [Steamodded installation guide](https://docs.smods.dev/Installation/). Lovely alone does not load this mod. Confirm that Balatro's main menu has a **Mods** button.
 
 Copy this directory into `%APPDATA%/Balatro/Mods/BalatroObserver` and restart Balatro. Keep `BalatroObserver.json`, `main.lua`, `json.lua`, and `observer.lua` directly inside that folder. The Steamodded folder must be alongside `BalatroObserver` inside `Mods`. No files in the game installation are modified by BalatroObserver.
@@ -22,6 +37,7 @@ For in-process use, `BalatroObserver.snapshot()` returns a detached Lua table. `
 - `shop`: present only during SHOP; card, voucher and booster areas plus reroll cost. Booster contents are not inspected.
 - `pack`: present only during an opened pack phase; visible choices and remaining picks.
 - `session`, `sequence`, `observed_at`: export metadata, unrelated to game RNG.
+- `mod_version`: the mod version loaded in Balatro, used to detect when a restart is needed.
 
 Unknown scalar values are omitted. Arrays remain JSON arrays even when empty. Scores represented by another mod's big-number objects are omitted rather than traversed or rounded. Consumers must treat missing fields as unknown, not zero.
 
@@ -47,7 +63,7 @@ Viewer checks: `node --test tests/test_viewer.cjs`.
 
 ## Release versions and installation
 
-Current release: **0.2.1**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
+Current release: **0.2.2**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
 
 Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Restart its Node server if viewer-server.js changed.
 

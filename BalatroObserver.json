@@ -4,10 +4,10 @@
   "author": [
     "DoubleAAdev"
   ],
-  "description": "Read-only player-visible state export.",
+  "description": "View player-visible Balatro data through raw JSON snapshots and a live local HTML dashboard.",
   "prefix": "bobs",
   "main_file": "main.lua",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "dependencies": [
     "Steamodded (>=1.0.0~BETA)"
   ]

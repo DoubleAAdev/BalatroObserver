@@ -11,3 +11,6 @@
 *.log
 __pycache__/
 *.pyc
+
+# Generated release archives
+/dist/
