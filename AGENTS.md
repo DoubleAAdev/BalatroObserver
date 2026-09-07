@@ -10,7 +10,7 @@ The user requires this workflow after every completed mod or viewer update:
 
 
 6. Before each release commit, update .gitignore for generated snapshots, caches, downloaded runtimes, logs, and other redundant local artifacts. Keep source code, documentation, and useful tests tracked.
-7. After validation and installation, commit the completed version update and its related changes locally. The user explicitly requests this for every version/subversion update. Do not push unless asked.
+7. After validation and installation, commit the completed version update and its related changes with an explanatory message, then push to the configured GitHub remote. The user explicitly requires GitHub synchronization for every completed version/subversion update; a local-only commit does not complete the workflow. Verify the remote branch matches the local commit. Do not ask again for routine pushes, and never force-push to bypass remote changes.
 
 8. Before every code update, read missing.txt if present and compare each player-visible checklist item against both the exported state and browser. Implement missing coverage as part of the update, add relevant checks, and report any remaining limitations. Keep missing.txt local and ignored; do not delete or overwrite the user’s checklist. Do not infer hidden information from this list.
 
