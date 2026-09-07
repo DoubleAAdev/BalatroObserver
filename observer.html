@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Balatro Observer · v0.2.2</title>
-<meta name="observer-version" content="0.2.2">
+<title>Balatro Observer · v0.3.0</title>
+<meta name="observer-version" content="0.3.0">
 <style>
 :root{color-scheme:dark;font-family:Inter,Segoe UI,system-ui,sans-serif;background:#101716;color:#edf1e9;--muted:#93a69b;--line:#2b3932;--gold:#e8c67c}
 *{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
@@ -38,7 +38,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;p
 <body>
 <aside class="sidebar"><div class="brand"><span class="logo">♠</span><div><strong>BALATRO</strong><small>OBSERVER</small></div></div>
 <div class="nav-label">Your run</div><nav aria-label="Observer sections" id="nav"></nav>
-<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.2.2</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
+<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.3.0</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
 <main><header><div><div class="eyebrow">The table, at a glance</div><h1 id="title">Run overview</h1><p id="description"></p></div><button id="pause">Ⅱ Pause updates</button></header>
 <div class="statusbar"><span id="status" role="status">Connecting to observer…</span><span id="meta" class="meta"></span></div>
 <div id="waiting" class="panel"><div class="empty"><span class="empty-icon">♧</span><strong id="waiting-title">Waiting for the table</strong><span id="waiting-text">Your run will appear here when the observer sends a fresh snapshot.</span></div></div>
@@ -57,6 +57,8 @@ function showVersion(s,stale){
 
 const sections={
  overview:['◈','Overview','Run overview','A little perspective before your next big hand.'],
+ blinds:['◉','Blinds & tags','Blinds & skip tags','Current-ante blind choices, the next blind, the boss, and visible skip rewards.'],
+ vouchers:['▱','Vouchers','Redeemed vouchers','Vouchers acquired in this run, including any starting deck vouchers.'],
  hand:['♠','Current hand','Current hand','Your cards on the table. Gold outlines mark selected cards.'],
  deck:['▤','Deck','Your deck','Full deck composition, in canonical order. This is not the draw pile or its order.'],
  inventory:['✦','Jokers & items','Jokers & consumables','The supporting cast of your run.'],
@@ -68,7 +70,7 @@ const sections={
 let active='overview',paused=false,busy=false,snapshot=null,usable=false,lastBody='';
 function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
 const value=v=>v===undefined||v===null?'—':String(v);
-const pretty=v=>v?String(v).replace(/^[a-z]_/, '').replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase()):'Unknown card';
+const pretty=v=>v?String(v).replace(/^(?:bl|tag|[a-z])_/, '').replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase()):'Unknown card';
 function status(text,bad=false){$('status').textContent=text;$('status').dataset.kind=bad?'bad':'ok';}
 for(const [id,[icon,label]] of Object.entries(sections)){const b=el('button');b.id='nav-'+id;b.append(el('span',icon,'icon'),el('span',label),el('span','','count'));b.onclick=()=>{active=id;try{sessionStorage.setItem('observer-section',id);}catch{}select();render();};$('nav').append(b);}
 try{const saved=sessionStorage.getItem('observer-section');if(sections[saved])active=saved;}catch{}
@@ -93,6 +95,18 @@ function cards(title,area,wide=true){
  for(const [k,v] of Object.entries(c.stickers||{}))if(v!==false&&v!=null)labels.push(v===true?pretty(k):pretty(k)+': '+v);
  if(labels.length)box.append(el('small',labels.join(' · '),'tags'));
  }}
+function blindPanels(s){
+ const info=s.blinds;
+ if(!info){empty(panel('Blinds & skip tags'),'Waiting for blind information','Restart Balatro with the latest observer to export the current ante.');return;}
+ stat('Next blind',info.next?.name||info.next?.key);stat('Boss blind',info.boss?.name||info.boss?.key);
+ for(const b of info.choices||[]){
+  const p=panel(b.slot+' blind',b.status||'Unknown',false);
+  p.append(el('div',b.name||pretty(b.key),'blind-name'));
+  if(b.mult!==undefined)p.append(el('p','Base score multiplier: ×'+b.mult,'hint'));
+  if(b.dollars!==undefined)p.append(el('p','Base reward: $'+b.dollars,'hint'));
+  if(b.skip_tag)p.append(el('p','Skip tag: '+(b.skip_tag.name||pretty(b.skip_tag.key)),'hint'));
+ }
+}
 function render(){
  select();if(!snapshot||!usable||active==='raw')return;
  const s=snapshot;$('stats').replaceChildren();$('panels').replaceChildren();
@@ -102,6 +116,8 @@ function render(){
  p.append(el('div',s.blind?.name||'No active blind','blind-name'));
  const row=el('div',undefined,'blind-values');for(const [l,v] of [['Target score',s.blind?.chips],['Reward',s.blind?.dollars===undefined?undefined:'$'+s.blind.dollars],['Stake',s.run?.stake]]){const x=el('div');x.append(el('small',l),el('span',value(v)));row.append(x);}p.append(row);
  cards('Current hand',s.hand);cards('Jokers',s.jokers,false);cards('Consumables',s.consumables,false);
+ }else if(active==='blinds'){blindPanels(s);
+ }else if(active==='vouchers'){if(s.vouchers)cards('Redeemed vouchers',{cards:s.vouchers});else empty(panel('Redeemed vouchers'),'Waiting for voucher information','Restart Balatro with the latest observer.');
  }else if(active==='hand'){
  stat('Cards in hand',s.hand?.cards?.length);stat('Hand capacity',s.hand?.capacity);stat('Selected',s.hand?.cards?.filter(c=>c.selected).length);stat('Hands left',s.round?.hands_left);stat('Discards left',s.round?.discards_left);cards('Current hand',s.hand);
  }else if(active==='deck'){

@@ -37,8 +37,43 @@ return function(JSON)
         end
         return out
     end
+    -- Match the current-ante blind screen and Run Info voucher pool.
+    -- Read existing public definitions only; never call tag constructors or blind rollers.
+    local function run_info(G, game)
+        local resets = game.round_resets or {}
+        local blinds = {choices = JSON.array(), on_deck = scalar(game.blind_on_deck)}
+        for _, slot in ipairs({'Small', 'Big', 'Boss'}) do
+            local key = (resets.blind_choices or {})[slot]
+            local definition = (G.P_BLINDS or {})[key]
+            if type(key) == 'string' and type(definition) == 'table' then
+                local entry = fields(definition, {'name', 'mult', 'dollars'})
+                entry.key, entry.slot = key, slot
+                entry.status = scalar((resets.blind_states or {})[slot])
+                if slot ~= 'Boss' and not definition.unskippable then
+                    local tag_key = (resets.blind_tags or {})[slot]
+                    local tag = (G.P_TAGS or {})[tag_key]
+                    if type(tag_key) == 'string' and type(tag) == 'table' then
+                        entry.skip_tag = {key = tag_key, name = scalar(tag.name)}
+                    end
+                end
+                blinds.choices[#blinds.choices + 1] = entry
+                if slot == 'Boss' then blinds.boss = entry end
+                if not blinds.next and (entry.status == 'Select' or entry.status == 'Upcoming') then
+                    blinds.next = entry
+                end
+            end
+        end
+        local vouchers = JSON.array()
+        for _, definition in ipairs((G.P_CENTER_POOLS or {}).Voucher or {}) do
+            local key = definition.key
+            if type(key) == 'string' and (game.used_vouchers or {})[key] then
+                vouchers[#vouchers + 1] = {key = key, name = scalar(definition.name), set = 'Voucher', visible = true}
+            end
+        end
+        return blinds, vouchers
+    end
     local allowed = {'SELECTING_HAND', 'SHOP', 'BLIND_SELECT', 'ROUND_EVAL',
-        'TAROT_PACK', 'PLANET_PACK', 'SPECTRAL_PACK', 'STANDARD_PACK', 'BUFFOON_PACK', 'GAME_OVER'}
+        'TAROT_PACK', 'PLANET_PACK', 'SPECTRAL_PACK', 'STANDARD_PACK', 'BUFFOON_PACK', 'SMODS_BOOSTER_OPENED', 'GAME_OVER'}
     function M.snapshot(G)
         G = G or {}
         local phase = 'UNAVAILABLE'
@@ -52,6 +87,7 @@ return function(JSON)
         local game = G.GAME
         if not game or not game.current_round then return result end
         result.available = true
+        result.blinds, result.vouchers = run_info(G, game)
         result.run = fields(game, {'dollars', 'chips', 'round', 'stake'})
         result.round = fields(game.current_round, {'hands_left', 'discards_left', 'hands_played', 'discards_used'})
         result.round.ante = scalar((game.round_resets or {}).ante)
@@ -77,7 +113,7 @@ return function(JSON)
             result.shop = {cards = area(G.shop_jokers), vouchers = area(G.shop_vouchers),
                 boosters = area(G.shop_booster), reroll_cost = scalar(game.current_round.reroll_cost)}
         end
-        if phase:match('_PACK$') then
+        if phase:match('_PACK$') or phase == 'SMODS_BOOSTER_OPENED' then
             result.pack = {cards = area(G.pack_cards), choices_left = scalar(game.pack_choices)}
         end
         return result

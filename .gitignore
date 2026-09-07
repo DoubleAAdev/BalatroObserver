@@ -14,3 +14,6 @@ __pycache__/
 
 # Generated release archives
 /dist/
+
+# Local player-visible feature checklist
+/missing.txt

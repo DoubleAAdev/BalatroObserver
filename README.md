@@ -34,8 +34,10 @@ For in-process use, `BalatroObserver.snapshot()` returns a detached Lua table. `
 - `hand`, `jokers`, `consumables`: ordered area cards, capacity, current slot, selection, visible identity, edition, seal, costs and supported stickers. Face-down cards contain only `visible: false` and their slot.
 - `deck`: full deck-view composition in canonical order, draw-pile count and discard-pile count. Duplicates are retained. This is **not** an ordered draw pile or an exact remaining-card list. Composition never includes area membership, selection, transient debuffs or persistent card IDs. Full composition includes cards currently in hand, matching the full deck viewer; it cannot map a hidden hand slot to a card. Stone Cards omit their underlying rank and suit.
 - `poker_hands`: visible hand types with levels, chips, multiplier and play counts.
+- `blinds`: current-ante Small/Big/Boss definitions, public statuses, next and boss identities, and skip-tag identities. Base multipliers/rewards are definition values, not a prediction of final modified targets or payouts.
+- `vouchers`: acquired vouchers in the same registry order as Run Info, including starting vouchers.
 - `shop`: present only during SHOP; card, voucher and booster areas plus reroll cost. Booster contents are not inspected.
-- `pack`: present only during an opened pack phase; visible choices and remaining picks.
+- `pack`: present only during an opened pack phase (including Steamodded’s SMODS_BOOSTER_OPENED); visible choices and remaining picks.
 - `session`, `sequence`, `observed_at`: export metadata, unrelated to game RNG.
 - `mod_version`: the mod version loaded in Balatro, used to detect when a restart is needed.
 
@@ -45,7 +47,7 @@ Unknown scalar values are omitted. Arrays remain JSON arrays even when empty. Sc
 
 No seed, RNG state, future shops, unopened pack contents, draw order, internal card IDs, arbitrary `ability.extra`, callbacks, game actions or opponent state are exported. The collector does not call scoring, random, card tooltip or action functions. It does not modify game objects. Deck composition follows the full deck viewer in [Steamodded's source](https://github.com/Steamodded/smods/blob/main/src/overrides.lua).
 
-Dynamic joker tooltip values, custom editions/enhancements, tags, vouchers already redeemed, upcoming blind choices, and multiplayer HUD data need explicit visibility-reviewed adapters. They are not fully represented in this first schema. [Multiplayer's state](https://github.com/Balatro-Multiplayer/BalatroMultiplayer/blob/dev/core.lua) contains concealed opponent values and visibility settings, so copying it would be unsafe. Custom mods that alter visibility need separate verification. This mod does not establish multiplayer ruleset approval or guarantee compatibility with every mod version.
+Dynamic joker tooltip values, custom editions/enhancements, dynamic tag effects and multiplayer HUD data need explicit visibility-reviewed adapters. They are not fully represented in this first schema. [Multiplayer's state](https://github.com/Balatro-Multiplayer/BalatroMultiplayer/blob/dev/core.lua) contains concealed opponent values and visibility settings, so copying it would be unsafe. Custom mods that alter visibility need separate verification. This mod does not establish multiplayer ruleset approval or guarantee compatibility with every mod version.
 
 ## Validation
 
@@ -63,8 +65,10 @@ Viewer checks: `node --test tests/test_viewer.cjs`.
 
 ## Release versions and installation
 
-Current release: **0.2.2**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
+Current release: **0.3.0**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
 
 Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Restart its Node server if viewer-server.js changed.
 
 Release 0.2.1 removes buy/sell labels from displayed cards. Generated local artifacts are ignored; release changes are committed after validation and installation.
+
+Release 0.3.0 adds Blinds & tags and Vouchers sections and fixes opened-pack exports for Steamodded’s booster phase. Before each code update, the local missing.txt checklist is reviewed against collector and browser coverage.
