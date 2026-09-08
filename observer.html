@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Balatro Observer</title>
-<meta name="observer-version" content="0.7.4">
+<meta name="observer-version" content="0.7.5">
 <style>
 :root{color-scheme:dark;font-family:Inter,Segoe UI,system-ui,sans-serif;background:#101716;color:#edf1e9;--muted:#93a69b;--line:#2b3932;--gold:#e8c67c}
 *{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
@@ -72,7 +72,7 @@ footer a{color:#afc5b1;text-underline-offset:3px}
 <body>
 <aside class="sidebar"><div class="brand"><span class="logo">♠</span><div><strong>Balatro Observer</strong></div></div>
 <div class="nav-label">Your run</div><nav aria-label="Observer sections" id="nav"></nav>
-<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.7.4</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
+<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.7.5</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
 <main><header><div><div class="eyebrow">The table, at a glance</div><h1 id="title">Run overview</h1><p id="description"></p></div><button id="pause">Ⅱ Pause updates</button></header>
 <div class="statusbar"><span id="status" role="status">Connecting to observer…</span><span id="meta" class="meta"></span></div>
 <div id="waiting" class="panel"><div class="empty"><span class="empty-icon">♧</span><strong id="waiting-title">Waiting for the table</strong><span id="waiting-text">Your run will appear here when the observer sends a fresh snapshot.</span></div></div>
@@ -107,7 +107,13 @@ const sections={
  poker:['≋','Poker hands','Poker hands','Hand levels, scoring values, and play counts.'],
  raw:['⌘','Raw data','Under the hood','The latest snapshot, exactly as the observer exports it.']
 };
-let lastShop=null,shopSession=null,scoreLive=false;
+let lastShop=null,shopSession=null,scoreLive=false,lastScore=null,scoreSession=null,scoreHeld=false;
+function updateScore(s,stale){
+ if(s&&s.session!==scoreSession){lastScore=null;scoreSession=s.session;}
+ const selected=!stale&&s?.available&&s.phase==='SELECTING_HAND'&&(s.hand?.cards||[]).some(c=>c.selected);
+ scoreHeld=!selected;
+ if(selected)lastScore=ObserverScore.preview(s);
+}
 let active='overview',paused=false,busy=false,snapshot=null,usable=false,lastBody='';
 // Keep snapshot precision for calculations; round only displayed numeric values.
 const formatNumber=n=>Number.isFinite(n)&&!Number.isInteger(n)?n.toFixed(2):String(n);
@@ -267,7 +273,8 @@ function blindPanels(s){
 }
 function scorePanel(s){
  const p=panel('Selected hand score','Balatro Calculator');p.id='score-preview';
- const prediction=scoreLive?ObserverScore.preview(s):{message:'Waiting for a fresh playable snapshot.'};
+ const prediction=lastScore||{message:'Select cards in Balatro to preview their score.'};
+ if(scoreHeld&&lastScore)p.append(el('p','Last selected hand · kept until you select another hand','hint'));
  if(prediction.message){p.append(el('p',prediction.message,'hint'));return;}
  const format=score=>{const n=score[0]*10**score[1];return Number.isFinite(n)&&n<1e15?Math.floor(n+1e-7).toLocaleString():score[0].toFixed(2)+'e'+score[1];};
  const low=format(prediction.low),high=format(prediction.high);
@@ -322,6 +329,7 @@ async function tick(){
  // A new game session must never inherit the previous session's preview.
  const previous=snapshot,previousScoreLive=scoreLive;
  scoreLive=!!s?.available&&!stale;
+ updateScore(s,stale);
  if(s&&s.session!==shopSession){lastShop=null;shopSession=s.session;}
  if(s?.available&&s.shop)lastShop={shop:s.shop,observed_at:s.observed_at};
  if(s&&snapshot&&s.session!==snapshot.session)snapshot=null;
@@ -336,7 +344,7 @@ async function tick(){
  else{status('Waiting for observer',true);$('waiting-title').textContent='Waiting for the table';$('waiting-text').textContent='Your first available snapshot will appear here automatically.';}
  const {sequence,observed_at,...body}=snapshot||{};const next=JSON.stringify(body);
  if(next!==lastBody||!previous!==!snapshot||previousScoreLive!==scoreLive){render();lastBody=next;}else select();
- }catch(e){if(!paused){scoreLive=false;usable=!!snapshot;render();counts(snapshot);showVersion(snapshot,true);status(snapshot?'Connection interrupted · keeping last preview':'Connection unavailable',true);$('waiting-title').textContent='Waiting for connection';$('waiting-text').textContent=e.message;select();}}
+ }catch(e){if(!paused){scoreLive=false;scoreHeld=true;usable=!!snapshot;render();counts(snapshot);showVersion(snapshot,true);status(snapshot?'Connection interrupted · keeping last preview':'Connection unavailable',true);$('waiting-title').textContent='Waiting for connection';$('waiting-text').textContent=e.message;select();}}
  finally{busy=false;}
 }
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'▶ Resume updates':'Ⅱ Pause updates';if(paused)status('Updates paused · frozen snapshot',true);else tick();};
