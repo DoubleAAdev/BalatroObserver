@@ -1,90 +1,9 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Balatro Observer v0.8.0</title>
-<meta name="observer-version" content="0.8.0">
-<style>
-:root{color-scheme:dark;font-family:Inter,Segoe UI,system-ui,sans-serif;background:#101716;color:#edf1e9;--muted:#93a69b;--line:#2b3932;--gold:#e8c67c}
-*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
-.sidebar{position:fixed;inset:0 auto 0 0;width:240px;background:#141e1a;border-right:1px solid var(--line);padding:32px 20px;display:flex;flex-direction:column;z-index:2}
-.brand{display:flex;align-items:center;gap:12px;margin:0 10px 42px}.logo{display:grid;place-items:center;width:39px;height:46px;background:var(--gold);color:#202a22;border-radius:7px;transform:rotate(-8deg);font-size:28px}.brand strong{font-size:18px;letter-spacing:1px}.brand small{display:block;color:var(--muted);font-size:10px;letter-spacing:3px;margin-top:5px}
-.nav-label,.eyebrow{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}.nav-label{padding:0 14px;margin-bottom:12px}
-nav{display:grid;gap:5px}nav button{display:flex;align-items:center;gap:12px;border:1px solid transparent;background:transparent;color:#a9b8af;text-align:left;padding:12px 14px;border-radius:8px;font-size:13px}
-nav button:hover{background:#1e2d25;color:white}nav button[aria-current=page]{background:#2c392a;border-color:#47553a;color:#f3dca2}nav .icon{width:20px;font-size:19px;text-align:center}nav .count{margin-left:auto;font:11px ui-monospace,monospace;opacity:.7}
-.sidebar-foot{margin-top:auto;padding:24px 12px 0;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.9}.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#91bd91;margin-right:7px}
-main{margin-left:240px;max-width:1740px;padding:36px 44px}
-header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:30px}h1{font-family:Georgia,serif;font-size:38px;letter-spacing:-1px;font-weight:normal;margin:8px 0 10px}#description{font-size:13px;color:var(--muted);margin:0;line-height:1.7}
-#pause{background:#1d2a23;color:#d6dfd5;border:1px solid #38493d;padding:10px 16px;border-radius:7px;font-size:12px;white-space:nowrap}
-.statusbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:13px 0;margin-bottom:26px;font-size:11px;color:var(--muted)}
-#status{color:#a9cfa8}#status[data-kind=bad]{color:#e8c67c}.meta{font:11px ui-monospace,monospace}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:24px}
-.stat{background:linear-gradient(135deg,#1e2b23,#19231f);border:1px solid var(--line);border-radius:10px;padding:20px}.stat b{display:block;font-size:29px;font-weight:500;margin-top:12px;font-variant-numeric:tabular-nums}.stat:first-child b{color:var(--gold)}.stat span{color:var(--muted);font-size:11px}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.wide{grid-column:1/-1}
-.panel{background:#17211c;border:1px solid var(--line);border-radius:12px;padding:24px;min-width:0}
-.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}h2{font-weight:500;font-size:15px;margin:0}.pill{font:11px ui-monospace,monospace;color:var(--gold);background:#30372a;border:1px solid #444b34;padding:5px 9px;border-radius:20px}.hint{color:var(--muted);font-size:12px;line-height:1.8;margin:16px 0 0}
-.cards{display:flex;gap:14px;flex-wrap:wrap;padding-top:5px}.card{position:relative;display:flex;flex-direction:column;gap:7px;background:linear-gradient(145deg,#f3eedf,#dcd8c9);color:#26332e;border-radius:9px;padding:12px;width:126px;min-height:174px;box-shadow:0 5px 0 #080d0b55,0 7px 18px #0002;border:2px solid #f4f0e2;overflow-wrap:anywhere}
-.card.selected{border-color:var(--gold);box-shadow:0 0 0 2px #a98e4b,0 10px 22px #0004;transform:translateY(-5px)}.card.hidden{background:repeating-linear-gradient(45deg,#2a4e45,#2a4e45 5px,#224137 5px,#224137 10px);border-color:#668472;color:#dce8dc}
-.card.special{background:linear-gradient(145deg,#344a3b,#23362c);border-color:#5e7560;color:#e7e9d2}
-.corner{font-family:Georgia,serif;font-size:18px;font-weight:bold}.suit{font-family:Georgia,serif;font-size:47px;text-align:center;line-height:1.2;margin:3px 0}.card-name{font-size:12px;font-weight:600;line-height:1.45}.card small{font-size:10px;line-height:1.5;opacity:.8}.card .tags{margin-top:auto;font-size:9px;line-height:1.7}.red{color:#b34c4c}
-.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:170px;text-align:center;color:var(--muted);gap:12px;width:100%;font-size:13px;line-height:1.8}.empty-icon{font-family:Georgia,serif;font-size:35px;color:#617966}.empty strong{color:#d5ded1;font-size:17px;font-weight:500}
-table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;padding:13px 12px;border-bottom:1px solid var(--line);white-space:nowrap}th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:500}td:nth-child(3){color:#8bb8d4}td:nth-child(4){color:#dc9090}tr:last-child td{border-bottom:0}
-.scroll{overflow:auto}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 ui-monospace,monospace;color:#b7cdbb;max-height:70vh;overflow:auto}summary{cursor:pointer;font-size:13px}footer{color:#708579;font-size:11px;line-height:1.8;margin:28px 0}
-[hidden]{display:none!important}.blind-name{font-family:Georgia,serif;font-size:28px;margin:10px 0 20px;color:var(--gold)}.blind-values{display:flex;gap:35px;color:#c1cfc2;font-size:13px}.blind-values small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px}
-@media(min-width:1400px){.card{width:138px;min-height:185px}}
-@media(max-width:1000px){.sidebar{width:200px;padding:25px 12px}main{margin-left:200px;padding:28px 24px}.grid{grid-template-columns:1fr}}
-@media(max-width:700px){.sidebar{position:static;width:auto;padding:18px;border-right:0;border-bottom:1px solid var(--line)}.brand{margin:0 0 20px}.nav-label{display:none}.sidebar-foot{margin-top:12px;padding:8px 0 0;display:flex;gap:8px;flex-wrap:wrap}.sidebar-foot br{display:none}nav{display:flex;overflow:auto;gap:6px;padding-bottom:4px}nav button{white-space:nowrap;padding:9px 12px}nav .count{display:none}main{margin:0;padding:24px 18px}h1{font-size:31px}header{align-items:flex-start}.panel{padding:18px}.cards{gap:10px}.card{width:calc(50% - 5px);max-width:150px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.sortbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:22px;font-size:12px;color:var(--muted)}.sortbar select{background:#1d2a23;color:#e8eadf;border:1px solid var(--line);padding:9px;border-radius:7px}.sortbar .hint{margin:0}.card.with-description{width:235px;max-width:100%;min-height:220px}.card .description{font-size:12px;line-height:1.65;opacity:1}.card .description-note{font-size:10px;color:#d8bd7d}
+// Balatro Observer dashboard. Polls /state every 200 ms and renders one section at a time.
+// Snapshot values are only ever inserted as text nodes; no snapshot data becomes markup, a URL or CSS.
+// Loaded after: /assets/wiki-art.js (WIKI_ART, WIKI_KEYS), the calculator engine, /score-preview.js (ObserverScore)
+// and /joker-sprites.js (JOKER_SPRITES).
 
-/* One row per suit, as in the game's deck viewer. Overflow stays inside the mat. */
-.deck-mat{overflow-x:auto;padding:20px 12px 24px;background:radial-gradient(ellipse at top,#36524c,#223a34);border:1px solid #496158;border-radius:10px}
-.deck-suit-row{display:flex;align-items:center;min-width:max-content;gap:12px;margin-bottom:8px}
-.deck-suit-row:last-child{margin-bottom:0}
-.deck-suit-label{width:40px;flex:none;text-align:center;color:#e5eadd}
-.deck-suit-label b{display:block;font:27px Georgia,serif}.deck-suit-label small{font:11px ui-monospace,monospace;color:#b5c5b7}
-.deck-fan{display:flex;align-items:center;min-height:154px;padding:10px 5px}
-.deck-card{--ink:#243c38;position:relative;flex:0 0 96px;width:96px;height:140px;background:#faf9f2;color:var(--ink);border:1px solid #a9b5ae;border-radius:6px;box-shadow:0 4px 6px #0a171b55;transition:transform .15s;outline-offset:3px}
-.deck-card+.deck-card{margin-left:-24px}
-.deck-card:hover,.deck-card:focus-visible{transform:translateY(-12px);z-index:3;outline:2px solid var(--gold)}
-.deck-card[data-suit=Hearts]{--ink:#ce3039}.deck-card[data-suit=Clubs]{--ink:#087fc0}.deck-card[data-suit=Diamonds]{--ink:#cf8000}
-.deck-row-empty{color:#b2c5b7;font-size:12px;padding:30px 12px;min-height:154px;display:flex;align-items:center}
-.deck-mat::-webkit-scrollbar{height:9px}.deck-mat::-webkit-scrollbar-thumb{background:#687f6b;border-radius:9px}
-@media(prefers-reduced-motion:reduce){.deck-card{transition:none}}
-
-/* Pixel sprites and edition compositing adapted from Balatro Calculator; see credits. */
-.card-art{position:relative;isolation:isolate;flex:none;width:106.5px;height:142.5px;image-rendering:pixelated;filter:drop-shadow(0 3px 2px #0004)}
-.sprite-layer,.art-face{position:absolute;inset:0;display:block;background-repeat:no-repeat;image-rendering:pixelated}
-.art-face{z-index:0}.art-finish{z-index:1;mask-mode:alpha;mask-repeat:no-repeat}
-.art-polychrome{mix-blend-mode:color}.art-negative{filter:invert(1) hue-rotate(180deg)}
-.art-debuff{z-index:2}.art-seal{z-index:3;pointer-events:none}
-.art-fallback{position:absolute;inset:0;display:grid;place-items:center;font:42px Georgia,serif;color:#344d48}
-.card>.card-art{align-self:center;margin:0 0 6px}
-.card.hidden{background:#233b3a}.card.special{background:linear-gradient(145deg,#344a3b,#23362c)}
-.deck-card{height:128.45px;border:0;border-radius:0;background:transparent;box-shadow:none}
-.deck-card>.card-art{width:96px;height:128.45px}
-.deck-fan,.deck-row-empty{min-height:145px}
-footer a{color:#afc5b1;text-underline-offset:3px}
-@media(max-width:700px){.card>.card-art{width:99.4px;height:133px}}
-.wiki-card{width:100%;height:100%;object-fit:fill;image-rendering:pixelated}.blind-art{width:84px;height:84px;object-fit:contain;image-rendering:pixelated;float:right;margin:0 0 15px 20px}.stake-art{display:inline-block;width:30px;height:30px;object-fit:contain;vertical-align:middle;margin-left:10px;image-rendering:pixelated}
-.card>.booster-art{height:auto;aspect-ratio:114/186}.card.booster-card{min-height:230px}.booster-art .wiki-card{object-fit:contain}
-.predicted-score{font-size:38px;color:var(--gold);font-variant-numeric:tabular-nums}#score-preview a{display:inline-block;margin-top:12px;color:#afc5b1;font-size:12px}.brand strong{font-size:17px;letter-spacing:0}
-</style></head>
-<body>
-<aside class="sidebar"><div class="brand"><span class="logo">♠</span><div><strong>Balatro Observer</strong></div></div>
-<div class="nav-label">Your run</div><nav aria-label="Observer sections" id="nav"></nav>
-<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.8.0</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
-<main><header><div><div class="eyebrow">The table, at a glance</div><h1 id="title">Run overview</h1><p id="description"></p></div><button id="pause">Ⅱ Pause updates</button></header>
-<div class="statusbar"><span id="status" role="status">Connecting to observer…</span><span id="meta" class="meta"></span></div>
-<div id="waiting" class="panel"><div class="empty"><span class="empty-icon">♧</span><strong id="waiting-title">Waiting for the table</strong><span id="waiting-text">Your run will appear here when the observer sends a fresh snapshot.</span></div></div>
-<div class="sortbar"><label for="sort">Sort cards</label><select id="sort"><option value="original">Game / canonical order</option><option value="rank-desc">Rank: high to low</option><option value="rank-asc">Rank: low to high</option><option value="suit">Suit, then rank</option><option value="name">Name</option></select><span class="hint">Viewer only · game order is unchanged</span></div>
-<div id="content" hidden><div id="stats" class="stats"></div><div id="panels" class="grid"></div></div>
-<div id="raw-view" hidden><details class="panel" open><summary>Latest raw snapshot</summary><pre id="raw">Waiting for data.</pre></details><p id="source" class="hint"></p></div>
-<footer>Live snapshots · Hidden cards stay hidden · Missing values appear as —<br>Card sprites and edition rendering adapted from <a href="https://efhiii.github.io/balatro-calculator/" target="_blank" rel="noopener noreferrer">Balatro Calculator by Saffron Haas (efhiii)</a> · <a href="/credits" target="_blank" rel="noopener">Credits &amp; license</a><br>Additional artwork from <a href="https://balatrowiki.org/" target="_blank" rel="noopener noreferrer">Balatro Wiki</a> · Original game art © its respective owners</footer></main>
-<script src="/assets/wiki-art.js"></script>
-<script src="/assets/calculator/balatro-sim.js"></script>
-<script src="/assets/calculator/joker-ids.js"></script>
-<script src="/score-preview.js"></script>
-<script>
+// ---- Version and status labels ----
 const $=id=>document.getElementById(id);
 const viewerVersion=document.querySelector('meta[name=observer-version]').content;
 // Snapshot metadata identifies the mod loaded by Balatro, even before a restart.
@@ -94,6 +13,8 @@ function showVersion(s,stale){
  $('version-note').textContent=!s?'Waiting for game':!version?'Restart Balatro to load v'+viewerVersion:version!==viewerVersion?'Version mismatch — restart Balatro':stale?'Waiting for fresh export':'Versions match';
 }
 
+
+// ---- Navigation sections: id -> [icon, nav label, page title, description] ----
 const sections={
  overview:['◈','Overview','Run overview','A little perspective before your next big hand.'],
  blinds:['◉','Blinds & tags','Blinds & skip tags','Current-ante blind choices, the next blind, the boss, and visible skip rewards.'],
@@ -107,6 +28,8 @@ const sections={
  poker:['≋','Poker hands','Poker hands','Hand levels, scoring values, and play counts.'],
  raw:['⌘','Raw data','Under the hood','The latest snapshot, exactly as the observer exports it.']
 };
+
+// ---- Score preview state (kept until another hand is selected; cleared on a new session) ----
 let lastShop=null,shopSession=null,scoreLive=false,lastScore=null,scoreSession=null,scoreHeld=false;
 function updateScore(s,stale){
  if(s&&s.session!==scoreSession){lastScore=null;scoreSession=s.session;}
@@ -114,6 +37,8 @@ function updateScore(s,stale){
  scoreHeld=!selected;
  if(selected)lastScore=ObserverScore.preview(s);
 }
+
+// ---- Formatting and DOM helpers ----
 let active='overview',paused=false,busy=false,snapshot=null,usable=false,lastBody='';
 // Keep snapshot precision for calculations; round only displayed numeric values.
 const formatNumber=n=>Number.isFinite(n)&&!Number.isInteger(n)?n.toFixed(2):String(n);
@@ -131,6 +56,8 @@ $('raw-view').hidden=active!=='raw';$('content').hidden=active==='raw'||!usable;
 function panel(title,badge,wide=true){const p=el('section',undefined,'panel'+(wide?' wide':'')),head=el('div',undefined,'panel-head');head.append(el('h2',title));if(badge!==undefined)head.append(el('span',badge,'pill'));p.append(head);$('panels').append(p);return p;}
 function empty(p,title,detail,icon='♧'){const e=el('div',undefined,'empty');e.append(el('span',icon,'empty-icon'),el('strong',title),el('span',detail));p.append(e);}
 function stat(label,v){const box=el('div',undefined,'stat');box.append(el('span',label),el('b',value(v)));$('stats').append(box);}
+
+// ---- Viewer-only card sorting (never changes the export) ----
 let sortMode='original';
 try{sortMode=localStorage.getItem('observer-sort')||'original';}catch{}
 if(!['original','rank-desc','rank-asc','suit','name'].includes(sortMode))sortMode='original';
@@ -152,7 +79,7 @@ function sortedCards(list){
 }
 // Adapted from efhiii/balatro-calculator (MIT): enhancement → face → edition → seal.
 // Atlas coordinates are local constants; snapshot data never becomes a URL or CSS string.
-const JOKER_SPRITES={"j_joker":{"x":0,"y":0},"j_greedy_joker":{"x":6,"y":1},"j_lusty_joker":{"x":7,"y":1},"j_wrathful_joker":{"x":8,"y":1},"j_gluttenous_joker":{"x":9,"y":1},"j_jolly":{"x":2,"y":0},"j_zany":{"x":3,"y":0},"j_mad":{"x":4,"y":0},"j_crazy":{"x":5,"y":0},"j_droll":{"x":6,"y":0},"j_sly":{"x":0,"y":14},"j_wily":{"x":1,"y":14},"j_clever":{"x":2,"y":14},"j_devious":{"x":3,"y":14},"j_crafty":{"x":4,"y":14},"j_half":{"x":7,"y":0},"j_stencil":{"x":2,"y":5},"j_four_fingers":{"x":6,"y":6},"j_mime":{"x":4,"y":1},"j_credit_card":{"x":5,"y":1},"j_ceremonial":{"x":5,"y":5},"j_banner":{"x":1,"y":2},"j_mystic_summit":{"x":2,"y":2},"j_marble":{"x":3,"y":2},"j_loyalty_card":{"x":4,"y":2},"j_8_ball":{"x":0,"y":5},"j_misprint":{"x":6,"y":2},"j_dusk":{"x":4,"y":7},"j_raised_fist":{"x":8,"y":2},"j_chaos":{"x":1,"y":0},"j_fibonacci":{"x":1,"y":5},"j_steel_joker":{"x":7,"y":2},"j_scary_face":{"x":2,"y":3},"j_abstract":{"x":3,"y":3},"j_delayed_grat":{"x":4,"y":3},"j_hack":{"x":5,"y":2},"j_pareidolia":{"x":6,"y":3},"j_gros_michel":{"x":7,"y":6},"j_even_steven":{"x":8,"y":3},"j_odd_todd":{"x":9,"y":3},"j_scholar":{"x":0,"y":4},"j_business":{"x":1,"y":4},"j_supernova":{"x":2,"y":4},"j_ride_the_bus":{"x":1,"y":6},"j_space":{"x":3,"y":5},"j_egg":{"x":0,"y":10},"j_burglar":{"x":1,"y":10},"j_blackboard":{"x":2,"y":10},"j_runner":{"x":3,"y":10},"j_ice_cream":{"x":4,"y":10},"j_dna":{"x":5,"y":10},"j_splash":{"x":6,"y":10},"j_blue_joker":{"x":7,"y":10},"j_sixth_sense":{"x":8,"y":10},"j_constellation":{"x":9,"y":10},"j_hiker":{"x":0,"y":11},"j_faceless":{"x":1,"y":11},"j_green_joker":{"x":2,"y":11},"j_superposition":{"x":3,"y":11},"j_todo_list":{"x":4,"y":11},"j_cavendish":{"x":5,"y":11},"j_card_sharp":{"x":6,"y":11},"j_red_card":{"x":7,"y":11},"j_madness":{"x":8,"y":11},"j_square":{"x":9,"y":11},"j_seance":{"x":0,"y":12},"j_riff_raff":{"x":1,"y":12},"j_vampire":{"x":2,"y":12},"j_shortcut":{"x":3,"y":12},"j_hologram":{"x":4,"y":12,"soul":[2,9]},"j_vagabond":{"x":5,"y":12},"j_baron":{"x":6,"y":12},"j_cloud_9":{"x":7,"y":12},"j_rocket":{"x":8,"y":12},"j_obelisk":{"x":9,"y":12},"j_midas_mask":{"x":0,"y":13},"j_luchador":{"x":1,"y":13},"j_photograph":{"x":2,"y":13},"j_gift":{"x":3,"y":13},"j_turtle_bean":{"x":4,"y":13},"j_erosion":{"x":5,"y":13},"j_reserved_parking":{"x":6,"y":13},"j_mail":{"x":7,"y":13},"j_to_the_moon":{"x":8,"y":13},"j_hallucination":{"x":9,"y":13},"j_fortune_teller":{"x":7,"y":5},"j_juggler":{"x":0,"y":1},"j_drunkard":{"x":1,"y":1},"j_stone":{"x":9,"y":0},"j_golden":{"x":9,"y":2},"j_lucky_cat":{"x":5,"y":14},"j_baseball":{"x":6,"y":14},"j_bull":{"x":7,"y":14},"j_diet_cola":{"x":8,"y":14},"j_trading":{"x":9,"y":14},"j_flash":{"x":0,"y":15},"j_popcorn":{"x":1,"y":15},"j_trousers":{"x":4,"y":15},"j_ancient":{"x":7,"y":15},"j_ramen":{"x":2,"y":15},"j_walkie_talkie":{"x":8,"y":15},"j_selzer":{"x":3,"y":15},"j_castle":{"x":9,"y":15},"j_smiley":{"x":6,"y":15},"j_campfire":{"x":5,"y":15},"j_ticket":{"x":5,"y":3},"j_mr_bones":{"x":3,"y":4},"j_acrobat":{"x":2,"y":1},"j_sock_and_buskin":{"x":3,"y":1},"j_swashbuckler":{"x":9,"y":5},"j_troubadour":{"x":0,"y":2},"j_certificate":{"x":8,"y":8},"j_smeared":{"x":4,"y":6},"j_throwback":{"x":5,"y":7},"j_hanging_chad":{"x":9,"y":6},"j_rough_gem":{"x":9,"y":7},"j_bloodstone":{"x":0,"y":8},"j_arrowhead":{"x":1,"y":8},"j_onyx_agate":{"x":2,"y":8},"j_glass":{"x":1,"y":3},"j_ring_master":{"x":6,"y":5},"j_flower_pot":{"x":0,"y":6},"j_blueprint":{"x":0,"y":3},"j_wee":{"x":0,"y":0},"j_merry_andy":{"x":8,"y":0},"j_oops":{"x":5,"y":6},"j_idol":{"x":6,"y":7},"j_seeing_double":{"x":4,"y":4},"j_matador":{"x":4,"y":5},"j_hit_the_road":{"x":8,"y":5},"j_duo":{"x":5,"y":4},"j_trio":{"x":6,"y":4},"j_family":{"x":7,"y":4},"j_order":{"x":8,"y":4},"j_tribe":{"x":9,"y":4},"j_stuntman":{"x":8,"y":6},"j_invisible":{"x":1,"y":7},"j_brainstorm":{"x":7,"y":7},"j_satellite":{"x":8,"y":7},"j_shoot_the_moon":{"x":2,"y":6},"j_drivers_license":{"x":0,"y":7},"j_cartomancer":{"x":7,"y":3},"j_astronomer":{"x":2,"y":7},"j_burnt":{"x":3,"y":7},"j_bootstraps":{"x":9,"y":8},"j_caino":{"x":3,"y":8,"soul":[3,9]},"j_triboulet":{"x":4,"y":8,"soul":[4,9]},"j_yorick":{"x":5,"y":8,"soul":[5,9]},"j_chicot":{"x":6,"y":8,"soul":[6,9]},"j_perkeo":{"x":7,"y":8,"soul":[7,9]}};
+// JOKER_SPRITES (atlas coordinates) is loaded from /joker-sprites.js.
 const ENHANCEMENTS={m_bonus:[1,1],m_mult:[2,1],m_wild:[3,1],m_lucky:[4,1],m_glass:[5,1],m_steel:[6,1],m_stone:[5,0],m_gold:[6,0]};
 const SEALS={Gold:[2,0],Purple:[4,4],Red:[5,4],Blue:[6,4]};
 const EDITIONS={foil:1,holo:2,polychrome:3};
@@ -206,6 +133,8 @@ function cardArtwork(c){
  if(SEALS[c.seal]){const stamp=atlasLayer('enhancement',...SEALS[c.seal],'art-seal');stamp.dataset.seal=c.seal;art.append(stamp);}
  return art;
 }
+
+// ---- Card area panels ----
 function cards(title,area,wide=true){
  const list=area?.cards||[],p=panel(title,list.length+(area?.capacity!==undefined?' / '+area.capacity:' cards'),wide);
  if(!list.length){empty(p,'Nothing here yet','Cards will appear automatically when this area is populated.');return;}
@@ -226,6 +155,8 @@ function cards(title,area,wide=true){
  for(const [k,v] of Object.entries(c.stickers||{}))if(v!==false&&v!=null)labels.push(v===true?pretty(k):pretty(k)+': '+v);
  if(labels.length)box.append(el('small',labels.join(' · '),'tags'));
  }}
+
+// ---- Deck views: one overlapping row per suit, Ace to 2, like the in-game deck viewer ----
 const deckSuits=['Spades','Hearts','Clubs','Diamonds'];
 const deckSymbols={Spades:'♠',Hearts:'♥',Clubs:'♣',Diamonds:'♦'};
 const deckRank=c=>({Ace:14,King:13,Queen:12,Jack:11}[c.rank]||Number(c.rank)||0);
@@ -258,6 +189,8 @@ function deckRows(title,list){
  if(!group.length)fan.append(el('span','No cards in '+suit.toLowerCase(),'deck-row-empty'));
  }
 }
+
+// ---- Section renderers ----
 function blindPanels(s){
  const info=s.blinds;
  if(!info){empty(panel('Blinds & skip tags'),'Waiting for blind information','Restart Balatro with the latest observer to export the current ante.');return;}
@@ -283,6 +216,8 @@ function scorePanel(s){
  p.append(el('p','Uses your current card and joker order. Calculator estimates may differ with modded effects or blind rules.','hint'));
  const credit=el('a','Powered by Balatro Calculator');credit.href='https://efhiii.github.io/balatro-calculator/';credit.target='_blank';credit.rel='noopener noreferrer';p.append(credit);
 }
+
+// ---- Main render: rebuilds the active section from the current snapshot ----
 function render(){
  select();if(!snapshot||!usable||active==='raw')return;
  const s=snapshot;$('stats').replaceChildren();$('panels').replaceChildren();
@@ -318,11 +253,13 @@ function render(){
  }
  $('stats').hidden=!$('stats').children.length;
 }
+
+// ---- Polling: keep the last good preview through animations and stale exports ----
 function counts(s){for(const [id,n] of Object.entries({hand:s?.hand?.cards?.length,deck:s?.deck?.cards?.length,inventory:s?.jokers?.cards?.length,shop:s?.shop?.cards?.cards?.length,pack:s?.pack?.cards?.cards?.length})){$('nav-'+id).querySelector('.count').textContent=usable?value(n):'';}}
 async function tick(){
  if(paused||busy)return;busy=true;
  try{
- if(location.protocol==='file:')throw new Error('Run node viewer-server.js and open http://127.0.0.1:8765 for live updates.');
+ if(location.protocol==='file:')throw new Error('Open the dashboard from start-viewer.cmd or the in-game mod settings; a file:// page cannot receive live updates.');
  const r=await fetch('/state',{cache:'no-store',signal:AbortSignal.timeout(2000)});if(!r.ok)throw new Error('Viewer server returned '+r.status);
  const {state:s,stale,directory}=await r.json();if(paused)return;
  // Keep the display stable during animations; raw data always shows the newest record.
@@ -349,4 +286,3 @@ async function tick(){
 }
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'▶ Resume updates':'Ⅱ Pause updates';if(paused)status('Updates paused · frozen snapshot',true);else tick();};
 select();tick();setInterval(tick,200);
-</script></body></html>

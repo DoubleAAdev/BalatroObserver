@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
-const {createServer}=require('../viewer-server');
+const {createServer}=require('../server/viewer-server');
 (async()=>{
  const server=createServer('.');await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const browser=await chromium.launch({headless:true,...(process.env.BROWSER_EXECUTABLE?{executablePath:process.env.BROWSER_EXECUTABLE}:{})});
@@ -13,7 +13,7 @@ const {createServer}=require('../viewer-server');
   for(const key of keys)for(const edition of editions)for(const seal of seals)matrix.push({
    visible:true,rank:key==='m_stone'?undefined:'Jack',suit:key==='m_stone'?undefined:'Spades',key,seal,edition:edition?{[edition]:true}:{}
   });
-  let payload={state:{schema_version:1,available:true,session:'art-test',sequence:1,observed_at:Math.floor(Date.now()/1000),phase:'SELECTING_HAND',mod_version:'0.8.0',
+  let payload={state:{schema_version:1,available:true,session:'art-test',sequence:1,observed_at:Math.floor(Date.now()/1000),phase:'SELECTING_HAND',mod_version:'1.0.0',
    hand:{cards:matrix.slice(0,25)}},stale:false,directory:'fixture'};
   await page.route('**/state',r=>r.fulfill({json:payload}));
   await page.goto('http://127.0.0.1:'+server.address().port);

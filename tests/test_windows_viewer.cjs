@@ -15,7 +15,7 @@ function run(args){return new Promise((resolve,reject)=>{let output='';const chi
  const socket=net.createServer();await new Promise(r=>socket.listen(0,'127.0.0.1',r));const port=socket.address().port;await new Promise(r=>socket.close(r));
  const base='http://127.0.0.1:'+port;
  let output='',browser;
- const child=spawn(powershell,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(root,'start-viewer.ps1'),'-Server','-StateDirectory',dir,'-Port',String(port)],{env:cleanEnv,windowsHide:true});
+ const child=spawn(powershell,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(root,'server/start-viewer.ps1'),'-Server','-StateDirectory',dir,'-Port',String(port)],{env:cleanEnv,windowsHide:true});
  child.stderr.on('data',s=>output+=s);
  try {
   let health;for(let i=0;i<100;i++){try{health=await(await fetch(base+'/health')).json();break;}catch{await new Promise(r=>setTimeout(r,100));}}
@@ -30,18 +30,18 @@ function run(args){return new Promise((resolve,reject)=>{let output='';const chi
   await put(1,{...state,observed_at:1,sequence:1000});await put(0,{...state,observed_at:2});
   assert.equal((await(await fetch(base+'/state')).json()).stale,true);
   await put(1,{...state,observed_at:'invalid'});await put(0,state);
-  for(const route of ['/credits','/assets/8BitDeck_opt2.png','/assets/Enhancers.png','/assets/Editions.png','/assets/Jokers.png','/assets/wiki-art.js','/score-preview.js','/assets/calculator/balatro-sim.js','/assets/calculator/joker-ids.js',...require('../assets/wiki-art.json').map(x=>'/'+x.file)]) {
+  for(const route of ['/credits','/observer.html','/observer.css','/observer.js','/joker-sprites.js','/assets/8BitDeck_opt2.png','/assets/Enhancers.png','/assets/Editions.png','/assets/Jokers.png','/assets/wiki-art.js','/score-preview.js','/assets/calculator/balatro-sim.js','/assets/calculator/joker-ids.js',...require('../assets/wiki-art.json').map(x=>'/'+x.file)]) {
    const response=await fetch(base+route);assert.equal(response.status,200,route);assert.ok((await response.arrayBuffer()).byteLength>0,route);
   }
-  for(const route of ['/missing.txt','/main.lua','/BalatroObserver.json','/%2e%2e%2fmissing.txt']) assert.equal((await fetch(base+route)).status,404,route);
+  for(const route of ['/missing.txt','/main.lua','/BalatroObserver.json','/mod/observer.lua','/server/viewer-server.cs','/scripts/sync-mod.ps1','/%2e%2e%2fmissing.txt']) assert.equal((await fetch(base+route)).status,404,route);
   assert.equal((await fetch(base+'/state',{method:'POST'})).status,405);
   const statusFile=path.join(dir,'status.txt');
-  const reuse=await run(['-File',path.join(root,'start-viewer.ps1'),'-NoOpen','-Port',String(port),'-Request','test-request','-StatusFile',statusFile]);
+  const reuse=await run(['-File',path.join(root,'server/start-viewer.ps1'),'-NoOpen','-Port',String(port),'-Request','test-request','-StatusFile',statusFile]);
   assert.equal(reuse.code,0,reuse.output);assert.equal(await fs.readFile(statusFile,'utf8'),'test-request:ready');
   const unrelated=require('node:http').createServer((req,res)=>res.end(JSON.stringify({app:'BalatroObserver',version:'0.1.0'})));
   await new Promise(r=>unrelated.listen(0,'127.0.0.1',r));
   try {
-   const occupied=await run(['-File',path.join(root,'start-viewer.ps1'),'-NoOpen','-Port',String(unrelated.address().port),'-Request','occupied','-StatusFile',statusFile]);
+   const occupied=await run(['-File',path.join(root,'server/start-viewer.ps1'),'-NoOpen','-Port',String(unrelated.address().port),'-Request','occupied','-StatusFile',statusFile]);
    assert.notEqual(occupied.code,0);assert.match(occupied.output,/occupied/);
    assert.equal(await fs.readFile(statusFile,'utf8'),'occupied:error');
    assert.equal((await fetch('http://127.0.0.1:'+unrelated.address().port)).status,200);
@@ -56,7 +56,7 @@ function run(args){return new Promise((resolve,reject)=>{let output='';const chi
   await page.locator('#nav-hand').click();assert.match(await page.locator('#panels').textContent(),/Face down/);
   await put(0,{...state,sequence:3,mod_version:version,hand:{cards:[{visible:true,rank:'Ace',suit:'Spades',key:'c_base'}]},observed_at:Date.now()/1000});
   await page.waitForFunction(()=>document.querySelector('#panels').textContent.includes('Ace'));
-  await page.screenshot({path:path.join(root,'.test-runtime/windows-viewer-080.png'),fullPage:true});
+  await page.screenshot({path:path.join(root,'.test-runtime/windows-viewer-100.png'),fullPage:true});
   assert.deepEqual(errors,[]);
   console.log('PASS: Windows server without Node on PATH; raw snapshot preservation, incomplete slots, unavailable/latest/stale records, all asset routes, private path rejection, launcher reuse and readiness, Chromium live updates, redaction and version mismatch.');
  } finally {if(browser)await browser.close();child.kill();await new Promise(r=>child.exitCode!==null?r():child.once('exit',r));await fs.rm(dir,{recursive:true,force:true});}

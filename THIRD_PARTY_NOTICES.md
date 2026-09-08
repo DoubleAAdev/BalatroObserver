@@ -7,7 +7,7 @@ https://github.com/efhiii/balatro-calculator
 
 Pinned reference commit: 55322d59197ba08c16874a54b59ac0d443c8ab32.
 
-Reused files: assets/8BitDeck_opt2.png, assets/Enhancers.png, assets/Editions.png, assets/Jokers.png. Vanilla joker coordinates are derived from the reference cards.js definitions. Enhancement, edition and seal coordinates and compositing are adapted from main.js and style.css. The full upstream MIT notice follows and is also preserved in assets/LICENSE-balatro-calculator.txt.
+Reused files: assets/8BitDeck_opt2.png, assets/Enhancers.png, assets/Editions.png, assets/Jokers.png. Vanilla joker coordinates (viewer/joker-sprites.js) are derived from the reference cards.js definitions. Enhancement, edition and seal coordinates and compositing are adapted from main.js and style.css. The full upstream MIT notice follows and is also preserved in assets/LICENSE-balatro-calculator.txt.
 
 Balatro and its original game artwork belong to their respective owners. This attribution describes the source of the reused assets and does not claim authorship of that artwork or endorsement by its owners.
 
@@ -48,4 +48,4 @@ Version 0.6.1 omits the six obsolete demo vouchers: Magnet, Electromagnet, Patte
 
 ## Local scoring engine (v0.7.0)
 
-assets/calculator/balatro-sim.js is bundled from Balatro Calculator by Saffron Haas (efhiii), commit 55322d59197ba08c16874a54b59ac0d443c8ab32, under the MIT notice above. The only engine change is a CommonJS export. Joker ID mappings derive from its sprite coordinates. score-preview.js adapts the public snapshots to that engine; selected/held-card order is preserved and no external run-data requests are made.
+assets/calculator/balatro-sim.js is bundled from Balatro Calculator by Saffron Haas (efhiii), commit 55322d59197ba08c16874a54b59ac0d443c8ab32, under the MIT notice above. The only engine change is a CommonJS export. Joker ID mappings derive from its sprite coordinates. viewer/score-preview.js adapts the public snapshots to that engine; selected/held-card order is preserved and no external run-data requests are made.

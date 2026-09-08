@@ -1,34 +1,31 @@
-# Local test runtimes, downloaded dependencies, and QA artifacts
+# Local test runtimes, downloaded dependencies and QA artifacts
 /.test-runtime/
 /node_modules/
+/work/
 
 # Generated observer snapshots
 /balatro_observer/
 /state-0.json
 /state-1.json
 
-# Runtime logs and caches
+# Viewer server logs and launcher output (written to the mod folder at runtime)
 *.log
+/viewer-start-error.html
+/viewer-launch-status.txt
+
+# Python caches from Lua test runners
 __pycache__/
 *.pyc
 
-# Generated release archives
+# Staged releases and archives; the published ZIP lives on GitHub Releases
 /dist/
-
-# Local player-visible feature checklist
-/missing.txt
 
 # Browser test reports and coverage
 /test-results/
 /playwright-report/
 /coverage/
 
-# Local research, packaging and runtime helpers
-/work/
+# Local player-visible feature checklist
+/missing.txt
 
-# Local game-source audit and screenshot files remain under /work/.
-/viewer-start-error.html
-
-# Generated launcher status and temporary packaging files
-/viewer-launch-status.txt
 *.tmp

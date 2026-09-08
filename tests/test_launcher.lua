@@ -6,7 +6,7 @@ BalatroObserver={}
 CardArea={draw=function() draws=draws+1 end}
 local original_draw=CardArea.draw
 local mod={}
-dofile('launcher.lua')(function(id,file) request=id;launches=launches+1;assert(file=='C:/save/balatro_observer/viewer-launch-status.txt');return true end,mod)
+dofile('mod/launcher.lua')(function(id,file) request=id;launches=launches+1;assert(file=='C:/save/balatro_observer/viewer-launch-status.txt');return true end,mod)
 assert(CardArea.draw==original_draw)
 assert(mod.config_tab().nodes[1].config.button=='bobs_open_viewer')
 assert(mod.config_tab().nodes[1].nodes[1].config.ref_table==BalatroObserver)

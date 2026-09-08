@@ -1,35 +1,40 @@
 'use strict';
+// Optional Node.js launcher: reuses a healthy viewer of this release or starts server/viewer-server.js, then opens the browser.
+// The Windows in-game button uses start-viewer.ps1 instead; this file exists for other platforms and tests.
 const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
 const {spawn}=require('node:child_process');
+const root=path.resolve(__dirname,'..');
+const release=require(path.join(root,'BalatroObserver.json')).version;
 
-function probe(port){
+// 'ready' only for a viewer of this exact release; an older viewer must be closed, never killed here.
+function probe(port,version=release){
  return new Promise(resolve=>{
   const request=http.get({hostname:'127.0.0.1',port,path:'/health',timeout:500},response=>{
    let body='';response.on('data',chunk=>{body+=chunk;if(body.length>4096)request.destroy();});
    response.on('error',()=>resolve('occupied'));
-   response.on('end',()=>{try{resolve(JSON.parse(body).app==='BalatroObserver'?'ready':'occupied');}catch{resolve('occupied');}});
+   response.on('end',()=>{try{const health=JSON.parse(body);resolve(health.app==='BalatroObserver'&&health.version===version?'ready':'occupied');}catch{resolve('occupied');}});
   });
   request.on('timeout',()=>request.destroy());
   request.on('error',error=>resolve(error.code==='ECONNREFUSED'?'stopped':'occupied'));
  });
 }
-async function ensureViewer({port=8765,launch,timeout=10000}={}){
- const initial=await probe(port);
+async function ensureViewer({port=8765,launch,timeout=10000,version=release}={}){
+ const initial=await probe(port,version);
  if(initial==='ready')return {started:false,port};
  if(initial==='occupied')throw new Error('Port '+port+' is occupied by another application or an older viewer. Close that viewer server and try again.');
  if(launch)await launch();
  else{
-  const log=fs.openSync(path.join(__dirname,'viewer-server.log'),'a');
+  const log=fs.openSync(path.join(root,'viewer-server.log'),'a');
   try{
-   const child=spawn(process.execPath,[path.join(__dirname,'viewer-server.js')],{cwd:__dirname,env:{...process.env,PORT:String(port)},detached:true,windowsHide:true,stdio:['ignore',log,log]});
+   const child=spawn(process.execPath,[path.join(__dirname,'viewer-server.js')],{cwd:root,env:{...process.env,PORT:String(port)},detached:true,windowsHide:true,stdio:['ignore',log,log]});
    await new Promise((resolve,reject)=>{child.once('spawn',resolve);child.once('error',reject);});
    child.unref();
   }finally{fs.closeSync(log);}
  }
  const deadline=Date.now()+timeout;
- while(Date.now()<deadline){if(await probe(port)==='ready')return {started:true,port};await new Promise(r=>setTimeout(r,100));}
+ while(Date.now()<deadline){if(await probe(port,version)==='ready')return {started:true,port};await new Promise(r=>setTimeout(r,100));}
  throw new Error('The viewer did not become ready. See viewer-server.log in the mod folder.');
 }
 function openBrowser(url){
@@ -51,7 +56,7 @@ if(require.main===module)ensureViewer().then(result=>{
  reportStatus('error');
  console.error(error.message);
  const escape=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const file=path.join(__dirname,'viewer-start-error.html');
+ const file=path.join(root,'viewer-start-error.html');
  fs.writeFileSync(file,'<!doctype html><meta charset="utf-8"><title>Balatro Observer</title><h1>Unable to start Balatro Observer</h1><p>'+escape(error.message)+'</p>');
  if(!process.argv.includes('--no-open'))openBrowser(require('node:url').pathToFileURL(file).href);
  process.exitCode=1;

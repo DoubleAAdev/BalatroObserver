@@ -1,7 +1,7 @@
 /* Local adapter for efhiii's Balatro Calculator. See THIRD_PARTY_NOTICES.md. */
 (function(root){
- const engine=typeof module==='object'?require('./assets/calculator/balatro-sim.js'):{Hand,handChips};
- const ids=typeof module==='object'?require('./assets/calculator/joker-ids.json'):CALCULATOR_JOKERS;
+ const engine=typeof module==='object'?require('../assets/calculator/balatro-sim.js'):{Hand,handChips};
+ const ids=typeof module==='object'?require('../assets/calculator/joker-ids.json'):CALCULATOR_JOKERS;
  const handNames=['Flush Five','Flush House','Five of a Kind','Straight Flush','Four of a Kind','Full House','Flush','Straight','Three of a Kind','Two Pair','Pair','High Card'];
  const suits={Hearts:0,Clubs:1,Diamonds:2,Spades:3};
  const enhancements={c_base:0,m_bonus:1,m_mult:2,m_wild:3,m_glass:4,m_steel:5,m_stone:6,m_gold:7,m_lucky:8};

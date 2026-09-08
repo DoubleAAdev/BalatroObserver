@@ -19,7 +19,7 @@ return function(mod_path, request, status_file)
             return buffer
         end
         assert(type(mod_path)=='string' and not mod_path:find('["\r\n]'), 'Invalid mod path')
-        local script = mod_path:gsub('[/\\]+$', '')..'/start-viewer.ps1'
+        local script = mod_path:gsub('[/\\]+$', '')..'/server/start-viewer.ps1'
         assert(type(request)=='string' and request:match('^[%w%-]+$'), 'Invalid launch request')
         assert(type(status_file)=='string' and not status_file:find('["\r\n]'), 'Invalid status path')
         local arguments='-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'..script..'" -NoOpen -Request '..request..' -StatusFile "'..status_file..'"'

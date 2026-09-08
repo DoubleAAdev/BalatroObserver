@@ -1,142 +1,111 @@
 # Balatro Observer
 
-View player-visible Balatro game data through **raw JSON snapshot files** or a **live local HTML dashboard**. This read-only Steamodded mod exports the current state every 200 ms.
-
-## Two ways to view your data
+View player-visible Balatro game data through **raw JSON snapshot files** or a **live local HTML dashboard**. This read-only Steamodded mod exports the current state every 200 ms and never changes the game.
 
 | View | How to open it | What it provides |
 | --- | --- | --- |
-| Raw JSON files | Open state-0.json and state-1.json in %APPDATA%/Balatro/balatro_observer | Structured snapshots for inspection and external tools |
-| Local HTML dashboard | On Windows, double-click start-viewer.cmd or use the in-game mod settings button | Automatically updating sections for the run, hand, deck, jokers, shop, packs, and poker hands |
+| Raw JSON files | Open `state-0.json` / `state-1.json` in `%APPDATA%/Balatro/balatro_observer` | Structured snapshots for inspection and external tools |
+| Local HTML dashboard | Mods → Balatro Observer → configuration, or double-click `start-viewer.cmd` | Live sections for the run, hand, deck, jokers, shop, packs, poker hands and a score preview |
 
-On Windows, the dashboard uses built-in Windows PowerShell 5.1 and .NET Framework; no Node.js installation is needed. The optional Node server requires Node.js 18 or newer on other platforms. The raw exports only require the mod. Both views use the same exported information; the dashboard also has a Raw data section.
+On Windows the dashboard runs on the built-in Windows PowerShell 5.1 and .NET Framework — no Node.js required. On other platforms an optional Node.js 18+ server is included. Both views show the same exported information; the dashboard also has a Raw data section.
 
 ## Install the mod
 
-Download the mod ZIP from [GitHub Releases](https://github.com/DoubleAAdev/BalatroObserver/releases/latest) and extract its BalatroObserver folder into your Balatro Mods directory. You can also use a source checkout.
+1. Install **Lovely and Steamodded** first, following the [Steamodded installation guide](https://docs.smods.dev/Installation/). Lovely alone does not load this mod. Confirm that Balatro's main menu shows a **Mods** button.
+2. Download `BalatroObserver-v<version>.zip` from [GitHub Releases](https://github.com/DoubleAAdev/BalatroObserver/releases/latest) and extract its `BalatroObserver` folder into `%APPDATA%/Balatro/Mods/`. A source checkout works the same way. Keep the folder layout intact: `BalatroObserver.json` and `main.lua` must stay directly inside `BalatroObserver`.
+3. Restart Balatro. The mod appears in the Mods menu; if it is missing or disabled, check the folder layout and the dependency status shown there.
 
-Read-only Steamodded mod. Install both **Lovely and Steamodded** first, following the [Steamodded installation guide](https://docs.smods.dev/Installation/). Lovely alone does not load this mod. Confirm that Balatro's main menu has a **Mods** button.
+No file in the game installation is modified. The Steamodded folder must sit alongside `BalatroObserver` inside `Mods`.
 
-Copy this directory into `%APPDATA%/Balatro/Mods/BalatroObserver` and restart Balatro. Keep `BalatroObserver.json`, `main.lua`, `json.lua`, and `observer.lua` directly inside that folder. The Steamodded folder must be alongside `BalatroObserver` inside `Mods`. No files in the game installation are modified by BalatroObserver.
+## Open the dashboard
 
-If there is no **Mods** button, check the Lovely/Steamodded installation first. If the button is present but Balatro Observer is missing or disabled, check the folder layout and its dependency status in the Mods menu.
+**Windows.** Use Mods → Balatro Observer → configuration, or double-click `start-viewer.cmd` in the mod folder. The launcher starts a hidden localhost server (or reuses a running one of the same version), waits until it responds, and opens `http://127.0.0.1:8765` in your browser. No administrator rights or firewall changes are needed; the server binds only to 127.0.0.1. For a custom snapshot directory or port run
 
-Every 200 ms after a game update, the mod writes alternating `state-0.json` and `state-1.json` files under `balatro_observer` in LÖVE's save directory (normally `%APPDATA%/Balatro/balatro_observer` on Windows). `love.filesystem.getSaveDirectory()` gives the actual location. The files contain snapshots, not a recording of every action.
+```bash
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\server\start-viewer.ps1 -StateDirectory "D:\path\to\balatro_observer" -Port 8765
+```
 
-Consumers should parse both files independently, ignore malformed/incomplete files, and choose the newest `observed_at`, then the greatest `sequence` within its `session`. On a session change reset episode state. Reject stale records and records with `available: false`; never fall back to an older playable observation when a newer unavailable record exists. A failed write preserves the other slot. Polling can miss fast transitions; this is not yet an action/reward training pipeline.
+Startup problems are written to `viewer-server.log` / `viewer-server-error.log` in the mod folder. An older viewer or another program on the port is reported as *occupied*; the launcher never terminates other processes. Environments that block PowerShell scripts or runtime C# compilation need those allowed, or can use the Node server below.
 
-For in-process use, `BalatroObserver.snapshot()` returns a detached Lua table. `BalatroObserver.last_export_ok` reports the latest export's success. Errors are contained so the observer cannot stop the update loop; error details are deliberately not exported.
+**Other platforms.** With Node.js 18+ installed, run `node server/start-viewer.js` (starts the server and opens the browser) or `node server/viewer-server.js [stateDirectory]` and open `http://127.0.0.1:8765`. The in-game button then simply opens that address.
 
-## Schema version 1
+The dashboard keeps the last available preview during animations, stale exports or a lost connection and labels it; a new game session clears the previous preview. Raw data always shows the newest received record, including unavailable ones. The viewer version and the `mod_version` loaded in Balatro are shown side by side; a mismatch means Balatro needs a restart after an update.
 
-- `phase`, `available`: only recognized completed run phases are sampled. Animations, overlays, pauses, menus and unknown phases produce an unavailable record. Availability is a sampling guard, not a guarantee that a specific action is legal.
-- `run`, `round`, `blind`: money, score, stake, round, ante, remaining hands/discards, and current blind information.
-- `hand`, `jokers`, `consumables`: ordered area cards, capacity, current slot, selection, visible identity, edition, seal, costs and supported stickers. Face-down cards contain only `visible: false` and their slot.
-- `deck`: full deck-view composition in canonical order, draw-pile count and discard-pile count. Duplicates are retained. This is **not** an ordered draw pile or an exact remaining-card list. Composition never includes area membership, selection, transient debuffs or persistent card IDs. Full composition includes cards currently in hand, matching the full deck viewer; it cannot map a hidden hand slot to a card. Stone Cards omit their underlying rank and suit.
-- `poker_hands`: visible hand types with levels, chips, multiplier and play counts.
-- `blinds`: current-ante Small/Big/Boss definitions, public statuses, next and boss identities, and skip-tag identities. Base multipliers/rewards are definition values, not a prediction of final modified targets or payouts.
-- `vouchers`: acquired vouchers in the same registry order as Run Info, including starting vouchers.
-- `shop`: present only during SHOP; card, voucher and booster areas plus reroll cost. Booster contents are not inspected.
-- `pack`: present only during an opened pack phase (including Steamodded’s SMODS_BOOSTER_OPENED); visible choices and remaining picks.
-- `session`, `sequence`, `observed_at`: export metadata, unrelated to game RNG.
-- `mod_version`: the mod version loaded in Balatro, used to detect when a restart is needed.
+## Snapshot files
 
-Unknown scalar values are omitted. Arrays remain JSON arrays even when empty. Scores represented by another mod's big-number objects are omitted rather than traversed or rounded. Consumers must treat missing fields as unknown, not zero.
+Every 200 ms after a game update, the mod writes alternating `state-0.json` and `state-1.json` under `balatro_observer` in LÖVE's save directory (`love.filesystem.getSaveDirectory()`, normally `%APPDATA%/Balatro` on Windows). The files are snapshots, not a recording of every action.
 
-## Visibility boundary and limitations
+Consumers should parse both files independently, ignore malformed or incomplete files, and choose the newest `observed_at`, then the greatest `sequence` within its `session`. Reset per-episode state on a session change. Reject stale records and records with `available: false`; never fall back to an older playable observation when a newer unavailable record exists. A failed write preserves the other slot. Polling can miss fast transitions; this is not an action/reward training pipeline.
 
-No seed, RNG state, future shops, unopened pack contents, draw order, internal card IDs, arbitrary `ability.extra`, callbacks, game actions or opponent state are exported. The collector does not call scoring, random, card tooltip or action functions. It does not modify game objects. Deck composition follows the full deck viewer in [Steamodded's source](https://github.com/Steamodded/smods/blob/main/src/overrides.lua).
+For in-process use, `BalatroObserver.snapshot()` returns a detached Lua table and `BalatroObserver.last_export_ok` reports the latest export's success. Errors are contained so the observer cannot stop the update loop; error details are deliberately not exported.
 
-Joker descriptions use the loaded localization text and explicit adapters for supported vanilla dynamic values (including Abstract Joker). Unsupported dynamic placeholders display ? instead of guessed values. Custom tooltip callbacks, custom editions/enhancements, dynamic tag effects, and multiplayer HUD data still need explicit visibility-reviewed adapters. [Multiplayer's state](https://github.com/Balatro-Multiplayer/BalatroMultiplayer/blob/dev/core.lua) contains concealed opponent values and visibility settings, so copying it would be unsafe. Custom mods that alter visibility need separate verification. This mod does not establish multiplayer ruleset approval or guarantee compatibility with every mod version.
+### Schema version 1
 
-## Validation
+- `phase`, `available` — only recognized completed run phases are sampled. Animations, overlays, pauses, menus and unknown phases produce an unavailable record. Availability is a sampling guard, not a guarantee that an action is legal.
+- `run`, `round`, `blind` — money, score, stake, deck key, round, ante, remaining hands/discards and the current blind, including its boss effect text.
+- `hand`, `jokers`, `consumables` — ordered area cards with capacity, slot, selection, visible identity, edition, seal, costs, supported stickers and, for face-up playing cards, the public chip bonus. Jokers carry their localized description and the reviewed public tooltip values (`score_vars`). Face-down cards contain only `visible: false` and their slot.
+- `deck` — full deck composition in canonical order plus draw-pile and discard-pile counts. `remaining_cards` is the public unplayed composition, including cards kept ambiguous by face-down effects; it can exceed `draw_count`. Neither list contains draw order, IDs, area membership or links to hidden hand slots. Stone Cards omit their underlying rank and suit.
+- `poker_hands` — visible hand types with level, chips, multiplier and play counts.
+- `blinds` — current-ante Small/Big/Boss definitions, statuses, next and boss identities and skip-tag identities. Multipliers and rewards are definition values, not final modified targets.
+- `vouchers` — redeemed vouchers in Run Info order, including starting vouchers.
+- `shop` — present only during SHOP: card, voucher and booster areas plus reroll cost. Booster contents are not inspected.
+- `pack` — present only while a pack is open (including Steamodded's `SMODS_BOOSTER_OPENED`): visible choices and remaining picks.
+- `scoring_context` — public counters the score preview needs (currently Loyalty Card progress).
+- `session`, `sequence`, `observed_at`, `mod_version` — export metadata, unrelated to game RNG.
 
-From the repository root run `lua tests/test_observer.lua` with Lua 5.1+ or LuaJIT. Tests cover hidden-card redaction, deck order/membership invariance, secret exclusion, shop/phase gating, JSON escaping, and export failure isolation.
+Unknown scalar values are omitted; arrays stay arrays even when empty. Scores held in another mod's big-number objects are omitted rather than traversed or rounded. Treat missing fields as unknown, not zero.
 
-Live smoke test: start a run, compare a snapshot to the HUD and full deck viewer, select a card, discard/play, enter/leave the shop, open a pack, and test a face-down blind. Check that unavailable phases cannot be consumed as playable states. Confirm no draw order or hidden face-down identity appears. A local game was not available during implementation, so this live test remains required.
+## Visibility boundary
 
-## Live HTML viewer
+No seed, RNG state, future shops, unopened pack contents, draw order, internal card IDs, arbitrary `ability.extra`, callbacks, game actions or opponent state are exported. The collector reads explicit allowlists only; it never calls scoring, random, tooltip or action functions and never modifies game objects. Deck composition follows the full deck viewer in [Steamodded's source](https://github.com/Steamodded/smods/blob/main/src/overrides.lua).
 
-On Windows, double-click `start-viewer.cmd` or use Mods > Balatro Observer > configuration. The launcher starts a hidden localhost server using built-in Windows PowerShell/.NET and opens the browser. No Node.js or administrator access is required. For a custom save directory, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\start-viewer.ps1 -StateDirectory "D:\path\to\balatro_observer"`. Use `-Port` to override port 8765 for manual startup. On other platforms, use `node viewer-server.js` (Node.js 18+). The viewer automatically reads `%APPDATA%/Balatro/balatro_observer` and refreshes every 200 ms. For another save location, run `node viewer-server.js "D:\path\to\balatro_observer"`. Set the `PORT` environment variable to change the default port of 8765.
+Joker descriptions come from the loaded localization text with explicit adapters for vanilla dynamic values. Unsupported placeholders display `?` instead of guessed values. Custom tooltip callbacks, custom editions or enhancements, dynamic tag effects and multiplayer HUD data need their own visibility-reviewed adapters before they can appear.
 
-`observer.html` displays the current hand, jokers, consumables, run counters, blind, shop, pack, poker hands, full deck composition, and raw snapshot. During transitions, stale exports, or a lost connection, the browser keeps the last available preview with a status label; a new session clears the old preview. Raw data always shows the latest received record, including unavailable records; missing fields display an em dash. Pause updates freezes the display and labels it as paused. The server listens only on localhost and reads the existing exports without modifying the mod. Open the HTTP URL rather than double-clicking the HTML file, because browsers cannot automatically read these local files.
+The **Selected hand score** panel uses the locally bundled [Balatro Calculator](https://efhiii.github.io/balatro-calculator/) engine with the actual selection and joker order, held cards, public counters, hand levels, editions, seals and supported bonuses. Random effects show a range; unsupported or hidden inputs show an explanation instead of a guess. It does not simulate custom-mod callbacks.
 
-Viewer checks: `node --test tests/test_viewer.cjs`.
+## Project layout
 
-## Release versions and installation
+```
+BalatroObserver.json   Steamodded manifest (must stay at the root)
+main.lua               mod entry point: loads mod/ and runs the 200 ms export loop
+start-viewer.cmd       double-click shortcut for the Windows dashboard
+mod/                   in-game code: collector (observer.lua), JSON encoder, settings button, launcher
+viewer/                the dashboard: observer.html/.css/.js, joker sprite table, score-preview adapter
+server/                localhost servers: start-viewer.ps1 + viewer-server.cs (Windows), start-viewer.js + viewer-server.js (Node)
+assets/                sprite atlases, wiki artwork, calculator engine and their licenses
+scripts/               release-files.ps1 (shared manifest), sync-mod.ps1 (install), build-release.ps1 (ZIP)
+tests/                 Lua, Node and browser checks
+```
 
-Current release: **0.8.0**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
+The two servers expose identical read-only routes: `/`, `/observer.html`, `/observer.css`, `/observer.js`, `/joker-sprites.js`, `/score-preview.js`, `/health`, `/state`, `/credits` and the bundled assets. URLs never change between releases; only the disk layout may.
 
-Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Close the old viewer server before starting the updated release; the launcher reports an occupied port rather than terminating another process.
+## Development
 
-Release 0.2.1 removes buy/sell labels from displayed cards. Generated local artifacts are ignored; release changes are committed after validation and installation.
+Install the working copy into Balatro and verify every file by SHA-256 (files not part of the release are removed from the installed folder):
 
-Release 0.3.0 adds Blinds & tags and Vouchers sections and fixes opened-pack exports for Steamodded’s booster phase. Before each code update, the local missing.txt checklist is reviewed against collector and browser coverage.
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/sync-mod.ps1
+```
 
-Release 0.4.0 adds Remaining cards, rank/suit/name sorting that only affects the viewer, joker descriptions with supported live values, boss effects, and a persistent last preview. The local "update missing" workflow also commits, pushes, and publishes a release.
+Stage and package a release ZIP into `dist/`:
 
-The deck.remaining_cards field is the canonical public unplayed composition. It includes wheel-flipped cards outside the draw pile to preserve face-down ambiguity and can exceed draw_count. It contains no draw order, IDs, or hidden-slot links. Current boss effect text is exported as blind.loc_debuff_text; blind choice descriptions use the loaded localization text.
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/build-release.ps1
+```
 
-Optional browser check: install Playwright and Chromium, then run node tests/test_viewer_browser.cjs. PLAYWRIGHT_MODULE and BROWSER_EXECUTABLE may point to existing installations.
+Checks, from the repository root:
 
-Release 0.4.1 arranges Full deck and Remaining cards like the in-game deck viewer: Spades, Hearts, Clubs, Diamonds in separate overlapping rows, each ordered Ace to 2. Duplicates are preserved; other cards have a separate row. Clubs are blue and Diamonds orange, matching the reference palette. These two deck views use fixed suit/rank ordering; other card areas retain the sorting selector. Narrow screens scroll inside the deck area.
+| Suite | Command | Needs |
+| --- | --- | --- |
+| Collector, JSON, export hook, launcher | `lua tests/test_observer.lua` and `lua tests/test_launcher.lua` | Lua 5.1+ or LuaJIT |
+| Node server, launcher, score engine | `node --test tests/test_viewer.cjs tests/test_start_viewer.cjs tests/test_score.cjs` | Node.js 18+ |
+| Windows startup without Node | `powershell -ExecutionPolicy Bypass -File tests/test_windows_startup.ps1` | Windows PowerShell 5.1 |
+| Browser rendering | `node tests/test_viewer_browser.cjs`, `test_card_art.cjs`, `test_wiki_shop.cjs`, `test_score_browser.cjs`, `test_windows_viewer.cjs` | Playwright + Chromium (`PLAYWRIGHT_MODULE`, `BROWSER_EXECUTABLE` may point at existing installs) |
 
-## Card artwork and credits
+Live smoke test after installing: start a run, compare a snapshot with the HUD and the full deck viewer, select a card, discard and play, enter and leave the shop, open a pack and face a boss blind that hides cards. Confirm that unavailable phases are not consumable as playable states and that no draw order or face-down identity appears.
 
-Version 0.6.0 reuses the card, enhancement, edition, seal, and vanilla joker sprite atlases from [Balatro Calculator by Saffron Haas (efhiii)](https://efhiii.github.io/balatro-calculator/) and adapts its layer-compositing approach. Card faces, foil/holographic/polychrome editions, and seals render together. Negative uses a CSS inversion approximation. Custom cards without a mapped sprite retain a labeled fallback. The artwork is bundled locally; no external requests are needed to render it. See [third-party notices](THIRD_PARTY_NOTICES.md) and the bundled MIT license. Balatro and its original game artwork belong to their respective owners.
+Release steps (version bump, sync, ZIP, commit, push) are listed in `AGENTS.md`; history is in `CHANGELOG.md`.
 
-Keep the assets folder and THIRD_PARTY_NOTICES.md alongside observer.html and viewer-server.js when installing or packaging the viewer. Restart the viewer server after upgrading to 0.6.0 so the new local asset routes are available.
+## Credits
 
-Card-art regression check: run node tests/test_card_art.cjs with the same Playwright environment. It covers all 225 supported enhancement/edition/seal combinations and verifies face-down redaction and local-only asset loading.
-
-## Release 0.6.0
-
-Adds 214 locally bundled images from [Balatro Wiki](https://balatrowiki.org/), mapped consumable/voucher/blind/stake/booster artwork, and a searchable reference image library. See THIRD_PARTY_NOTICES.md and assets/wiki-art.json for image credits, sources and licensing. The reference catalog is not current-run data.
-
-Shop previews now retain the last observed inventory for the current browser page session, with a timestamp and an inaccessible-shop notice. New game sessions clear the history. Mail-In Rebate, Gros Michel, money-based jokers and additional vanilla tooltip values now have explicit scalar adapters; unsupported modded values remain unknown.
-
-Additional browser regression check: node tests/test_wiki_shop.cjs.
-
-
-Release 0.6.1 removes six obsolete demo vouchers from the image library and installed assets (208 wiki images remain), gives booster wrappers their native 114:186 proportions with taller containers, and fixes nested joker fields containing underscores such as chip_mod and s_mult. Unknown custom fields remain unexported.
-
-
-## Release 0.7.0
-
-The website is titled **Balatro Observer**. The image-library gallery has been removed; the artwork used in run views remains bundled and credited. A new **Balatro Observer** button above the in-game deck pile opens the local website. Start the Node viewer server first and restart Balatro after installing this release.
-
-Overview and Current hand now include a **Selected hand score** estimate powered by the locally bundled [Balatro Calculator](https://efhiii.github.io/balatro-calculator/) engine. It uses the actual selection and joker order, held cards, public dynamic counters, hand chips/mult, editions, seals and supported permanent bonuses. Random effects show a range. Stale exports suppress the score. This does not simulate installed custom-mod callbacks; unsupported/hidden inputs show an explanation instead. Calculator estimates can differ from the game with special blind rules or modded effects.
-
-The collector now exports `score_vars` (only already-reviewed public tooltip scalars), visible playing-card `perma_bonus`, `run.deck_key`, and `scoring_context.loyalty_remaining`. Face-down cards do not expose these fields. The vanilla description audit covers all 150 jokers with no unresolved placeholders in initialized states; custom localization and custom dynamic callbacks still require explicit adapters.
-
-Checks: `node --test tests/test_score.cjs tests/test_viewer.cjs`, `node tests/test_score_browser.cjs`, `lua tests/test_launcher.lua`, and the existing collector/browser checks. UI-hook tests cover placement above the deck, a single button per deck, and click-only URL opening; live-game visual verification remains necessary.
-
-
-Release 0.7.1 — Random image fixes: corrects Caino's canonical key in the portrait and calculator mappings, including its legendary face layer.
-
-
-## Release 0.7.2 — Automatic viewer startup on Windows
-
-The in-game Balatro Observer button now starts the local server automatically, waits until it responds, and opens the browser. It reuses an existing healthy viewer. Restart Balatro once after this update to load the new button behavior. Node.js 18+ is required; the connection remains localhost-only and does not require opening a firewall port.
-
-You can also run `node start-viewer.js` manually. Failures produce a local explanation page and server startup output is kept in `viewer-server.log`. An unrelated application using port 8765 is never terminated. On non-Windows platforms, start `node viewer-server.js` before using the shortcut.
-
-Startup checks: `node --test tests/test_start_viewer.cjs tests/test_viewer.cjs`.
-
-## Release 0.7.3 — Reliable in-game browser handoff
-
-The in-game launcher waits for a request-specific readiness file, then uses LÖVE to open the browser. The button shows startup progress and allows retry after failure or a 15-second timeout. Restart Balatro to load this fix.
-
-## Release 0.7.4 — Settings shortcut and number formatting
-
-Open the viewer from Mods > Balatro Observer > configuration. The draw-pile button is removed. Floating-point values in the website display two decimal places; integers remain compact. Raw snapshots and calculation inputs retain their original precision.
-
-## Release 0.7.5 — Keep the last selected score
-
-The selected-hand estimate stays visible after playing, deselecting, shop transitions or connection interruptions, until another selection replaces it. Retained estimates are labeled as the last selected hand. A new game session clears the previous estimate.
-
-## Release 0.8.0 — Windows viewer without Node.js
-
-The Windows in-game launcher and new double-click `start-viewer.cmd` use built-in Windows PowerShell 5.1/.NET Framework. The server binds only to 127.0.0.1, serves explicitly allowed assets and credits, and reads the existing two snapshot slots without altering their JSON or collecting additional information. `mod_version` still identifies the version loaded in Balatro; it is independent of installed viewer files. Restart Balatro after installing.
-
-Node remains optional for other platforms and for development tests. Windows environments that block PowerShell or runtime C# compilation require allowing these scripts or using the optional Node server. The no-Node integration/browser check is `node tests/test_windows_viewer.cjs`; Node drives the tests only, while the server runs with Windows PowerShell.
+Card sprites and the layer-compositing approach are adapted from [Balatro Calculator by Saffron Haas (efhiii)](https://efhiii.github.io/balatro-calculator/) (MIT), whose scoring engine is also bundled. Additional artwork comes from [Balatro Wiki](https://balatrowiki.org/) contributors. See `THIRD_PARTY_NOTICES.md` (also served at `/credits`) for sources and licenses. Balatro and its artwork belong to their respective owners; this project is not endorsed by them.

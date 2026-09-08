@@ -1,10 +1,11 @@
-# v0.8.0 — Windows viewer without Node.js
+# v1.0.0 — Organized layout
 
-- Open the live website from the in-game mod settings or double-click start-viewer.cmd; Windows PowerShell 5.1 and .NET Framework supply the server, with no Node installation needed.
-- Preserve live two-slot snapshot selection, raw JSON, running mod_version, card artwork, score scripts and third-party credits. No new game information is collected.
-- Keep HTTP traffic on 127.0.0.1 and expose only viewer assets, health and state routes. Reuse a matching viewer; report occupied ports without stopping other processes.
-- Include all assets, Balatro Calculator attribution and its MIT notice in the installable ZIP.
+- The mod folder is sorted by role — `mod/`, `viewer/`, `server/`, `assets/`, `scripts/`, `tests/` — with only the Steamodded manifest, `main.lua` and `start-viewer.cmd` at the root. The dashboard is split into HTML, CSS, JS and a sprite table. Every server URL is unchanged, so bookmarks and external tools keep working.
+- The Node launcher now reuses a running viewer only when its version matches, exactly like the Windows launcher; both servers report their runtime in `/health`.
+- The installer (`scripts/sync-mod.ps1`) removes files from the installed folder that are not part of the release, so the previous flat layout cannot linger beside the new one. A new `scripts/build-release.ps1` packages the ZIP from the same manifest.
+- README rewritten as a user and developer guide; release history lives in `CHANGELOG.md`.
+- No change to the exported schema, the visibility boundary, or the information collected. `mod_version` still identifies the version loaded in Balatro.
 
-Extract the BalatroObserver folder into %APPDATA%/Balatro/Mods. Restart Balatro to load v0.8.0 and close any older viewer server before starting the new viewer. The optional Node server remains available for other platforms. PowerShell-restricted Windows environments may require policy configuration or the optional Node server.
+Extract the `BalatroObserver` folder into `%APPDATA%/Balatro/Mods`, replacing the old one, and restart Balatro. Close any viewer server from an earlier release before opening the new dashboard; the launcher reports an occupied port rather than stopping another process.
 
-Validation: 12 Node unit checks; collector and launcher Lua suites; four existing Chromium suites (including 225 card-art combinations and 208 wiki images); Windows/.NET HTTP and browser integration with Node absent from PATH; hidden cold startup, readiness, version mismatch and occupied-port handling. Installation verifies all 234 release files by SHA-256. Live in-game clicking after restart remains to be confirmed.
+Validation: Node unit checks (server, launcher, score engine) run on Node 24; hidden Windows/.NET cold startup, readiness reporting and every public route verified against the restructured layout; the dashboard rendered from the .NET server in Chromium with no console errors across all sections. Not run in this release: the Lua collector/launcher suites and the Playwright browser suites, because no Lua runtime or Playwright installation was available on the release machine — the Lua changes are limited to module paths, and the browser suites' route lists were updated. Live in-game verification after restart remains to be confirmed.

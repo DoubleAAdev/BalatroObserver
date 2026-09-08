@@ -1,7 +1,7 @@
 local mod = SMODS.current_mod
 local function load(name) return assert(SMODS.load_file(name, mod.id))() end
-local JSON = load('json.lua')
-local observer = load('observer.lua')(JSON)
+local JSON = load('mod/json.lua')
+local observer = load('mod/observer.lua')(JSON)
 local function snapshot()
     local state = observer.snapshot(G)
     -- Report the loaded mod version, not a newer manifest copied to disk mid-run.
@@ -9,8 +9,8 @@ local function snapshot()
     return state
 end
 BalatroObserver = {version = mod.version or 'unknown', snapshot = snapshot}
-local open_viewer = load('open-viewer.lua')
-load('launcher.lua')(function(request, status_file) return open_viewer(mod.path, request, status_file) end, mod)
+local open_viewer = load('mod/open-viewer.lua')
+load('mod/launcher.lua')(function(request, status_file) return open_viewer(mod.path, request, status_file) end, mod)
 
 -- Alternate complete files so a consumer can recover from an interrupted write.
 -- Each file is a self-contained JSON record; readers select the greatest sequence.

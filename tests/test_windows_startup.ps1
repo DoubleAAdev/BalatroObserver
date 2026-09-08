@@ -8,7 +8,7 @@ $status = Join-Path $fixture 'status.txt'
 $originalPath = $env:PATH
 try {
     $env:PATH = "$env:SystemRoot\System32"
-    & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $root 'start-viewer.ps1') -NoOpen -Port $port -StateDirectory $fixture -Request 'cold-start' -StatusFile $status
+    & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $root 'server/start-viewer.ps1') -NoOpen -Port $port -StateDirectory $fixture -Request 'cold-start' -StatusFile $status
     if ($LASTEXITCODE -ne 0 -or [IO.File]::ReadAllText($status) -ne 'cold-start:ready') { throw 'Cold start failed' }
     $health = Invoke-RestMethod "http://127.0.0.1:$port/health"
     if ($health.runtime -ne 'Windows PowerShell/.NET') { throw 'Wrong runtime' }

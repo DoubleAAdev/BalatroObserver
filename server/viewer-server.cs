@@ -7,7 +7,8 @@ using System.Threading;
 using System.Collections.Generic;
 using System.Web.Script.Serialization;
 
-// Windows' bundled .NET Framework hosts the same read-only routes as the Node server.
+// Windows' bundled .NET Framework hosts the same read-only routes as the Node server (server/viewer-server.js).
+// Compiled at runtime by start-viewer.ps1; releaseRoot is the mod folder holding the manifest, viewer/ and assets/.
 public static class ObserverServer {
     static string root, directory, version;
     static Dictionary<string, string[]> routes;
@@ -17,11 +18,14 @@ public static class ObserverServer {
         root = releaseRoot; directory = stateDirectory;
         version = (string)((Dictionary<string, object>)Json().DeserializeObject(File.ReadAllText(Path.Combine(root, "BalatroObserver.json"))))["version"];
         routes = new Dictionary<string, string[]>(StringComparer.Ordinal);
-        Route("/", "observer.html", "text/html; charset=utf-8");
-        Route("/observer.html", "observer.html", "text/html; charset=utf-8");
+        // URLs are stable across releases; only the disk layout under the mod folder changes.
+        Route("/", "viewer/observer.html", "text/html; charset=utf-8");
+        Route("/observer.html", "viewer/observer.html", "text/html; charset=utf-8");
+        Route("/observer.css", "viewer/observer.css", "text/css; charset=utf-8");
         Route("/credits", "THIRD_PARTY_NOTICES.md", "text/plain; charset=utf-8");
+        foreach (string file in new [] { "observer.js", "joker-sprites.js", "score-preview.js" }) Route("/" + file, "viewer/" + file, "text/javascript; charset=utf-8");
+        foreach (string file in new [] { "assets/wiki-art.js", "assets/calculator/balatro-sim.js", "assets/calculator/joker-ids.js" }) Route("/" + file, file, "text/javascript; charset=utf-8");
         foreach (string file in new [] { "8BitDeck_opt2.png", "Enhancers.png", "Editions.png", "Jokers.png" }) Route("/assets/" + file, "assets/" + file, "image/png");
-        foreach (string file in new [] { "score-preview.js", "assets/wiki-art.js", "assets/calculator/balatro-sim.js", "assets/calculator/joker-ids.js" }) Route("/" + file, file, "text/javascript; charset=utf-8");
         var types = new Dictionary<string,string> { {".png","image/png"}, {".gif","image/gif"}, {".jpg","image/jpeg"}, {".webp","image/webp"} };
         foreach (Dictionary<string,object> item in (object[])Json().DeserializeObject(File.ReadAllText(Path.Combine(root,"assets/wiki-art.json")))) {
             string file = (string)item["file"];

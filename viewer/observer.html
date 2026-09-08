@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Balatro Observer v1.0.0</title>
+<meta name="observer-version" content="1.0.0">
+<link rel="stylesheet" href="/observer.css">
+</head>
+<body>
+<aside class="sidebar"><div class="brand"><span class="logo">♠</span><div><strong>Balatro Observer</strong></div></div>
+<div class="nav-label">Your run</div><nav aria-label="Observer sections" id="nav"></nav>
+<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v1.0.0</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
+<main><header><div><div class="eyebrow">The table, at a glance</div><h1 id="title">Run overview</h1><p id="description"></p></div><button id="pause">Ⅱ Pause updates</button></header>
+<div class="statusbar"><span id="status" role="status">Connecting to observer…</span><span id="meta" class="meta"></span></div>
+<div id="waiting" class="panel"><div class="empty"><span class="empty-icon">♧</span><strong id="waiting-title">Waiting for the table</strong><span id="waiting-text">Your run will appear here when the observer sends a fresh snapshot.</span></div></div>
+<div class="sortbar"><label for="sort">Sort cards</label><select id="sort"><option value="original">Game / canonical order</option><option value="rank-desc">Rank: high to low</option><option value="rank-asc">Rank: low to high</option><option value="suit">Suit, then rank</option><option value="name">Name</option></select><span class="hint">Viewer only · game order is unchanged</span></div>
+<div id="content" hidden><div id="stats" class="stats"></div><div id="panels" class="grid"></div></div>
+<div id="raw-view" hidden><details class="panel" open><summary>Latest raw snapshot</summary><pre id="raw">Waiting for data.</pre></details><p id="source" class="hint"></p></div>
+<footer>Live snapshots · Hidden cards stay hidden · Missing values appear as —<br>Card sprites and edition rendering adapted from <a href="https://efhiii.github.io/balatro-calculator/" target="_blank" rel="noopener noreferrer">Balatro Calculator by Saffron Haas (efhiii)</a> · <a href="/credits" target="_blank" rel="noopener">Credits &amp; license</a><br>Additional artwork from <a href="https://balatrowiki.org/" target="_blank" rel="noopener noreferrer">Balatro Wiki</a> · Original game art © its respective owners</footer></main>
+<script src="/assets/wiki-art.js"></script>
+<script src="/assets/calculator/balatro-sim.js"></script>
+<script src="/assets/calculator/joker-ids.js"></script>
+<script src="/score-preview.js"></script>
+<script src="/joker-sprites.js"></script>
+<script src="/observer.js"></script>
+</body></html>

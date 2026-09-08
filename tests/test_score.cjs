@@ -1,4 +1,4 @@
-const {test}=require('node:test');const assert=require('node:assert/strict');const {preview}=require('../score-preview');
+const {test}=require('node:test');const assert=require('node:assert/strict');const {preview}=require('../viewer/score-preview');
 const card=(rank,extra={})=>({key:'c_base',rank,suit:'Spades',visible:true,selected:true,perma_bonus:0,...extra});
 const base=()=>({available:true,phase:'SELECTING_HAND',scoring_context:{},hand:{cards:[card('Ace')]},jokers:{cards:[]},poker_hands:{'High Card':{level:1,chips:5,mult:1,played:0,played_this_round:0},Pair:{level:1,chips:10,mult:2,played:0,played_this_round:0}}});
 const score=s=>{const p=preview(s);assert.ok(p.low,p.message);return Math.round(p.low[0]*10**p.low[1]);};

@@ -1,5 +1,5 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');const http=require('node:http');
-const {ensureViewer}=require('../start-viewer');const {createServer}=require('../viewer-server');
+const {ensureViewer}=require('../server/start-viewer');const {createServer}=require('../server/viewer-server');
 const listen=server=>new Promise(r=>server.listen(0,'127.0.0.1',r));
 const close=server=>new Promise(r=>server.close(r));
 test('already running viewer is reused without launching a duplicate',async()=>{

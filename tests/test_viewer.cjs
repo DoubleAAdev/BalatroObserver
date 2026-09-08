@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const { newest, readState, createServer } = require('../viewer-server');
+const { newest, readState, createServer } = require('../server/viewer-server');
 const record = (sequence, available=true) => ({schema_version:1,session:'test',sequence,observed_at:Math.floor(Date.now()/1000),available,phase:'SHOP'});
 test('latest unavailable record supersedes playable observation', () => {
   assert.equal(newest([record(1),record(2,false)]).available,false);
