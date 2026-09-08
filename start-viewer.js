@@ -38,10 +38,17 @@ function openBrowser(url){
  const child=spawn(process.platform==='win32'?'powershell.exe':process.platform==='darwin'?'open':'xdg-open',args,{detached:true,windowsHide:true,stdio:'ignore'});
  child.on('error',()=>{});child.unref();
 }
+function reportStatus(state){
+ const request=process.argv.find(arg=>arg.startsWith('--request='))?.slice(10);
+ const file=process.argv.find(arg=>arg.startsWith('--status-file='))?.slice(14);
+ if(request&&file){fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,request+':'+state);}
+}
 if(require.main===module)ensureViewer().then(result=>{
+ reportStatus('ready');
  console.log(result.started?'Viewer started and ready':'Viewer already running');
  if(!process.argv.includes('--no-open'))openBrowser('http://127.0.0.1:8765');
 }).catch(error=>{
+ reportStatus('error');
  console.error(error.message);
  const escape=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const file=path.join(__dirname,'viewer-start-error.html');

@@ -10,7 +10,7 @@ local function snapshot()
 end
 BalatroObserver = {version = mod.version or 'unknown', snapshot = snapshot}
 local open_viewer = load('open-viewer.lua')
-load('launcher.lua')(function() return open_viewer(mod.path) end)
+load('launcher.lua')(function(request, status_file) return open_viewer(mod.path, request, status_file) end)
 
 -- Alternate complete files so a consumer can recover from an interrupted write.
 -- Each file is a self-contained JSON record; readers select the greatest sequence.
@@ -20,6 +20,7 @@ local session = tostring(os.time()) .. '-' .. tostring(math.floor(love.timer.get
 local previous_update = Game.update
 function Game:update(dt)
     previous_update(self, dt)
+    if BalatroObserver.poll_launch then BalatroObserver.poll_launch() end
     elapsed = elapsed + dt
     if elapsed < 0.2 then return end
     elapsed = 0
