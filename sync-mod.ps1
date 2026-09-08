@@ -16,7 +16,7 @@ $files = @('BalatroObserver.json', 'main.lua', 'observer.lua', 'json.lua',
     'observer.html', 'viewer-server.js', 'README.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
     'assets/8BitDeck_opt2.png', 'assets/Enhancers.png', 'assets/Editions.png',
     'assets/Jokers.png', 'assets/LICENSE-balatro-calculator.txt')
-$files += @('assets/wiki-art.json', 'assets/wiki-art.js', 'launcher.lua', 'score-preview.js', 'assets/calculator/balatro-sim.js', 'assets/calculator/joker-ids.json', 'assets/calculator/joker-ids.js')
+$files += @('assets/wiki-art.json', 'assets/wiki-art.js', 'launcher.lua', 'open-viewer.lua', 'start-viewer.js', 'score-preview.js', 'assets/calculator/balatro-sim.js', 'assets/calculator/joker-ids.json', 'assets/calculator/joker-ids.js')
 $files += @(Get-Content -LiteralPath (Join-Path $releaseRoot 'assets/wiki-art.json') -Raw | ConvertFrom-Json | ForEach-Object { $_.file })
 foreach ($name in $files) {
     if (-not (Test-Path -LiteralPath (Join-Path $releaseRoot $name) -PathType Leaf)) {
@@ -41,4 +41,3 @@ foreach ($obsolete in @('Magnet', 'Electromagnet', 'Pattern', 'Tesselation', 'Bi
 }
 Write-Output "Installed Balatro Observer v$($release.version) to $target"
 Write-Output "Verified all $($files.Count) release files. Restart Balatro to load the updated mod."
-

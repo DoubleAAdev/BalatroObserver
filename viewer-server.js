@@ -39,7 +39,10 @@ function createServer(directory) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     try {
       const url = new URL(req.url, 'http://localhost');
-      if (url.pathname === '/state') {
+      if (url.pathname === '/health') {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({app:'BalatroObserver',version:require('./BalatroObserver.json').version}));
+      } else if (url.pathname === '/state') {
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify(await readState(directory)));
       } else if (url.pathname === '/' || url.pathname === '/observer.html') {

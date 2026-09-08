@@ -65,7 +65,7 @@ Viewer checks: `node --test tests/test_viewer.cjs`.
 
 ## Release versions and installation
 
-Current release: **0.7.1**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
+Current release: **0.7.2**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
 
 Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Restart its Node server if viewer-server.js changed.
 
@@ -113,3 +113,12 @@ Checks: `node --test tests/test_score.cjs tests/test_viewer.cjs`, `node tests/te
 
 
 Release 0.7.1 — Random image fixes: corrects Caino's canonical key in the portrait and calculator mappings, including its legendary face layer.
+
+
+## Release 0.7.2 — Automatic viewer startup on Windows
+
+The in-game Balatro Observer button now starts the local server automatically, waits until it responds, and opens the browser. It reuses an existing healthy viewer. Restart Balatro once after this update to load the new button behavior. Node.js 18+ is required; the connection remains localhost-only and does not require opening a firewall port.
+
+You can also run `node start-viewer.js` manually. Failures produce a local explanation page and server startup output is kept in `viewer-server.log`. An unrelated application using port 8765 is never terminated. On non-Windows platforms, start `node viewer-server.js` before using the shortcut.
+
+Startup checks: `node --test tests/test_start_viewer.cjs tests/test_viewer.cjs`.

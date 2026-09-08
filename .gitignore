@@ -27,3 +27,4 @@ __pycache__/
 /work/
 
 # Local game-source audit and screenshot files remain under /work/.
+/viewer-start-error.html

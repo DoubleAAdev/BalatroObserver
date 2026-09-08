@@ -8,7 +8,7 @@ const art=require('../assets/wiki-art.json');
  try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  const base={schema_version:1,session:'wiki',sequence:1,observed_at:Date.now()/1000,available:true,phase:'SHOP',mod_version:'0.7.1',run:{stake:8,dollars:20},blind:{name:'The Hook'},consumables:{cards:[{visible:true,key:'c_fool',set:'Tarot',edition:{negative:true}},{visible:true,key:'c_pluto',set:'Planet'},{visible:true,key:'c_ankh',set:'Spectral'}]},shop:{cards:{cards:[{visible:true,key:'c_fool',set:'Tarot'}]},vouchers:{cards:[{visible:true,key:'v_overstock_norm',set:'Voucher'}]},reroll_cost:5}};
+  const base={schema_version:1,session:'wiki',sequence:1,observed_at:Date.now()/1000,available:true,phase:'SHOP',mod_version:'0.7.2',run:{stake:8,dollars:20},blind:{name:'The Hook'},consumables:{cards:[{visible:true,key:'c_fool',set:'Tarot',edition:{negative:true}},{visible:true,key:'c_pluto',set:'Planet'},{visible:true,key:'c_ankh',set:'Spectral'}]},shop:{cards:{cards:[{visible:true,key:'c_fool',set:'Tarot'}]},vouchers:{cards:[{visible:true,key:'v_overstock_norm',set:'Voucher'}]},reroll_cost:5}};
   let response={state:base,stale:false,directory:'fixture'};
   await page.route('**/state',r=>r.fulfill({json:response}));
   await page.goto('http://127.0.0.1:'+server.address().port);

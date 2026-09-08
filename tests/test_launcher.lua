@@ -10,7 +10,7 @@ UIBox=function(config)
  return {draw=function() end}
 end
 local deck=setmetatable({children={}},{__index=CardArea});G.deck=deck
-dofile('launcher.lua')()
+dofile('launcher.lua')(function() return love.system.openURL('http://127.0.0.1:8765') end)
 deck:draw();deck:draw()
 assert(draws==2 and created==1 and opened==0)
 assert(BalatroObserver.launcher_ok)
