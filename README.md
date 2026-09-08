@@ -25,7 +25,7 @@ No file in the game installation is modified. The Steamodded folder must sit alo
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\server\start-viewer.ps1 -StateDirectory "D:\path\to\balatro_observer" -Port 8765
 ```
 
-Startup problems are written to `viewer-server.log` / `viewer-server-error.log` in the mod folder. An older viewer or another program on the port is reported as *occupied*; the launcher never terminates other processes. Environments that block PowerShell scripts or runtime C# compilation need those allowed, or can use the Node server below.
+A viewer left running from an earlier release is replaced automatically (it is recognized by its own command line); any other program on the port is reported by name and never stopped. The reason for a failed launch appears under the in-game button and in `viewer-launch.log` in the mod folder; server output goes to `viewer-server.log` / `viewer-server-error.log`. Environments that block PowerShell scripts or runtime C# compilation need those allowed, or can use the Node server below.
 
 **Other platforms.** With Node.js 18+ installed, run `node server/start-viewer.js` (starts the server and opens the browser) or `node server/viewer-server.js [stateDirectory]` and open `http://127.0.0.1:8765`. The in-game button then simply opens that address.
 
@@ -99,7 +99,7 @@ Checks, from the repository root:
 | --- | --- | --- |
 | Collector, JSON, export hook, launcher | `lua tests/test_observer.lua` and `lua tests/test_launcher.lua` | Lua 5.1+ or LuaJIT |
 | Node server, launcher, score engine | `node --test tests/test_viewer.cjs tests/test_start_viewer.cjs tests/test_score.cjs` | Node.js 18+ |
-| Windows startup without Node | `powershell -ExecutionPolicy Bypass -File tests/test_windows_startup.ps1` | Windows PowerShell 5.1 |
+| Windows launcher: outdated viewer replaced, cold start, reuse, foreign listener refused | `powershell -ExecutionPolicy Bypass -File tests/test_windows_startup.ps1` | Windows PowerShell 5.1 |
 | Browser rendering | `node tests/test_viewer_browser.cjs`, `test_card_art.cjs`, `test_wiki_shop.cjs`, `test_score_browser.cjs`, `test_windows_viewer.cjs` | Playwright + Chromium (`PLAYWRIGHT_MODULE`, `BROWSER_EXECUTABLE` may point at existing installs) |
 
 Live smoke test after installing: start a run, compare a snapshot with the HUD and the full deck viewer, select a card, discard and play, enter and leave the shop, open a pack and face a boss blind that hides cards. Confirm that unavailable phases are not consumable as playable states and that no draw order or face-down identity appears.

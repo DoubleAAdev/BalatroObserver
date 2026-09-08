@@ -8,13 +8,14 @@ const {spawn}=require('node:child_process');
 const root=path.resolve(__dirname,'..');
 const release=require(path.join(root,'BalatroObserver.json')).version;
 
-// 'ready' only for a viewer of this exact release; an older viewer must be closed, never killed here.
+// 'ready' only for a viewer of this exact release. This launcher never stops another process: an older
+// viewer is reported as 'outdated' (the Windows launcher replaces it; here, close it and retry).
 function probe(port,version=release){
  return new Promise(resolve=>{
   const request=http.get({hostname:'127.0.0.1',port,path:'/health',timeout:500},response=>{
    let body='';response.on('data',chunk=>{body+=chunk;if(body.length>4096)request.destroy();});
    response.on('error',()=>resolve('occupied'));
-   response.on('end',()=>{try{const health=JSON.parse(body);resolve(health.app==='BalatroObserver'&&health.version===version?'ready':'occupied');}catch{resolve('occupied');}});
+   response.on('end',()=>{try{const health=JSON.parse(body);resolve(health.app!=='BalatroObserver'?'occupied':health.version===version?'ready':'outdated');}catch{resolve('occupied');}});
   });
   request.on('timeout',()=>request.destroy());
   request.on('error',error=>resolve(error.code==='ECONNREFUSED'?'stopped':'occupied'));
@@ -23,7 +24,8 @@ function probe(port,version=release){
 async function ensureViewer({port=8765,launch,timeout=10000,version=release}={}){
  const initial=await probe(port,version);
  if(initial==='ready')return {started:false,port};
- if(initial==='occupied')throw new Error('Port '+port+' is occupied by another application or an older viewer. Close that viewer server and try again.');
+ if(initial==='outdated')throw new Error('Port '+port+' is used by an older Balatro Observer viewer. Close it and try again.');
+ if(initial==='occupied')throw new Error('Port '+port+' is occupied by another application. Close it and try again.');
  if(launch)await launch();
  else{
   const log=fs.openSync(path.join(root,'viewer-server.log'),'a');

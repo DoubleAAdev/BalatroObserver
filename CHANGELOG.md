@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1 — Viewer button recovers from an older viewer
+
+- After an update, the viewer server from the previous release kept port 8765 and every click on the in-game button failed with "Viewer failed - retry". The Windows launcher now replaces an older Balatro Observer server (recognized by its command line) and still refuses any other program on the port, naming it.
+- A failed launch now writes its reason: it appears under the button in the mod settings, in the status file and in `viewer-launch.log` in the mod folder. A missing launcher script fails immediately instead of after the 15-second timeout.
+- The Node launcher distinguishes an older viewer from a foreign application in its error message; it still never stops other processes.
+
 ## 1.0.0 — Organized layout
 
 - The mod folder is sorted by role: `mod/` (in-game collector and launcher), `viewer/` (dashboard), `server/` (Windows PowerShell/.NET and Node servers), `assets/`, `scripts/`, `tests/`. `BalatroObserver.json`, `main.lua` and `start-viewer.cmd` stay at the root.

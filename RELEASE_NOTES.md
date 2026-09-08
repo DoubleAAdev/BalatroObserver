@@ -1,11 +1,9 @@
-# v1.0.0 — Organized layout
+# v1.0.1 — Viewer button recovers from an older viewer
 
-- The mod folder is sorted by role — `mod/`, `viewer/`, `server/`, `assets/`, `scripts/`, `tests/` — with only the Steamodded manifest, `main.lua` and `start-viewer.cmd` at the root. The dashboard is split into HTML, CSS, JS and a sprite table. Every server URL is unchanged, so bookmarks and external tools keep working.
-- The Node launcher now reuses a running viewer only when its version matches, exactly like the Windows launcher; both servers report their runtime in `/health`.
-- The installer (`scripts/sync-mod.ps1`) removes files from the installed folder that are not part of the release, so the previous flat layout cannot linger beside the new one. A new `scripts/build-release.ps1` packages the ZIP from the same manifest.
-- README rewritten as a user and developer guide; release history lives in `CHANGELOG.md`.
-- No change to the exported schema, the visibility boundary, or the information collected. `mod_version` still identifies the version loaded in Balatro.
+- Fixes "Viewer failed - retry" after updating: the viewer server from the previous release kept port 8765, so the in-game button could never start the new one. The Windows launcher now replaces an older Balatro Observer server — recognized by its own command line — and still refuses any other program on the port, naming it instead of stopping it.
+- A failed launch explains itself: the reason is shown under the button in the mod settings and written to `viewer-launch.log` in the mod folder. A missing launcher script fails immediately rather than after the 15-second timeout.
+- Includes the v1.0.0 reorganization: `mod/`, `viewer/`, `server/`, `scripts/` layout, split dashboard files, unchanged URLs, a pruning installer and a ZIP builder. No change to the exported schema or the information collected.
 
-Extract the `BalatroObserver` folder into `%APPDATA%/Balatro/Mods`, replacing the old one, and restart Balatro. Close any viewer server from an earlier release before opening the new dashboard; the launcher reports an occupied port rather than stopping another process.
+Extract the `BalatroObserver` folder into `%APPDATA%/Balatro/Mods`, replacing the old one, and restart Balatro. The first click on the button replaces any older viewer automatically.
 
-Validation: Node unit checks (server, launcher, score engine) run on Node 24; hidden Windows/.NET cold startup, readiness reporting and every public route verified against the restructured layout; the dashboard rendered from the .NET server in Chromium with no console errors across all sections. Not run in this release: the Lua collector/launcher suites and the Playwright browser suites, because no Lua runtime or Playwright installation was available on the release machine — the Lua changes are limited to module paths, and the browser suites' route lists were updated. Live in-game verification after restart remains to be confirmed.
+Validation: Windows launcher suite (outdated viewer replaced, cold start, request-specific readiness, reuse without duplicates, foreign listener refused by name) with Node absent from PATH; 12 Node unit checks (Node 24 via Electron); the installed launcher replaced a real v0.8.0 viewer on port 8765 on the release machine. Not run: the Lua suites and the Playwright browser suites (no runtime available); the launcher Lua was updated with matching test changes.

@@ -43,7 +43,7 @@ function run(args){return new Promise((resolve,reject)=>{let output='';const chi
   try {
    const occupied=await run(['-File',path.join(root,'server/start-viewer.ps1'),'-NoOpen','-Port',String(unrelated.address().port),'-Request','occupied','-StatusFile',statusFile]);
    assert.notEqual(occupied.code,0);assert.match(occupied.output,/occupied/);
-   assert.equal(await fs.readFile(statusFile,'utf8'),'occupied:error');
+   assert.match(await fs.readFile(statusFile,'utf8'),/^occupied:error:Port \d+ is occupied by .*not a Balatro Observer viewer/);
    assert.equal((await fetch('http://127.0.0.1:'+unrelated.address().port)).status,200);
   } finally {await new Promise(r=>unrelated.close(r));}
   browser=await chromium.launch({headless:true,...(process.env.BROWSER_EXECUTABLE?{executablePath:process.env.BROWSER_EXECUTABLE}:{})});
