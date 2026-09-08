@@ -28,3 +28,7 @@ __pycache__/
 
 # Local game-source audit and screenshot files remain under /work/.
 /viewer-start-error.html
+
+# Generated launcher status and temporary packaging files
+/viewer-launch-status.txt
+*.tmp

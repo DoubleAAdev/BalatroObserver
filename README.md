@@ -7,9 +7,9 @@ View player-visible Balatro game data through **raw JSON snapshot files** or a *
 | View | How to open it | What it provides |
 | --- | --- | --- |
 | Raw JSON files | Open state-0.json and state-1.json in %APPDATA%/Balatro/balatro_observer | Structured snapshots for inspection and external tools |
-| Local HTML dashboard | Run node viewer-server.js from the mod folder, then open http://127.0.0.1:8765 | Automatically updating sections for the run, hand, deck, jokers, shop, packs, and poker hands |
+| Local HTML dashboard | On Windows, double-click start-viewer.cmd or use the in-game mod settings button | Automatically updating sections for the run, hand, deck, jokers, shop, packs, and poker hands |
 
-The dashboard requires Node.js 18 or newer. The raw exports only require the mod. Both views use the same exported information; the dashboard also has a Raw data section.
+On Windows, the dashboard uses built-in Windows PowerShell 5.1 and .NET Framework; no Node.js installation is needed. The optional Node server requires Node.js 18 or newer on other platforms. The raw exports only require the mod. Both views use the same exported information; the dashboard also has a Raw data section.
 
 ## Install the mod
 
@@ -57,7 +57,7 @@ Live smoke test: start a run, compare a snapshot to the HUD and full deck viewer
 
 ## Live HTML viewer
 
-Run `node viewer-server.js` from this folder, then open http://127.0.0.1:8765. Requires Node.js 18 or newer. The viewer automatically reads `%APPDATA%/Balatro/balatro_observer` and refreshes every 200 ms. For another save location, run `node viewer-server.js "D:\path\to\balatro_observer"`. Set the `PORT` environment variable to change the default port of 8765.
+On Windows, double-click `start-viewer.cmd` or use Mods > Balatro Observer > configuration. The launcher starts a hidden localhost server using built-in Windows PowerShell/.NET and opens the browser. No Node.js or administrator access is required. For a custom save directory, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\start-viewer.ps1 -StateDirectory "D:\path\to\balatro_observer"`. Use `-Port` to override port 8765 for manual startup. On other platforms, use `node viewer-server.js` (Node.js 18+). The viewer automatically reads `%APPDATA%/Balatro/balatro_observer` and refreshes every 200 ms. For another save location, run `node viewer-server.js "D:\path\to\balatro_observer"`. Set the `PORT` environment variable to change the default port of 8765.
 
 `observer.html` displays the current hand, jokers, consumables, run counters, blind, shop, pack, poker hands, full deck composition, and raw snapshot. During transitions, stale exports, or a lost connection, the browser keeps the last available preview with a status label; a new session clears the old preview. Raw data always shows the latest received record, including unavailable records; missing fields display an em dash. Pause updates freezes the display and labels it as paused. The server listens only on localhost and reads the existing exports without modifying the mod. Open the HTTP URL rather than double-clicking the HTML file, because browsers cannot automatically read these local files.
 
@@ -65,9 +65,9 @@ Viewer checks: `node --test tests/test_viewer.cjs`.
 
 ## Release versions and installation
 
-Current release: **0.7.5**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
+Current release: **0.8.0**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
 
-Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Restart its Node server if viewer-server.js changed.
+Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Close the old viewer server before starting the updated release; the launcher reports an occupied port rather than terminating another process.
 
 Release 0.2.1 removes buy/sell labels from displayed cards. Generated local artifacts are ignored; release changes are committed after validation and installation.
 
@@ -134,3 +134,9 @@ Open the viewer from Mods > Balatro Observer > configuration. The draw-pile butt
 ## Release 0.7.5 — Keep the last selected score
 
 The selected-hand estimate stays visible after playing, deselecting, shop transitions or connection interruptions, until another selection replaces it. Retained estimates are labeled as the last selected hand. A new game session clears the previous estimate.
+
+## Release 0.8.0 — Windows viewer without Node.js
+
+The Windows in-game launcher and new double-click `start-viewer.cmd` use built-in Windows PowerShell 5.1/.NET Framework. The server binds only to 127.0.0.1, serves explicitly allowed assets and credits, and reads the existing two snapshot slots without altering their JSON or collecting additional information. `mod_version` still identifies the version loaded in Balatro; it is independent of installed viewer files. Restart Balatro after installing.
+
+Node remains optional for other platforms and for development tests. Windows environments that block PowerShell or runtime C# compilation require allowing these scripts or using the optional Node server. The no-Node integration/browser check is `node tests/test_windows_viewer.cjs`; Node drives the tests only, while the server runs with Windows PowerShell.

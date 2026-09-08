@@ -9,7 +9,7 @@ const { createServer } = require('../viewer-server');
     const page = await browser.newPage({ viewport: {width: 1440, height: 1000} });
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    const base = {schema_version:1, session:'test-session', sequence:1, observed_at:Math.floor(Date.now()/1000), available:true, phase:'SELECTING_HAND', mod_version:'0.7.5',
+    const base = {schema_version:1, session:'test-session', sequence:1, observed_at:Math.floor(Date.now()/1000), available:true, phase:'SELECTING_HAND', mod_version:'0.8.0',
       hand:{cards:[{visible:true,rank:'2',suit:'Hearts',slot:1},{visible:false,slot:2},{visible:true,rank:'Ace',suit:'Spades',slot:3}]},
       deck:{cards:['Diamonds','Clubs','Hearts','Spades'].flatMap(suit=>['2','3','4','5','6','7','8','9','10','Jack','Queen','King','Ace'].map(rank=>({visible:true,rank,suit}))).concat([{visible:true,rank:'Ace',suit:'Spades'},{visible:true,key:'m_stone'}]),remaining_cards:[{visible:true,rank:'King',suit:'Clubs'}],draw_count:1},
       jokers:{cards:[{visible:true,set:'Joker',key:'j_abstract',name:'Abstract Joker',description:'+3 Mult for each Joker card (Currently +12 Mult)',description_complete:true}]},

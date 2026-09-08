@@ -18,7 +18,7 @@ return function(open_viewer, mod)
         pending={id=request,deadline=love.timer.getTime()+15}
         local ok, message = open_viewer(request,love.filesystem.getSaveDirectory()..'/'..status_path)
         BalatroObserver.launch_error = not ok and message or nil
-        if not ok then pending=nil;label('Viewer needs Node.js') end
+        if not ok then pending=nil;label('Viewer failed - retry') end
         return ok
     end
     BalatroObserver.poll_launch=function()
