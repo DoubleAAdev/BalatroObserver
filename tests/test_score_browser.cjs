@@ -7,13 +7,13 @@ const {createServer}=require('../server/viewer-server');
  try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],requests=[];
   page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
-  const base={schema_version:1,session:'score',sequence:1,observed_at:Date.now()/1000,available:true,phase:'SELECTING_HAND',mod_version:'1.0.1',scoring_context:{},hand:{cards:[{key:'c_base',rank:'Ace',suit:'Spades',visible:true,selected:true,slot:1}]},poker_hands:{'High Card':{level:1,chips:5,mult:1}},jokers:{cards:[{key:'j_joker',set:'Joker',visible:true,score_vars:{1:4},description:'+4 Mult'}]}};
+  const base={schema_version:1,session:'score',sequence:1,observed_at:Date.now()/1000,available:true,phase:'SELECTING_HAND',mod_version:'1.1.0',scoring_context:{},hand:{cards:[{key:'c_base',rank:'Ace',suit:'Spades',visible:true,selected:true,slot:1}]},poker_hands:{'High Card':{level:1,chips:5,mult:1}},jokers:{cards:[{key:'j_joker',set:'Joker',visible:true,score_vars:{1:4},description:'+4 Mult'}]}};
   let response={state:base,stale:false,directory:'fixture'};
   await page.route('**/state',r=>r.fulfill({json:response}));
   await page.goto('http://127.0.0.1:'+server.address().port);
   await page.waitForFunction(()=>document.querySelector('.predicted-score')?.textContent==='80');
-  assert.equal(await page.title(),'Balatro Observer v1.0.1');
-  assert.deepEqual(await page.evaluate(()=>[value(1.234567),value(12),el('p','X1.234567 Mult, +0.30000000004 Mult').textContent,el('p','v1.0.1').textContent]),['1.23','12','X1.23 Mult, +0.30 Mult','v1.0.1']);
+  assert.equal(await page.title(),'Balatro Observer v1.1.0');
+  assert.deepEqual(await page.evaluate(()=>[value(1.234567),value(12),el('p','X1.234567 Mult, +0.30000000004 Mult').textContent,el('p','v1.1.0').textContent]),['1.23','12','X1.23 Mult, +0.30 Mult','v1.1.0']);
   assert.equal(await page.evaluate(()=>value(-2.71828)),'-2.72');
   assert.equal(await page.locator('#nav-reference').count(),0);
   await page.locator('#nav-hand').click();assert.equal(await page.locator('.predicted-score').textContent(),'80');

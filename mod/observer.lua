@@ -63,7 +63,8 @@ return function(JSON)
                     if v == nil then complete = false; return '?' end
                     return tostring(v)
                 end)
-                lines[#lines + 1] = line
+                -- Blank lines are paragraph breaks in the game's tooltips; drop them from the flat text.
+                if line:find('%S') then lines[#lines + 1] = line end
             end
         end
         return #lines > 0 and table.concat(lines, ' ') or nil, complete
@@ -202,6 +203,33 @@ return function(JSON)
         end
         return blinds, vouchers
     end
+    local function name_of(G, set, key)
+        return scalar((((((G.localization or {}).descriptions or {})[set] or {})[key] or {}).name)
+    end
+    -- Current deck as Run Info shows it. The placeholders are filled from the same public definition
+    -- values vanilla's back.lua uses; modded decks with dynamic values show ? rather than a guess.
+    local function deck_info(G, game)
+        local center = ((game.selected_back or {}).effect or {}).center
+        if type(center) ~= 'table' or type(center.key) ~= 'string' then return nil end
+        local key, config = center.key, type(center.config) == 'table' and center.config or {}
+        local vars
+        if key == 'b_blue' then vars = {scalar(config.hands)}
+        elseif key == 'b_red' then vars = {scalar(config.discards)}
+        elseif key == 'b_yellow' then vars = {scalar(config.dollars)}
+        elseif key == 'b_green' then vars = {scalar(config.extra_hand_bonus), scalar(config.extra_discard_bonus)}
+        elseif key == 'b_black' then vars = {scalar(config.joker_slot), type(config.hands) == 'number' and -config.hands or nil}
+        elseif key == 'b_magic' then vars = {name_of(G, 'Voucher', 'v_crystal_ball'), name_of(G, 'Tarot', 'c_fool')}
+        elseif key == 'b_nebula' then vars = {name_of(G, 'Voucher', 'v_telescope'), -1}
+        elseif key == 'b_zodiac' then vars = {name_of(G, 'Voucher', 'v_tarot_merchant'), name_of(G, 'Voucher', 'v_planet_merchant'), name_of(G, 'Voucher', 'v_overstock_norm')}
+        elseif key == 'b_painted' then vars = {scalar(config.hand_size), scalar(config.joker_slot)}
+        elseif key == 'b_anaglyph' then vars = {name_of(G, 'Tag', 'tag_double')}
+        elseif key == 'b_plasma' then vars = {scalar(config.ante_scaling)}
+        end
+        local deck = {key = key, set = 'Back', name = name_of(G, 'Back', key) or scalar(center.name)}
+        deck.description, deck.description_complete = description(G, 'Back', key, vars)
+        if deck.description and not deck.description:find('%S') then deck.description = nil end
+        return deck
+    end
     local allowed = {'SELECTING_HAND', 'SHOP', 'BLIND_SELECT', 'ROUND_EVAL',
         'TAROT_PACK', 'PLANET_PACK', 'SPECTRAL_PACK', 'STANDARD_PACK', 'BUFFOON_PACK', 'SMODS_BOOSTER_OPENED', 'GAME_OVER'}
     function M.snapshot(G)
@@ -220,6 +248,7 @@ return function(JSON)
         result.blinds, result.vouchers = run_info(G, game)
         result.run = fields(game, {'dollars', 'chips', 'round', 'stake'})
         result.run.deck_key = scalar((((game.selected_back or {}).effect or {}).center or {}).key)
+        result.run.deck = deck_info(G, game)
         result.scoring_context = {loyalty_remaining={}}
         for i, c in ipairs((G.jokers or {}).cards or {}) do
             if c.facing == 'front' and (((c.config or {}).center or {}).key == 'j_loyalty_card') then

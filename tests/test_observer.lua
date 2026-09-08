@@ -40,7 +40,7 @@ assert(not pcall(JSON.encode, math.huge))
 
 -- Exercise the actual update hook with fake SMODS and LÖVE objects.
 _G.G = G
-SMODS = {current_mod = {id = 'BalatroObserver', version = '1.0.1'}, load_file = function(file) return loadfile(file) end}
+SMODS = {current_mod = {id = 'BalatroObserver', version = '1.1.0'}, load_file = function(file) return loadfile(file) end}
 local writes, called, fail = {}, 0, false
 love = {timer = {getTime = function() return 1 end}, filesystem = {
     createDirectory = function() return true end,
@@ -53,9 +53,9 @@ Game:update(0.1)
 Game:update(0.2)
 assert(called == 3 and writes['balatro_observer/state-0.json'] and writes['balatro_observer/state-1.json'])
 assert(BalatroObserver.last_export_ok)
-assert(BalatroObserver.version == '1.0.1')
-assert(BalatroObserver.snapshot().mod_version == '1.0.1')
-assert(writes['balatro_observer/state-1.json']:find('1.0.1', 1, true))
+assert(BalatroObserver.version == '1.1.0')
+assert(BalatroObserver.snapshot().mod_version == '1.1.0')
+assert(writes['balatro_observer/state-1.json']:find('1.1.0', 1, true))
 fail = true
 Game:update(0.2)
 assert(not BalatroObserver.last_export_ok and called == 4)
@@ -135,6 +135,28 @@ assert(descriptions.jokers.cards[1].description == '+3 Mult for each Joker card 
 assert(descriptions.jokers.cards[1].description_complete)
 assert(descriptions.blinds.boss.description == 'Discards 2 random cards per hand')
 assert(descriptions.blind.loc_debuff_text == 'Discards 2 random cards per hand')
+-- Current deck: Run Info text from public definition values; nothing else from the Back object.
+G.localization.descriptions.Back = {
+    b_black = {name = 'Black Deck', text = {'{C:attention}+#1#{} Joker slot', '', '{C:blue}-#2#{} hand', 'every round'}},
+    b_magic = {name = 'Magic Deck', text = {'Start run with the', '{C:tarot,T:v_crystal_ball}#1#{} voucher', 'and {C:attention}2{} copies', 'of {C:tarot,T:c_fool}#2#'}}
+}
+G.localization.descriptions.Voucher = {v_crystal_ball = {name = 'Crystal Ball'}}
+G.localization.descriptions.Tarot = {c_fool = {name = 'The Fool'}}
+G.GAME.selected_back = {name = 'Black Deck', effect = {center = {key = 'b_black', name = 'Black Deck', set = 'Back',
+    config = {hands = -1, joker_slot = 1}, secret = 'SECRET'}, config = {hands = -1, joker_slot = 1}}}
+local deck = observer.snapshot(G)
+assert(deck.run.deck_key == 'b_black' and deck.run.deck.name == 'Black Deck' and deck.run.deck.set == 'Back')
+assert(deck.run.deck.description == '+1 Joker slot -1 hand every round', deck.run.deck.description)
+assert(deck.run.deck.description_complete == true)
+G.GAME.selected_back.effect.center = {key = 'b_magic', name = 'Magic Deck', set = 'Back', config = {voucher = 'v_crystal_ball'}}
+assert(observer.snapshot(G).run.deck.description == 'Start run with the Crystal Ball voucher and 2 copies of The Fool')
+G.GAME.selected_back.effect.center = {key = 'b_custom', name = 'Custom Deck', set = 'Back', config = {}}
+deck = observer.snapshot(G)
+assert(deck.run.deck.description == nil and deck.run.deck.name == 'Custom Deck')
+assert(not JSON.encode(deck):find('SECRET'))
+G.GAME.selected_back = nil
+assert(observer.snapshot(G).run.deck == nil)
+print('PASS: current deck name, effect text and placeholder values')
 table.remove(G.jokers.cards)
 assert(observer.snapshot(G).jokers.cards[1].description:find('+9 Mult', 1, true))
 abstract.facing = 'back'

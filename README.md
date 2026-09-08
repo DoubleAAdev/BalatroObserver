@@ -5,7 +5,7 @@ View player-visible Balatro game data through **raw JSON snapshot files** or a *
 | View | How to open it | What it provides |
 | --- | --- | --- |
 | Raw JSON files | Open `state-0.json` / `state-1.json` in `%APPDATA%/Balatro/balatro_observer` | Structured snapshots for inspection and external tools |
-| Local HTML dashboard | Mods → Balatro Observer → configuration, or double-click `start-viewer.cmd` | Live sections for the run, hand, deck, jokers, shop, packs, poker hands and a score preview |
+| Local HTML dashboard | Mods → Balatro Observer → configuration, or double-click `start-viewer.cmd` | Live sections for the run, current deck and blind, hand, deck composition, jokers, shop, packs, poker hands and a score preview |
 
 On Windows the dashboard runs on the built-in Windows PowerShell 5.1 and .NET Framework — no Node.js required. On other platforms an optional Node.js 18+ server is included. Both views show the same exported information; the dashboard also has a Raw data section.
 
@@ -42,7 +42,7 @@ For in-process use, `BalatroObserver.snapshot()` returns a detached Lua table an
 ### Schema version 1
 
 - `phase`, `available` — only recognized completed run phases are sampled. Animations, overlays, pauses, menus and unknown phases produce an unavailable record. Availability is a sampling guard, not a guarantee that an action is legal.
-- `run`, `round`, `blind` — money, score, stake, deck key, round, ante, remaining hands/discards and the current blind, including its boss effect text.
+- `run`, `round`, `blind` — money, score, stake, round, ante, remaining hands/discards and the current blind, including its boss effect text. `run.deck` carries the current deck's key, localized name and effect text, filled with the same public definition values Run Info shows (`run.deck_key` remains for compatibility).
 - `hand`, `jokers`, `consumables` — ordered area cards with capacity, slot, selection, visible identity, edition, seal, costs, supported stickers and, for face-up playing cards, the public chip bonus. Jokers carry their localized description and the reviewed public tooltip values (`score_vars`). Face-down cards contain only `visible: false` and their slot.
 - `deck` — full deck composition in canonical order plus draw-pile and discard-pile counts. `remaining_cards` is the public unplayed composition, including cards kept ambiguous by face-down effects; it can exceed `draw_count`. Neither list contains draw order, IDs, area membership or links to hidden hand slots. Stone Cards omit their underlying rank and suit.
 - `poker_hands` — visible hand types with level, chips, multiplier and play counts.

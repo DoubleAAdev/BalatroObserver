@@ -1719,5 +1719,45 @@
     "pages": [
       "Booster_Packs"
     ]
+  },
+  {
+    "file": "assets/wiki/Green_Deck.png",
+    "name": "Green Deck",
+    "source": "https://balatrowiki.org/images/Green_Deck.png",
+    "pages": [
+      "Decks"
+    ]
+  },
+  {
+    "file": "assets/wiki/Black_Deck.png",
+    "name": "Black Deck",
+    "source": "https://balatrowiki.org/images/Black_Deck.png",
+    "pages": [
+      "Decks"
+    ]
+  },
+  {
+    "file": "assets/wiki/Magic_Deck.png",
+    "name": "Magic Deck",
+    "source": "https://balatrowiki.org/images/Magic_Deck.png",
+    "pages": [
+      "Decks"
+    ]
+  },
+  {
+    "file": "assets/wiki/Abandoned_Deck.png",
+    "name": "Abandoned Deck",
+    "source": "https://balatrowiki.org/images/Abandoned_Deck.png",
+    "pages": [
+      "Decks"
+    ]
+  },
+  {
+    "file": "assets/wiki/Checkered_Deck.png",
+    "name": "Checkered Deck",
+    "source": "https://balatrowiki.org/images/Checkered_Deck.png",
+    "pages": [
+      "Decks"
+    ]
   }
 ]

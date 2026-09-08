@@ -37,9 +37,9 @@ SOFTWARE.
 
 ## Balatro Wiki artwork
 
-Additional images are sourced from Balatro Wiki contributors: https://balatrowiki.org/w/Tarot_cards, https://balatrowiki.org/w/Planet_cards, https://balatrowiki.org/w/Spectral_cards, https://balatrowiki.org/w/Vouchers, https://balatrowiki.org/w/Stakes, https://balatrowiki.org/w/Blinds_and_Antes.
+Additional images are sourced from Balatro Wiki contributors: https://balatrowiki.org/w/Tarot_cards, https://balatrowiki.org/w/Planet_cards, https://balatrowiki.org/w/Spectral_cards, https://balatrowiki.org/w/Vouchers, https://balatrowiki.org/w/Stakes, https://balatrowiki.org/w/Blinds_and_Antes, https://balatrowiki.org/w/Decks.
 
-The 208 original image files are bundled unchanged in assets/wiki/. assets/wiki-art.json records each image URL and its source articles. Retrieved 2026-09-07. Wiki content is offered under CC BY-NC-SA 3.0 (https://creativecommons.org/licenses/by-nc-sa/3.0/); additional terms may apply (https://meta.weirdgloop.org/w/Licensing). Original Balatro artwork remains the property of its respective owners. These images are not covered by this repository’s code license. Viewer styling (scaling and edition effects) is applied at display time. Balatro Wiki and game creators do not endorse this project.
+The 213 original image files are bundled unchanged in assets/wiki/. assets/wiki-art.json records each image URL and its source articles. Retrieved 2026-09-07; the five deck images added in version 1.1.0 (Green, Black, Magic, Abandoned, Checkered) were retrieved from the Decks article on 2026-09-08. Wiki content is offered under CC BY-NC-SA 3.0 (https://creativecommons.org/licenses/by-nc-sa/3.0/); additional terms may apply (https://meta.weirdgloop.org/w/Licensing). Original Balatro artwork remains the property of its respective owners. These images are not covered by this repository’s code license. Viewer styling (scaling and edition effects) is applied at display time. Balatro Wiki and game creators do not endorse this project.
 
 Booster pack artwork also comes from https://balatrowiki.org/w/Booster_Packs, under the same attribution and licensing terms. All 32 vanilla pack wrapper variants are mapped independently.
 

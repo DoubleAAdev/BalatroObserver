@@ -191,6 +191,17 @@ function deckRows(title,list){
 }
 
 // ---- Section renderers ----
+// Current deck: name, effect text and wiki artwork, like the Run Info deck panel.
+function deckPanel(s){
+ const deck=s.run?.deck,key=deck?.key||s.run?.deck_key;
+ const p=panel('Deck',undefined,false);
+ if(!deck&&!key){empty(p,'Waiting for deck information','Restart Balatro with the latest observer to export the current deck.','▤');return;}
+ const name=deck?.name||pretty(key),file=WIKI_KEYS[key]||namedArt(name)?.file;
+ if(file)p.append(wikiImage(file,name,'deck-art'));
+ p.append(el('div',name,'blind-name'));
+ if(deck?.description){p.append(el('p',deck.description,'hint'));if(deck.description_complete===false)p.append(el('p','? = value not exported for this deck','hint'));}
+ else p.append(el('p','Effect text not available in this snapshot.','hint'));
+}
 function blindPanels(s){
  const info=s.blinds;
  if(!info){empty(panel('Blinds & skip tags'),'Waiting for blind information','Restart Balatro with the latest observer to export the current ante.');return;}
@@ -224,11 +235,12 @@ function render(){
  if(active==='overview'){
  scorePanel(s);
  for(const [l,v] of [['Money',s.run?.dollars===undefined?undefined:'$'+s.run.dollars],['Ante',s.round?.ante],['Round',s.run?.round],['Score',s.run?.chips],['Hands left',s.round?.hands_left],['Discards left',s.round?.discards_left]])stat(l,v);
- const p=panel('Current blind',s.blind?.disabled?'Disabled':pretty(s.phase));
+ const p=panel('Current blind',s.blind?.disabled?'Disabled':pretty(s.phase),false);
  blindArt(p,s.blind);p.append(el('div',s.blind?.name||'No active blind','blind-name'));
  if(s.blind?.loc_debuff_text)p.append(el('p',s.blind.loc_debuff_text,'hint'));
  if(s.blind?.disabled)p.append(el('p','Boss effect disabled','hint'));
  const row=el('div',undefined,'blind-values');for(const [l,v] of [['Target score',s.blind?.chips],['Reward',s.blind?.dollars===undefined?undefined:'$'+s.blind.dollars],['Stake',s.run?.stake]]){const x=el('div');x.append(el('small',l),el('span',value(v)));row.append(x);}const stake=['White','Red','Green','Black','Blue','Purple','Orange','Gold'][s.run?.stake-1];const stakeFile=namedArt(stake+' stake');if(stakeFile)row.lastChild.append(wikiImage(stakeFile.file,stake+' stake','stake-art'));p.append(row);
+ deckPanel(s);
  cards('Current hand',s.hand);cards('Jokers',s.jokers,false);cards('Consumables',s.consumables,false);
  }else if(active==='blinds'){blindPanels(s);
  }else if(active==='vouchers'){if(s.vouchers)cards('Redeemed vouchers',{cards:s.vouchers});else empty(panel('Redeemed vouchers'),'Waiting for voucher information','Restart Balatro with the latest observer.');

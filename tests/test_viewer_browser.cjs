@@ -9,16 +9,18 @@ const { createServer } = require('../server/viewer-server');
     const page = await browser.newPage({ viewport: {width: 1440, height: 1000} });
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    const base = {schema_version:1, session:'test-session', sequence:1, observed_at:Math.floor(Date.now()/1000), available:true, phase:'SELECTING_HAND', mod_version:'1.0.1',
+    const base = {schema_version:1, session:'test-session', sequence:1, observed_at:Math.floor(Date.now()/1000), available:true, phase:'SELECTING_HAND', mod_version:'1.1.0',
       hand:{cards:[{visible:true,rank:'2',suit:'Hearts',slot:1},{visible:false,slot:2},{visible:true,rank:'Ace',suit:'Spades',slot:3}]},
       deck:{cards:['Diamonds','Clubs','Hearts','Spades'].flatMap(suit=>['2','3','4','5','6','7','8','9','10','Jack','Queen','King','Ace'].map(rank=>({visible:true,rank,suit}))).concat([{visible:true,rank:'Ace',suit:'Spades'},{visible:true,key:'m_stone'}]),remaining_cards:[{visible:true,rank:'King',suit:'Clubs'}],draw_count:1},
       jokers:{cards:[{visible:true,set:'Joker',key:'j_abstract',name:'Abstract Joker',description:'+3 Mult for each Joker card (Currently +12 Mult)',description_complete:true}]},
-      blind:{name:'The Hook',loc_debuff_text:'Discards 2 random cards per hand'},blinds:{choices:[{slot:'Boss',name:'The Hook',description:'Discards 2 random cards per hand'}]},vouchers:[]};
+      blind:{name:'The Hook',loc_debuff_text:'Discards 2 random cards per hand'},blinds:{choices:[{slot:'Boss',name:'The Hook',description:'Discards 2 random cards per hand'}]},vouchers:[],run:{dollars:4,stake:1,deck_key:'b_red',deck:{key:'b_red',name:'Red Deck',description:'+1 discard every round',description_complete:true}}};
     let response = {state:base, stale:false, directory:'test'};
     await page.route('**/state', route => route.fulfill({json:response}));
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.locator('#content:not([hidden])').waitFor();
     assert.match(await page.locator('#panels').textContent(),/Discards 2 random cards/);
+    assert.match(await page.locator('#panels').textContent(),/Red Deck[\s\S]*\+1 discard every round/);
+    assert.match(await page.locator('.deck-art').getAttribute('src'),/Red_Deck/);
     await page.locator('#nav-inventory').click();
     assert.match(await page.locator('#panels').textContent(),/Currently \+12 Mult/);
     await page.locator('#nav-remaining').click();

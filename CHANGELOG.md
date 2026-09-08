@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0 — Current deck on the overview
+
+- The Overview shows the deck you are playing next to the current blind: its wiki artwork, localized name and effect text, exactly as Run Info phrases it. The collector exports `run.deck` (key, name, description) using the same public definition values vanilla fills its placeholders with; modded decks with dynamic values show `?` instead of a guess.
+- Five deck images (Green, Black, Magic, Abandoned, Checkered) join the bundled Balatro Wiki artwork; every vanilla deck key now maps to a picture.
+- Blank lines in localized descriptions no longer leave double spaces in the flat text.
+
 ## 1.0.1 — Viewer button recovers from an older viewer
 
 - After an update, the viewer server from the previous release kept port 8765 and every click on the in-game button failed with "Viewer failed - retry". The Windows launcher now replaces an older Balatro Observer server (recognized by its command line) and still refuses any other program on the port, naming it.
