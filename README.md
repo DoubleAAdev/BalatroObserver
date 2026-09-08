@@ -97,7 +97,7 @@ Checks, from the repository root:
 
 | Suite | Command | Needs |
 | --- | --- | --- |
-| Collector, JSON, export hook, launcher | `lua tests/test_observer.lua` and `lua tests/test_launcher.lua` | Lua 5.1+ or LuaJIT |
+| Collector, JSON, export hook, launcher | `lua tests/test_observer.lua` and `lua tests/test_launcher.lua`, or `python scripts/run-lua-tests.py` (uses the game's own `lua51.dll`; set `BALATRO_LUA_DLL` for a non-default Steam library) | Lua 5.1+/LuaJIT, or Python 3 plus an installed Balatro |
 | Node server, launcher, score engine | `node --test tests/test_viewer.cjs tests/test_start_viewer.cjs tests/test_score.cjs` | Node.js 18+ |
 | Windows launcher: outdated viewer replaced, cold start, reuse, foreign listener refused | `powershell -ExecutionPolicy Bypass -File tests/test_windows_startup.ps1` | Windows PowerShell 5.1 |
 | Browser rendering | `node tests/test_viewer_browser.cjs`, `test_card_art.cjs`, `test_wiki_shop.cjs`, `test_score_browser.cjs`, `test_windows_viewer.cjs` | Playwright + Chromium (`PLAYWRIGHT_MODULE`, `BROWSER_EXECUTABLE` may point at existing installs) |

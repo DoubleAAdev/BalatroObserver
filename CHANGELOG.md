@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 — Load fix
+
+- Fixes a syntax error in the deck adapter that crashed Balatro on load in 1.1.0 (which was never published).
+- `scripts/run-lua-tests.py` runs the Lua suites through Balatro's own LuaJIT (`lua51.dll`) when no Lua interpreter is installed, so the collector is executed before every release again.
+
 ## 1.1.0 — Current deck on the overview
 
 - The Overview shows the deck you are playing next to the current blind: its wiki artwork, localized name and effect text, exactly as Run Info phrases it. The collector exports `run.deck` (key, name, description) using the same public definition values vanilla fills its placeholders with; modded decks with dynamic values show `?` instead of a guess.

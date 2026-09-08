@@ -204,7 +204,8 @@ return function(JSON)
         return blinds, vouchers
     end
     local function name_of(G, set, key)
-        return scalar((((((G.localization or {}).descriptions or {})[set] or {})[key] or {}).name)
+        local entries = ((G.localization or {}).descriptions or {})[set] or {}
+        return scalar((entries[key] or {}).name)
     end
     -- Current deck as Run Info shows it. The placeholders are filled from the same public definition
     -- values vanilla's back.lua uses; modded decks with dynamic values show ? rather than a guess.
