@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Balatro Observer</title>
-<meta name="observer-version" content="0.7.3">
+<meta name="observer-version" content="0.7.4">
 <style>
 :root{color-scheme:dark;font-family:Inter,Segoe UI,system-ui,sans-serif;background:#101716;color:#edf1e9;--muted:#93a69b;--line:#2b3932;--gold:#e8c67c}
 *{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
@@ -72,7 +72,7 @@ footer a{color:#afc5b1;text-underline-offset:3px}
 <body>
 <aside class="sidebar"><div class="brand"><span class="logo">♠</span><div><strong>Balatro Observer</strong></div></div>
 <div class="nav-label">Your run</div><nav aria-label="Observer sections" id="nav"></nav>
-<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.7.3</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
+<div class="sidebar-foot"><span class="dot"></span>Read-only observer<br><span id="viewer-version">Viewer v0.7.4</span><br><span id="mod-version">Mod: waiting for snapshot</span><br><span id="version-note"></span></div></aside>
 <main><header><div><div class="eyebrow">The table, at a glance</div><h1 id="title">Run overview</h1><p id="description"></p></div><button id="pause">Ⅱ Pause updates</button></header>
 <div class="statusbar"><span id="status" role="status">Connecting to observer…</span><span id="meta" class="meta"></span></div>
 <div id="waiting" class="panel"><div class="empty"><span class="empty-icon">♧</span><strong id="waiting-title">Waiting for the table</strong><span id="waiting-text">Your run will appear here when the observer sends a fresh snapshot.</span></div></div>
@@ -109,8 +109,11 @@ const sections={
 };
 let lastShop=null,shopSession=null,scoreLive=false;
 let active='overview',paused=false,busy=false,snapshot=null,usable=false,lastBody='';
-function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
-const value=v=>v===undefined||v===null?'—':String(v);
+// Keep snapshot precision for calculations; round only displayed numeric values.
+const formatNumber=n=>Number.isFinite(n)&&!Number.isInteger(n)?n.toFixed(2):String(n);
+const formatText=text=>typeof text==='number'?formatNumber(text):String(text).replace(/(?<![\d.])[-+]?\d+\.\d+(?:e[+-]?\d+)?(?![\d.])/gi,n=>{const prefix=n.startsWith('+')?'+':'';return prefix+Number(n).toFixed(2);});
+function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=formatText(text);if(cls)e.className=cls;return e;}
+const value=v=>v===undefined||v===null?'—':typeof v==='number'?formatNumber(v):formatText(v);
 const pretty=v=>v?String(v).replace(/^(?:bl|tag|[a-z])_/, '').replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase()):'Unknown card';
 function status(text,bad=false){$('status').textContent=text;$('status').dataset.kind=bad?'bad':'ok';}
 for(const [id,[icon,label]] of Object.entries(sections)){const b=el('button');b.id='nav-'+id;b.append(el('span',icon,'icon'),el('span',label),el('span','','count'));b.onclick=()=>{active=id;try{sessionStorage.setItem('observer-section',id);}catch{}select();render();};$('nav').append(b);}
@@ -266,7 +269,7 @@ function scorePanel(s){
  const p=panel('Selected hand score','Balatro Calculator');p.id='score-preview';
  const prediction=scoreLive?ObserverScore.preview(s):{message:'Waiting for a fresh playable snapshot.'};
  if(prediction.message){p.append(el('p',prediction.message,'hint'));return;}
- const format=score=>{const n=score[0]*10**score[1];return Number.isFinite(n)&&n<1e15?Math.floor(n+1e-7).toLocaleString():score[0].toFixed(3)+'e'+score[1];};
+ const format=score=>{const n=score[0]*10**score[1];return Number.isFinite(n)&&n<1e15?Math.floor(n+1e-7).toLocaleString():score[0].toFixed(2)+'e'+score[1];};
  const low=format(prediction.low),high=format(prediction.high);
  p.append(el('div',low===high?low:low+' – '+high,'predicted-score'));
  p.append(el('p',prediction.hand+' · '+prediction.selected+' selected · '+(low===high?'Estimated score':'Estimated random-effect range'),'hint'));

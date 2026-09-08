@@ -65,7 +65,7 @@ Viewer checks: `node --test tests/test_viewer.cjs`.
 
 ## Release versions and installation
 
-Current release: **0.7.3**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
+Current release: **0.7.4**. Every completed viewer or mod update increments the release version. The viewer shows its own version and the running mod version from snapshot metadata (`mod_version`). An older mod without this field is marked unreported; restart Balatro after installation to load the new release.
 
 Run `./sync-mod.ps1` from the project to install the current release into `%APPDATA%/Balatro/Mods/BalatroObserver`. The script checks viewer/manifest version consistency and verifies every copied release file by SHA-256. An alternative Mods directory can be passed with `-ModsDirectory`. Refresh the viewer after an update. Restart its Node server if viewer-server.js changed.
 
@@ -126,3 +126,7 @@ Startup checks: `node --test tests/test_start_viewer.cjs tests/test_viewer.cjs`.
 ## Release 0.7.3 — Reliable in-game browser handoff
 
 The in-game launcher waits for a request-specific readiness file, then uses LÖVE to open the browser. The button shows startup progress and allows retry after failure or a 15-second timeout. Restart Balatro to load this fix.
+
+## Release 0.7.4 — Settings shortcut and number formatting
+
+Open the viewer from Mods > Balatro Observer > configuration. The draw-pile button is removed. Floating-point values in the website display two decimal places; integers remain compact. Raw snapshots and calculation inputs retain their original precision.

@@ -1,9 +1,9 @@
-# v0.7.3 — Reliable in-game browser handoff
+# v0.7.4 — Settings shortcut and number formatting
 
-The in-game button now asks the helper to start the server and report readiness, then opens the website through Balatro's native browser handler. This removes the hidden helper's browser-opening step that could leave clicks with no visible result.
+Moved the viewer button from the draw pile into Balatro Observer's mod configuration tab. Server readiness checks and startup feedback remain available there.
 
-The button displays Starting viewer while waiting and a retry message on startup failure or timeout. Repeated clicks while starting are ignored, and stale readiness replies cannot open the browser.
+Floating-point values in the website, including joker descriptions and scientific score mantissas, now display two decimal places. Integers remain compact. Raw snapshots and calculation inputs keep full precision.
 
-Validation: launcher readiness/error/timeout/retry regressions, server startup tests, collector tests, and native Windows helper readiness handshake.
+Validation: mod settings and launcher lifecycle tests, collector tests, server tests, and browser formatting checks.
 
-Restart Balatro after installing to load v0.7.3. Node.js remains required on Windows.
+Restart Balatro to load the updated mod settings.

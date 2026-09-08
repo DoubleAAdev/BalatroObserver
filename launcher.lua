@@ -1,14 +1,11 @@
--- Adds one local viewer shortcut above the draw pile. Opening requires a click.
-return function(open_viewer)
-    if not CardArea or not CardArea.draw then return end
+-- Viewer shortcut in the Steamodded mod settings. Opening requires a click.
+return function(open_viewer, mod)
+    if not G or not G.FUNCS then return end
     local pending, counter = nil, 0
     local status_path='balatro_observer/viewer-launch-status.txt'
     local function label(text)
         BalatroObserver.launch_label=text
-        if G.deck and G.deck.children.bobs_viewer then
-            G.deck.children.bobs_viewer:remove()
-            G.deck.children.bobs_viewer=nil
-        end
+
     end
     G.FUNCS.bobs_open_viewer = function()
         if pending then return true end
@@ -36,24 +33,13 @@ return function(open_viewer)
             label('Viewer failed - retry')
         end
     end
-    local previous_draw = CardArea.draw
-    function CardArea:draw(...)
-        previous_draw(self, ...)
-        if self ~= G.deck or G.STAGE ~= G.STAGES.RUN then return end
-        local ok = pcall(function()
-            if not self.children.bobs_viewer then
-                self.children.bobs_viewer = UIBox{
-                    definition = {n=G.UIT.ROOT, config={align='cm',colour=G.C.CLEAR,padding=0.02}, nodes={
-                        {n=G.UIT.R, config={align='cm',colour=G.C.BLUE,r=0.1,padding=0.08,
-                            button='bobs_open_viewer',hover=true,shadow=true}, nodes={
-                            {n=G.UIT.T,config={text=BalatroObserver.launch_label or 'Balatro Observer',scale=0.28,colour=G.C.WHITE,shadow=true}}
-                        }}
-                    }},
-                    config={align='tm',offset={x=0,y=-0.55},major=self,parent=self}
-                }
-            end
-            self.children.bobs_viewer:draw()
-        end)
-        BalatroObserver.launcher_ok = ok
+    BalatroObserver.launch_label='Open Balatro Observer'
+    mod.config_tab=function()
+        return {n=G.UIT.ROOT,config={align='cm',colour=G.C.CLEAR,padding=0.2},nodes={
+            {n=G.UIT.R,config={align='cm',colour=G.C.BLUE,r=0.1,padding=0.15,
+                button='bobs_open_viewer',hover=true,shadow=true},nodes={
+                {n=G.UIT.T,config={ref_table=BalatroObserver,ref_value='launch_label',scale=0.4,colour=G.C.WHITE,shadow=true}}
+            }}
+        }}
     end
 end
