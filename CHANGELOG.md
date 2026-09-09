@@ -1,3 +1,8 @@
+# 1.3.1
+
+- Use readable card identities in exported actions, including discards.
+- Shorten the card dictionary by omitting empty and default properties, including for existing journals.
+
 # 1.3.0
 
 - Integrate Action Recorder and its export config button into Observer.

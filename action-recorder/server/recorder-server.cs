@@ -22,6 +22,47 @@ public static class ActionRecorderServer {
             return Encoding.UTF8.GetString(data,0,count);
         }
     }
+    // Readable references keep action records useful without expanding every card in every hand.
+    static void NameReferences(object value, Dictionary<string,string> names){
+        var map=value as Dictionary<string,object>;
+        if(map!=null){
+            if(map.ContainsKey("index") && map.ContainsKey("card")){
+                string id=Convert.ToString(map["card"]);
+                if(!names.ContainsKey(id))throw new InvalidDataException("Unknown card reference.");
+                map["card"]=names[id];
+            }
+            foreach(var item in map.Values)NameReferences(item,names);
+        }else{
+            var list=value as System.Collections.IEnumerable;
+            if(list!=null && !(value is string))foreach(var item in list)NameReferences(item,names);
+        }
+    }
+    static Dictionary<string,object> CompactCards(Dictionary<string,object> cards, List<object> actions, List<object> observations){
+        var compact=new Dictionary<string,object>();var names=new Dictionary<string,string>();
+        foreach(var item in cards){
+            var card=item.Value as Dictionary<string,object>;
+            if(card==null)throw new InvalidDataException("Invalid card description.");
+            object rank,suit,name,key;
+            card.TryGetValue("rank",out rank);card.TryGetValue("suit",out suit);
+            card.TryGetValue("name",out name);card.TryGetValue("key",out key);
+            string label=rank!=null && suit!=null ? rank+" of "+suit : Convert.ToString(name ?? key ?? "Unknown card");
+            string unique=label;int variant=1;
+            while(compact.ContainsKey(unique))unique=label+" #"+(++variant);
+            names[item.Key]=unique;
+            var descriptor=new Dictionary<string,object>();
+            foreach(var field in card){
+                var map=field.Value as Dictionary<string,object>;
+                if(field.Value==null || (map!=null && map.Count==0))continue;
+                if(field.Key=="key" && Convert.ToString(field.Value)=="c_base")continue;
+                if(field.Key=="set" && Convert.ToString(field.Value)=="Default")continue;
+                if(field.Key=="perma_bonus" && Convert.ToDouble(field.Value)==0)continue;
+                descriptor[field.Key]=field.Value;
+            }
+            compact[unique]=descriptor;
+        }
+        NameReferences(actions,names);NameReferences(observations,names);
+        return compact;
+    }
     public static string Export(string text){
         var result=new Dictionary<string,object>();
         var cards=new Dictionary<string,object>();var actions=new List<object>();var observations=new List<object>();
@@ -47,7 +88,7 @@ public static class ActionRecorderServer {
             }else if(record.ContainsKey("observation"))observations.Add(record["observation"]);
             else throw new InvalidDataException("Unknown journal record.");
         }
-        result["cards"]=cards;result["actions"]=actions;result["observations"]=observations;
+        result["cards"]=CompactCards(cards,actions,observations);result["actions"]=actions;result["observations"]=observations;
         result["trailing_record_ignored"]=partial;
         return Json().Serialize(result);
     }
@@ -80,7 +121,7 @@ public static class ActionRecorderServer {
                     if(first.Length!=3 || first[0]!="GET"){code=405;body=Encoding.UTF8.GetBytes("{\"error\":\"GET required\"}");}
                     else{
                         var uri=new Uri("http://127.0.0.1"+first[1]);string route=uri.AbsolutePath;
-                        if(route=="/health")body=Encoding.UTF8.GetBytes("{\"app\":\"BalatroActionRecorder\",\"version\":\"0.1.0\"}");
+                        if(route=="/health")body=Encoding.UTF8.GetBytes("{\"app\":\"BalatroActionRecorder\",\"version\":\"0.1.1\"}");
                         else if(route=="/recordings")body=Encoding.UTF8.GetBytes(ListRecordings());
                         else if(route=="/export"){
                             var query=System.Web.HttpUtility.ParseQueryString(uri.Query);string file=query["file"]??"";

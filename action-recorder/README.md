@@ -13,3 +13,5 @@ The game appends compact JSONL records without rewriting history. Export produce
 Face-down cards contain only their index and hidden:true. Stone cards omit rank and suit. Seeds, credentials, hidden opponent state, draw order, and arbitrary ability fields are excluded. Existing index-only logs cannot reconstruct identities. Disk failures stop the recording segment while gameplay continues.
 
 Run python scripts/run-lua-tests.py from this folder, followed by node tests/test_export.cjs (requires Playwright and Chromium). Install using the parent repository scripts/sync-mod.ps1.
+
+Exports use readable dictionary keys such as `Ace of Spades`; changed descriptions have numbered variants. Positions and physical instance IDs remain separate. Empty fields and default `c_base`, `Default`, and zero permanent bonus are omitted. Existing journals also receive this compact format when exported again.
