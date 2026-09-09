@@ -1,6 +1,7 @@
 # Action Recorder
 
-Open Mods > Balatro Observer > Config > Open Action Recorder. Export log downloads a plain .txt file, one numbered line per action. Cards are named at the time of the action, with their physical card ID and 1-based slot. First mentions include non-default properties. Later mentions report only changed properties. Hidden cards have no identity. Brief change lines can follow an action when its effects settle.
+Open Mods > Balatro Observer > Config > Open Action Recorder. Export log downloads a plain .txt file, one numbered line per action. Cards are listed as arrays of `(card, index)` tuples, for example `discard: [("Ace of Spades", 2), ("King of Spades", 3)]`. Indices are 1-based slots at the time of the action. Card names include current non-default properties when relevant. Internal physical IDs are not displayed. Change lines contain only changed cards, using the same tuple format. Hidden cards are labeled face-down.
+
 
 Tokens: play, discard, buy, sell, reroll, use, pack_pick, pack_skip, reorder, select_blind, skip_blind. Consumable targets, displayed costs, blind selections and reorder positions are retained. Automatic helpers using the same callbacks are also recorded.
 

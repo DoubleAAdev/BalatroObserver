@@ -1,3 +1,7 @@
+# 1.4.1
+
+- Format action cards and targets as arrays of (card, index) tuples, without internal card IDs.
+
 # 1.4.0
 
 - Export readable text with one line per action and the cards involved.

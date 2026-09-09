@@ -43,7 +43,7 @@ public static class ActionRecorderServer {
             var reference=value as Dictionary<string,object>;
             if(reference==null)throw new InvalidDataException("Invalid card reference.");
             string slot=Field(reference,"index");
-            if(reference.ContainsKey("hidden"))return changeOnly?null:"face-down card (slot "+slot+")";
+            if(reference.ContainsKey("hidden"))return changeOnly?null:"(\"face-down card\", "+slot+")";
             object definition;
             if(!Cards.TryGetValue(Field(reference,"card"),out definition))throw new InvalidDataException("Unknown card reference.");
             var card=definition as Dictionary<string,object>;
@@ -59,12 +59,15 @@ public static class ActionRecorderServer {
             if(known)foreach(var pair in previous)if(!current.ContainsKey(pair.Key))changes.Add(pair.Key+" removed");
             if(changeOnly && changes.Count==0)return null;
             seen[id]=current;
-            return name+" [card "+id+", slot "+slot+"]"+(changes.Count>0?" ("+(known?"changed: ":"")+String.Join(", ",changes)+")":"");
+            var details=new List<string>();
+            foreach(var pair in current)if(pair.Key!="identity")details.Add(pair.Key+"="+pair.Value);
+            if(details.Count>0)name+=" ("+String.Join(", ",details)+")";
+            return "("+Json().Serialize(name)+", "+slot+")";
         }
         public string List(object value,bool changeOnly){
             var items=value as object[];var result=new List<string>();
             if(items!=null)foreach(var item in items){string text=Card(item,changeOnly);if(text!=null)result.Add(text);}
-            return String.Join("; ",result);
+            return result.Count==0?"":"["+String.Join(", ",result)+"]";
         }
     }
     public static string Export(string text){
@@ -137,7 +140,7 @@ public static class ActionRecorderServer {
                     if(first.Length!=3 || first[0]!="GET"){code=405;body=Encoding.UTF8.GetBytes("{\"error\":\"GET required\"}");}
                     else{
                         var uri=new Uri("http://127.0.0.1"+first[1]);string route=uri.AbsolutePath;
-                        if(route=="/health")body=Encoding.UTF8.GetBytes("{\"app\":\"BalatroActionRecorder\",\"version\":\"0.2.0\"}");
+                        if(route=="/health")body=Encoding.UTF8.GetBytes("{\"app\":\"BalatroActionRecorder\",\"version\":\"0.2.1\"}");
                         else if(route=="/recordings")body=Encoding.UTF8.GetBytes(ListRecordings());
                         else if(route=="/export"){
                             var query=System.Web.HttpUtility.ParseQueryString(uri.Query);string file=query["file"]??"";
