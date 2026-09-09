@@ -1,5 +1,5 @@
 -- Explicit allowlists only: never bulk-copy G.GAME, ability.extra, RNG or MP tables.
-return function(JSON)
+return function(JSON, multiplayer_adapter)
     local M = {}
     local function scalar(v)
         if type(v) == 'string' or type(v) == 'boolean' then return v end
@@ -69,6 +69,7 @@ return function(JSON)
         end
         return #lines > 0 and table.concat(lines, ' ') or nil, complete
     end
+    local multiplayer = multiplayer_adapter and multiplayer_adapter(scalar, description, JSON.array)
     local function joker_description(G, c)
         local a, key = c.ability or {}, ((c.config or {}).center or {}).key
         local vars = {}
@@ -123,6 +124,10 @@ return function(JSON)
         elseif key == 'j_blackboard' then vars = {n, 'Spades', 'Clubs'}
         elseif key == 'j_trousers' then vars = {n, 'Two Pair', scalar(a.mult)}
         end
+        if multiplayer then
+            local mp_vars, mp_key = multiplayer.joker(G, c, key)
+            if mp_vars then vars, key = mp_vars, mp_key end
+        end
         local text, complete = description(G, 'Joker', key, vars)
         local score_vars = {}
         for i, v in pairs(vars) do
@@ -154,6 +159,7 @@ return function(JSON)
             out.selected = c.highlighted == true
             out.cost, out.sell_cost = scalar(c.cost), scalar(c.sell_cost)
             out.stickers = fields(ability, {'eternal', 'perishable', 'rental', 'perish_tally'})
+            if multiplayer and G then multiplayer.card(G, c, out) end
         end
         return out
     end
@@ -229,6 +235,7 @@ return function(JSON)
         local deck = {key = key, set = 'Back', name = name_of(G, 'Back', key) or scalar(center.name)}
         deck.description, deck.description_complete = description(G, 'Back', key, vars)
         if deck.description and not deck.description:find('%S') then deck.description = nil end
+        if multiplayer then multiplayer.deck(G, deck) end
         return deck
     end
     local allowed = {'SELECTING_HAND', 'SHOP', 'BLIND_SELECT', 'ROUND_EVAL',
@@ -246,8 +253,10 @@ return function(JSON)
         local game = G.GAME
         if not game or not game.current_round then return result end
         result.available = true
+        result.multiplayer = multiplayer and multiplayer.snapshot(G) or nil
         result.blinds, result.vouchers = run_info(G, game)
         result.run = fields(game, {'dollars', 'chips', 'round', 'stake'})
+        result.run.stake_key = scalar(((G.P_STAKES or {})[game.stake] or {}).key)
         result.run.deck_key = scalar((((game.selected_back or {}).effect or {}).center or {}).key)
         result.run.deck = deck_info(G, game)
         result.scoring_context = {loyalty_remaining={}}
@@ -259,6 +268,8 @@ return function(JSON)
         result.round = fields(game.current_round, {'hands_left', 'discards_left', 'hands_played', 'discards_used'})
         result.round.ante = scalar((game.round_resets or {}).ante)
         result.blind = fields(game.blind, {'name', 'chips', 'dollars', 'disabled', 'loc_debuff_text'})
+        result.blind.key = scalar(((((game.blind or {}).config or {}).blind or {}).key))
+        if result.multiplayer and result.multiplayer.pvp then result.blind.chips=nil end
         result.hand, result.jokers, result.consumables = area(G.hand, G), area(G.jokers, G), area(G.consumeables, G)
         result.deck = {cards = JSON.array(), remaining_cards = JSON.array(), draw_count = #((G.deck or {}).cards or {}),
             discard_count = #((G.discard or {}).cards or {}), order = 'canonical_multiset'}

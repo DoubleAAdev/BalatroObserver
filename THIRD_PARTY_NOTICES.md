@@ -49,3 +49,9 @@ Version 0.6.1 omits the six obsolete demo vouchers: Magnet, Electromagnet, Patte
 ## Local scoring engine (v0.7.0)
 
 assets/calculator/balatro-sim.js is bundled from Balatro Calculator by Saffron Haas (efhiii), commit 55322d59197ba08c16874a54b59ac0d443c8ab32, under the MIT notice above. The only engine change is a CommonJS export. Joker ID mappings derive from its sprite coordinates. viewer/score-preview.js adapts the public snapshots to that engine; selected/held-card order is preserved and no external run-data requests are made.
+
+## Multiplayer support and Balatro Mods Wiki artwork (v1.2.0)
+
+21 original images were retrieved on 2026-09-09 from the Multiplayer, Multiplayer/Decks and Multiplayer/Jokers pages at https://balatromods.miraheze.org/wiki/Multiplayer. Source URLs and page links are recorded in assets/wiki-art.json. Credit: Balatro Mods Wiki contributors and the Balatro Multiplayer artists. The wiki reports Creative Commons Attribution-ShareAlike 4.0 International (https://creativecommons.org/licenses/by-sa/4.0/). Images are bundled unchanged; sizing and Phantom styling are applied in the viewer. Balatro artwork remains the property of its respective owners. These assets are not licensed under this repository's MIT code license.
+
+Compatibility behavior was checked against the installed Multiplayer 0.5.5 definitions (https://github.com/Balatro-Multiplayer/BalatroMultiplayer). The observer reads explicitly reviewed public fields and loaded localization; it does not bundle Multiplayer's implementation or execute its callbacks. Wiki descriptions can lag installed game rules.

@@ -152,3 +152,6 @@ const JOKER_SPRITES={
  "j_chicot":{"x":6,"y":8,"soul":[6,9]},
  "j_perkeo":{"x":7,"y":8,"soul":[7,9]}
 };
+
+// Multiplayer reworks that retain their vanilla portrait (effects remain separately described).
+for(const [mp,vanilla] of Object.entries({j_mp_hanging_chad:'j_hanging_chad',j_mp_bloodstone:'j_bloodstone',j_mp_seltzer:'j_selzer',j_mp_turtle_bean:'j_turtle_bean',j_mp_ticket:'j_ticket',j_mp_ticket_experimental:'j_ticket',j_mp_cloud_9_sandbox:'j_cloud_9'}))JOKER_SPRITES[mp]=JOKER_SPRITES[vanilla];

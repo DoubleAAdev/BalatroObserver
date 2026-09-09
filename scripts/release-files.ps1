@@ -7,7 +7,7 @@ function Get-ReleaseFiles([string]$Root) {
         'BalatroObserver.json', 'main.lua', 'start-viewer.cmd',
         'LICENSE', 'README.md', 'CHANGELOG.md', 'THIRD_PARTY_NOTICES.md',
         # In-game collector and settings launcher
-        'mod/observer.lua', 'mod/json.lua', 'mod/launcher.lua', 'mod/open-viewer.lua',
+        'mod/observer.lua', 'mod/multiplayer.lua', 'mod/json.lua', 'mod/launcher.lua', 'mod/open-viewer.lua',
         # Dashboard
         'viewer/observer.html', 'viewer/observer.css', 'viewer/observer.js', 'viewer/joker-sprites.js', 'viewer/score-preview.js',
         # Local servers: Windows PowerShell/.NET and optional Node.js

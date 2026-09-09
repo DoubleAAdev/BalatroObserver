@@ -592,8 +592,8 @@
     ]
   },
   {
-    "file": "assets/wiki/S\u00e9ance.png",
-    "name": "S\u00e9ance",
+    "file": "assets/wiki/Séance.png",
+    "name": "Séance",
     "source": "https://balatrowiki.org/images/S%C3%A9ance.png",
     "pages": [
       "Spectral_cards"
@@ -1758,6 +1758,174 @@
     "source": "https://balatrowiki.org/images/Checkered_Deck.png",
     "pages": [
       "Decks"
+    ]
+  },
+  {
+    "file": "assets/wiki/Violet_Deck_(Multiplayer).png",
+    "name": "Violet Deck",
+    "source": "https://static.wikitide.net/balatromodswiki/d/da/Violet_Deck_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Decks"
+    ]
+  },
+  {
+    "file": "assets/wiki/Indigo_Deck_(Multiplayer).png",
+    "name": "Indigo Deck",
+    "source": "https://static.wikitide.net/balatromodswiki/1/14/Indigo_Deck_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Decks"
+    ]
+  },
+  {
+    "file": "assets/wiki/Orange_Deck_(Multiplayer).png",
+    "name": "Orange Deck",
+    "source": "https://static.wikitide.net/balatromodswiki/e/ea/Orange_Deck_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Decks"
+    ]
+  },
+  {
+    "file": "assets/wiki/Oracle_Deck_(Multiplayer).png",
+    "name": "Oracle Deck",
+    "source": "https://static.wikitide.net/balatromodswiki/d/d1/Oracle_Deck_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Decks"
+    ]
+  },
+  {
+    "file": "assets/wiki/Gradient_Deck_(Multiplayer).png",
+    "name": "Gradient Deck",
+    "source": "https://static.wikitide.net/balatromodswiki/9/97/Gradient_Deck_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Decks"
+    ]
+  },
+  {
+    "file": "assets/wiki/Heidelberg_Deck_(Multiplayer).png",
+    "name": "Heidelberg Deck",
+    "source": "https://static.wikitide.net/balatromodswiki/b/bd/Heidelberg_Deck_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Decks"
+    ]
+  },
+  {
+    "file": "assets/wiki/Cocktail_Deck_(Multiplayer).png",
+    "name": "Cocktail Deck",
+    "source": "https://static.wikitide.net/balatromodswiki/c/c1/Cocktail_Deck_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Decks"
+    ]
+  },
+  {
+    "file": "assets/wiki/Conjoined_Joker_(Multiplayer).png",
+    "name": "Conjoined Joker",
+    "source": "https://static.wikitide.net/balatromodswiki/6/6a/Conjoined_Joker_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Jokers"
+    ]
+  },
+  {
+    "file": "assets/wiki/Defensive_Joker_(Multiplayer).png",
+    "name": "Defensive Joker",
+    "source": "https://static.wikitide.net/balatromodswiki/e/ed/Defensive_Joker_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Jokers"
+    ]
+  },
+  {
+    "file": "assets/wiki/Let's_Go_Gambling_(Multiplayer).png",
+    "name": "Let's Go Gambling",
+    "source": "https://static.wikitide.net/balatromodswiki/5/5a/Let%27s_Go_Gambling_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Jokers"
+    ]
+  },
+  {
+    "file": "assets/wiki/Pacifist_(Multiplayer).png",
+    "name": "Pacifist",
+    "source": "https://static.wikitide.net/balatromodswiki/1/17/Pacifist_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Jokers"
+    ]
+  },
+  {
+    "file": "assets/wiki/Penny_Pincher_(Multiplayer).png",
+    "name": "Penny Pincher",
+    "source": "https://static.wikitide.net/balatromodswiki/e/e2/Penny_Pincher_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Jokers"
+    ]
+  },
+  {
+    "file": "assets/wiki/Pizza_(Multiplayer).png",
+    "name": "Pizza",
+    "source": "https://static.wikitide.net/balatromodswiki/d/d6/Pizza_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Jokers"
+    ]
+  },
+  {
+    "file": "assets/wiki/Skip-Off_(Multiplayer).png",
+    "name": "Skip-Off",
+    "source": "https://static.wikitide.net/balatromodswiki/a/a1/Skip-Off_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Jokers"
+    ]
+  },
+  {
+    "file": "assets/wiki/SPEEDRUN_(Multiplayer).png",
+    "name": "SPEEDRUN",
+    "source": "https://static.wikitide.net/balatromodswiki/8/8d/SPEEDRUN_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Jokers"
+    ]
+  },
+  {
+    "file": "assets/wiki/Taxes_(Multiplayer).png",
+    "name": "Taxes",
+    "source": "https://static.wikitide.net/balatromodswiki/b/bb/Taxes_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer/Jokers"
+    ]
+  },
+  {
+    "file": "assets/wiki/Asteroid_(Multiplayer).png",
+    "name": "Asteroid",
+    "source": "https://static.wikitide.net/balatromodswiki/8/83/Asteroid_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer"
+    ]
+  },
+  {
+    "file": "assets/wiki/Ouija_2_(Multiplayer).png",
+    "name": "Ouija 2",
+    "source": "https://static.wikitide.net/balatromodswiki/6/6d/Ouija_2_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer"
+    ]
+  },
+  {
+    "file": "assets/wiki/Giga_Standard_Pack_(Multiplayer).png",
+    "name": "Giga Standard Pack",
+    "source": "https://static.wikitide.net/balatromodswiki/2/2e/Giga_Standard_Pack_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer"
+    ]
+  },
+  {
+    "file": "assets/wiki/Your_Nemesis_(Multiplayer).png",
+    "name": "Your Nemesis",
+    "source": "https://static.wikitide.net/balatromodswiki/6/66/Your_Nemesis_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer"
+    ]
+  },
+  {
+    "file": "assets/wiki/Planet_Stake_(Multiplayer).png",
+    "name": "Planet Stake",
+    "source": "https://static.wikitide.net/balatromodswiki/0/01/Planet_Stake_%28Multiplayer%29.png",
+    "pages": [
+      "https://balatromods.miraheze.org/wiki/Multiplayer"
     ]
   }
 ]

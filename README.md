@@ -57,9 +57,9 @@ Unknown scalar values are omitted; arrays stay arrays even when empty. Scores he
 
 ## Visibility boundary
 
-No seed, RNG state, future shops, unopened pack contents, draw order, internal card IDs, arbitrary `ability.extra`, callbacks, game actions or opponent state are exported. The collector reads explicit allowlists only; it never calls scoring, random, tooltip or action functions and never modifies game objects. Deck composition follows the full deck viewer in [Steamodded's source](https://github.com/Steamodded/smods/blob/main/src/overrides.lua).
+No seed, RNG state, future shops, unopened pack contents, draw order, internal card IDs, arbitrary `ability.extra`, callbacks, game actions or private opponent state are exported. Multiplayer exposes only the explicitly reviewed visible HUD fields described below. The collector reads explicit allowlists only; it never calls scoring, random, tooltip or action functions and never modifies game objects. Deck composition follows the full deck viewer in [Steamodded's source](https://github.com/Steamodded/smods/blob/main/src/overrides.lua).
 
-Joker descriptions come from the loaded localization text with explicit adapters for vanilla dynamic values. Unsupported placeholders display `?` instead of guessed values. Custom tooltip callbacks, custom editions or enhancements, dynamic tag effects and multiplayer HUD data need their own visibility-reviewed adapters before they can appear.
+Joker descriptions come from the loaded localization text with explicit adapters for vanilla dynamic values. Unsupported placeholders display `?` instead of guessed values. Custom tooltip callbacks, custom editions or enhancements, dynamic tag effects and additional multiplayer HUD data need their own visibility-reviewed adapters before they can appear.
 
 The **Selected hand score** panel uses the locally bundled [Balatro Calculator](https://efhiii.github.io/balatro-calculator/) engine with the actual selection and joker order, held cards, public counters, hand levels, editions, seals and supported bonuses. Random effects show a range; unsupported or hidden inputs show an explanation instead of a guess. It does not simulate custom-mod callbacks.
 
@@ -97,10 +97,10 @@ Checks, from the repository root:
 
 | Suite | Command | Needs |
 | --- | --- | --- |
-| Collector, JSON, export hook, launcher | `lua tests/test_observer.lua` and `lua tests/test_launcher.lua`, or `python scripts/run-lua-tests.py` (uses the game's own `lua51.dll`; set `BALATRO_LUA_DLL` for a non-default Steam library) | Lua 5.1+/LuaJIT, or Python 3 plus an installed Balatro |
+| Collector, JSON, export hook, launcher, Multiplayer | `lua tests/test_observer.lua` and `lua tests/test_launcher.lua`, or `python scripts/run-lua-tests.py` (also runs Multiplayer privacy checks) (uses the game's own `lua51.dll`; set `BALATRO_LUA_DLL` for a non-default Steam library) | Lua 5.1+/LuaJIT, or Python 3 plus an installed Balatro |
 | Node server, launcher, score engine | `node --test tests/test_viewer.cjs tests/test_start_viewer.cjs tests/test_score.cjs` | Node.js 18+ |
 | Windows launcher: outdated viewer replaced, cold start, reuse, foreign listener refused | `powershell -ExecutionPolicy Bypass -File tests/test_windows_startup.ps1` | Windows PowerShell 5.1 |
-| Browser rendering | `node tests/test_viewer_browser.cjs`, `test_card_art.cjs`, `test_wiki_shop.cjs`, `test_score_browser.cjs`, `test_windows_viewer.cjs` | Playwright + Chromium (`PLAYWRIGHT_MODULE`, `BROWSER_EXECUTABLE` may point at existing installs) |
+| Browser rendering | `node tests/test_viewer_browser.cjs`, `test_card_art.cjs`, `test_wiki_shop.cjs`, `test_score_browser.cjs`, `test_windows_viewer.cjs`, `test_multiplayer_browser.cjs` | Playwright + Chromium (`PLAYWRIGHT_MODULE`, `BROWSER_EXECUTABLE` may point at existing installs) |
 
 Live smoke test after installing: start a run, compare a snapshot with the HUD and the full deck viewer, select a card, discard and play, enter and leave the shop, open a pack and face a boss blind that hides cards. Confirm that unavailable phases are not consumable as playable states and that no draw order or face-down identity appears.
 
@@ -109,3 +109,11 @@ Release steps (version bump, sync, ZIP, commit, push) are listed in `AGENTS.md`;
 ## Credits
 
 Card sprites and the layer-compositing approach are adapted from [Balatro Calculator by Saffron Haas (efhiii)](https://efhiii.github.io/balatro-calculator/) (MIT), whose scoring engine is also bundled. Additional artwork comes from [Balatro Wiki](https://balatrowiki.org/) contributors. See `THIRD_PARTY_NOTICES.md` (also served at `/credits`) for sources and licenses. Balatro and its artwork belong to their respective owners; this project is not endorsed by them.
+
+## Multiplayer compatibility (v1.2.0)
+
+The existing dashboard supports the seven decks and nine added jokers listed on [Balatro Mods Wiki](https://balatromods.miraheze.org/wiki/Multiplayer), verified against installed Multiplayer 0.5.5 definitions. Artwork also covers Asteroid, Ouija 2, the Giga Standard Pack and Your Nemesis. Descriptions come from the loaded localization, including the current scalar values of reviewed jokers and the standard Hanging Chad, Bloodstone, Seltzer, Turtle Bean and Golden Ticket reworks. Phantom jokers are labeled separately.
+
+Overview shows the active mode/ruleset, visible lives and, during PvP, the HUD's opponent hands and score text. Hidden scores remain hidden; raw enemy score objects, opponent cards, networking, lobby codes and seeds are never exported. Cocktail shows only component stickers revealed by the game. No new multiplayer network connection is opened.
+
+The bundled vanilla calculator does not model Multiplayer rulesets, so it explains that limitation instead of reporting an incorrect estimate in active matches or with Multiplayer decks. Probability callbacks and unreviewed custom tooltip values remain `?`; the observer never calls them. Gameplay and vanilla observation behavior are unchanged. Restart Balatro after installation.

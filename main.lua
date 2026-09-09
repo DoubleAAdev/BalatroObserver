@@ -1,7 +1,7 @@
 local mod = SMODS.current_mod
 local function load(name) return assert(SMODS.load_file(name, mod.id))() end
 local JSON = load('mod/json.lua')
-local observer = load('mod/observer.lua')(JSON)
+local observer = load('mod/observer.lua')(JSON, load('mod/multiplayer.lua'))
 local function snapshot()
     local state = observer.snapshot(G)
     -- Report the loaded mod version, not a newer manifest copied to disk mid-run.

@@ -8,7 +8,7 @@ const art=require('../assets/wiki-art.json');
  try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  const base={schema_version:1,session:'wiki',sequence:1,observed_at:Date.now()/1000,available:true,phase:'SHOP',mod_version:'1.1.1',run:{stake:8,dollars:20},blind:{name:'The Hook'},consumables:{cards:[{visible:true,key:'c_fool',set:'Tarot',edition:{negative:true}},{visible:true,key:'c_pluto',set:'Planet'},{visible:true,key:'c_ankh',set:'Spectral'}]},shop:{cards:{cards:[{visible:true,key:'c_fool',set:'Tarot'}]},vouchers:{cards:[{visible:true,key:'v_overstock_norm',set:'Voucher'}]},reroll_cost:5}};
+  const base={schema_version:1,session:'wiki',sequence:1,observed_at:Date.now()/1000,available:true,phase:'SHOP',mod_version:'1.2.0',run:{stake:8,dollars:20},blind:{name:'The Hook'},consumables:{cards:[{visible:true,key:'c_fool',set:'Tarot',edition:{negative:true}},{visible:true,key:'c_pluto',set:'Planet'},{visible:true,key:'c_ankh',set:'Spectral'}]},shop:{cards:{cards:[{visible:true,key:'c_fool',set:'Tarot'}]},vouchers:{cards:[{visible:true,key:'v_overstock_norm',set:'Voucher'}]},reroll_cost:5}};
   let response={state:base,stale:false,directory:'fixture'};
   await page.route('**/state',r=>r.fulfill({json:response}));
   await page.goto('http://127.0.0.1:'+server.address().port);
@@ -18,8 +18,8 @@ const art=require('../assets/wiki-art.json');
   assert.match(await page.locator('.blind-art').getAttribute('src'),/The_Hook/);
   assert.match(await page.locator('.stake-art').getAttribute('src'),/Gold_stake/);
   assert.equal(await page.locator('#nav-reference').count(),0);
-  assert.equal(await page.title(),'Balatro Observer v1.1.1');
-  assert.equal(art.length,213);
+  assert.equal(await page.title(),'Balatro Observer v1.2.0');
+  assert.equal(art.length,234);
   for(const obsolete of ['Magnet','Electromagnet','Pattern','Tesselation','BigSpoon','BigGoldSpoon'])assert.ok(!art.some(a=>a.name===obsolete));
   await page.evaluate(async()=>{await Promise.all(WIKI_ART.map(a=>{const i=new Image();i.src='/'+a.file;return i.decode();}));});
   // Every vanilla pack variant maps to its distinct wrapper, never its contents.
@@ -58,6 +58,6 @@ const art=require('../assets/wiki-art.json');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   assert.match(await page.locator('footer').textContent(),/Balatro Wiki/);
   assert.deepEqual(errors,[]);
-  console.log('PASS: all 208 images decode, no image library, consumable/voucher/negative/blind/stake art, shop history/reset and mobile layout');
+  console.log('PASS: all bundled images decode, no image library, consumable/voucher/negative/blind/stake art, shop history/reset and mobile layout');
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});

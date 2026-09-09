@@ -117,6 +117,7 @@ function cardArtwork(c){
   face.append(atlasLayer('enhancement',1,0,'art-enhancement'));
   face.append(el('span',c.set==='Joker'?'✦':'◇','art-fallback'));
  }
+ if(c.edition?.mp_phantom)art.classList.add('art-phantom');
  if(c.edition?.negative){face.classList.add('art-negative');art.dataset.negative='true';}
  art.append(face);
  const addFinish=(x,cls)=>{
@@ -151,7 +152,7 @@ function cards(title,area,wide=true){
  if(c.slot!==undefined)box.append(el('small','Game slot '+c.slot));
  box.title=c.key||[c.rank,c.suit].filter(Boolean).join(' ');
  const labels=[];if(c.selected)labels.push('Selected');if(c.debuff)labels.push('Debuffed');if(c.seal)labels.push(c.seal+' seal');
- for(const [k,v] of Object.entries(c.edition||{}))if(v)labels.push(pretty(k));
+ for(const [k,v] of Object.entries(c.edition||{}))if(v)labels.push(k==='mp_phantom'?'Phantom · affects your nemesis':pretty(k));
  for(const [k,v] of Object.entries(c.stickers||{}))if(v!==false&&v!=null)labels.push(v===true?pretty(k):pretty(k)+': '+v);
  if(labels.length)box.append(el('small',labels.join(' · '),'tags'));
  }}
@@ -199,6 +200,7 @@ function deckPanel(s){
  const name=deck?.name||pretty(key),file=WIKI_KEYS[key]||namedArt(name)?.file;
  if(file)p.append(wikiImage(file,name,'deck-art'));
  p.append(el('div',name,'blind-name'));
+ if(deck?.components?.length)p.append(el('p','Revealed components: '+deck.components.map(c=>c.name||pretty(c.key)).join(', '),'hint'));
  if(deck?.description){p.append(el('p',deck.description,'hint'));if(deck.description_complete===false)p.append(el('p','? = value not exported for this deck','hint'));}
  else p.append(el('p','Effect text not available in this snapshot.','hint'));
 }
@@ -215,10 +217,15 @@ function blindPanels(s){
   if(b.skip_tag)p.append(el('p','Skip tag: '+(b.skip_tag.name||pretty(b.skip_tag.key)),'hint'));
  }
 }
+function multiplayerPanel(s){
+ const mp=s.multiplayer;if(!mp?.active)return;
+ const p=panel('Multiplayer',mp.pvp?'PvP blind':'Between PvP blinds');p.id='multiplayer-panel';
+ for(const [label,v] of [['Mode',mp.mode],['Ruleset',mp.ruleset],['Your lives',mp.lives],['Nemesis lives',mp.nemesis_lives],['Nemesis hands',mp.nemesis_hands],['Nemesis score',mp.nemesis_score]])if(v!==undefined)p.append(el('p',label+': '+value(v),'hint'));
+}
 function scorePanel(s){
  const p=panel('Selected hand score','Balatro Calculator');p.id='score-preview';
- const prediction=lastScore||{message:'Select cards in Balatro to preview their score.'};
- if(scoreHeld&&lastScore)p.append(el('p','Last selected hand · kept until you select another hand','hint'));
+ const prediction=s.multiplayer?.active?{message:'Multiplayer rules and PvP effects are not simulated by this calculator'}:lastScore||{message:'Select cards in Balatro to preview their score.'};
+ if(scoreHeld&&lastScore&&!s.multiplayer?.active)p.append(el('p','Last selected hand · kept until you select another hand','hint'));
  if(prediction.message){p.append(el('p',prediction.message,'hint'));return;}
  const format=score=>{const n=score[0]*10**score[1];return Number.isFinite(n)&&n<1e15?Math.floor(n+1e-7).toLocaleString():score[0].toFixed(2)+'e'+score[1];};
  const low=format(prediction.low),high=format(prediction.high);
@@ -234,12 +241,13 @@ function render(){
  const s=snapshot;$('stats').replaceChildren();$('panels').replaceChildren();
  if(active==='overview'){
  scorePanel(s);
+ multiplayerPanel(s);
  for(const [l,v] of [['Money',s.run?.dollars===undefined?undefined:'$'+s.run.dollars],['Ante',s.round?.ante],['Round',s.run?.round],['Score',s.run?.chips],['Hands left',s.round?.hands_left],['Discards left',s.round?.discards_left]])stat(l,v);
  const p=panel('Current blind',s.blind?.disabled?'Disabled':pretty(s.phase),false);
  blindArt(p,s.blind);p.append(el('div',s.blind?.name||'No active blind','blind-name'));
  if(s.blind?.loc_debuff_text)p.append(el('p',s.blind.loc_debuff_text,'hint'));
  if(s.blind?.disabled)p.append(el('p','Boss effect disabled','hint'));
- const row=el('div',undefined,'blind-values');for(const [l,v] of [['Target score',s.blind?.chips],['Reward',s.blind?.dollars===undefined?undefined:'$'+s.blind.dollars],['Stake',s.run?.stake]]){const x=el('div');x.append(el('small',l),el('span',value(v)));row.append(x);}const stake=['White','Red','Green','Black','Blue','Purple','Orange','Gold'][s.run?.stake-1];const stakeFile=namedArt(stake+' stake');if(stakeFile)row.lastChild.append(wikiImage(stakeFile.file,stake+' stake','stake-art'));p.append(row);
+ const row=el('div',undefined,'blind-values');for(const [l,v] of [['Target score',s.blind?.chips],['Reward',s.blind?.dollars===undefined?undefined:'$'+s.blind.dollars],['Stake',s.run?.stake]]){const x=el('div');x.append(el('small',l),el('span',value(v)));row.append(x);}const stake=['White','Red','Green','Black','Blue','Purple','Orange','Gold'][s.run?.stake-1];const stakeFile=WIKI_KEYS[s.run?.stake_key]?{file:WIKI_KEYS[s.run.stake_key]}:namedArt(stake+' stake');if(stakeFile)row.lastChild.append(wikiImage(stakeFile.file,stake+' stake','stake-art'));p.append(row);
  deckPanel(s);
  cards('Current hand',s.hand);cards('Jokers',s.jokers,false);cards('Consumables',s.consumables,false);
  }else if(active==='blinds'){blindPanels(s);

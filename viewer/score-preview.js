@@ -67,6 +67,8 @@
  function preview(s){
   try{
    if(!s?.available||s.phase!=='SELECTING_HAND')return {message:'Select a hand in Balatro to preview its score.'};
+   if(s.multiplayer?.active)fail('Multiplayer rules and PvP effects are not simulated by this calculator');
+   if(s.run?.deck_key?.startsWith('b_mp_')||(s.hand?.cards||[]).some(c=>c.edition?.mp_phantom))fail('Multiplayer deck or Phantom effects are not simulated by this calculator');
    const selected=(s.hand?.cards||[]).filter(c=>c.selected);
    if(!selected.length)return {message:'Select cards in Balatro to preview their score.'};
    if(selected.length>5)fail('The calculator supports up to five selected cards');
