@@ -17,6 +17,10 @@ function Get-ReleaseFiles([string]$Root) {
         'assets/LICENSE-balatro-calculator.txt', 'assets/wiki-art.json', 'assets/wiki-art.js',
         'assets/calculator/balatro-sim.js', 'assets/calculator/joker-ids.json', 'assets/calculator/joker-ids.js'
     )
+    $files += @('action-recorder/init.lua', 'action-recorder/start-recorder.cmd', 'action-recorder/README.md', 'action-recorder/LICENSE')
+    foreach ($folder in @('mod', 'server', 'viewer')) {
+        $files += @(Get-ChildItem -LiteralPath (Join-Path $Root ('action-recorder/' + $folder)) -File | ForEach-Object { 'action-recorder/' + $folder + '/' + $_.Name })
+    }
     # Every bundled wiki image listed in the artwork index ships unchanged.
     $files += @(Get-Content -LiteralPath (Join-Path $Root 'assets/wiki-art.json') -Raw | ConvertFrom-Json | ForEach-Object { $_.file })
     foreach ($name in $files) {

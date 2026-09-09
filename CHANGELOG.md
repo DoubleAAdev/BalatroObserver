@@ -1,3 +1,9 @@
+# 1.3.0
+
+- Integrate Action Recorder and its export config button into Observer.
+- Capture compact action histories with visible card positions and identities.
+- Bundle the export page and Windows server; preserve existing recorder journals.
+
 # Changelog
 
 ## 1.2.0 — Multiplayer observation support

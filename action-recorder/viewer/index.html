@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Balatro Action Recorder</title><link rel="stylesheet" href="/recorder.css"></head>
+<body><main><header><div class="eyebrow">LOCAL GAME HISTORY</div><h1>Balatro Action Recorder</h1><p>Player actions, card identities, and the table after each action.</p></header>
+<section class="toolbar"><button id="export-latest" disabled>Export latest game</button><button id="refresh" class="secondary">Refresh</button><span id="status" role="status">Loading recordings…</span></section>
+<section id="empty" hidden><h2>No recordings yet</h2><p>Enable Balatro Observer, restart Balatro, and take an action in a run. Recordings stay on this computer.</p></section>
+<section id="recordings" aria-label="Game recordings"></section>
+<footer><p>Each export is a compact JSON file. Card details are stored once in a dictionary; actions reference them by ID and include their 1-based positions at the time.</p><p>Face-down identities, seeds, lobby credentials, and private opponent state are excluded. A resumed run starts a new recording segment. Existing index-only logs cannot recover missing card identities.</p></footer>
+</main><script src="/recorder.js"></script></body></html>

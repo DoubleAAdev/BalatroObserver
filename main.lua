@@ -36,3 +36,6 @@ function Game:update(dt)
     -- Never serialize error text: another mod's error may contain private game state.
     BalatroObserver.last_export_ok = ok
 end
+
+-- Install action history after the observer so both settings shortcuts and update hooks coexist.
+load('action-recorder/init.lua')(mod, JSON)
