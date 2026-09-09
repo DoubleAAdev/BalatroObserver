@@ -6,6 +6,7 @@ return function(JSON, version)
     local game, path, started, sequence, counter = nil,nil,0,0,0
     local catalog, identities, next_card, next_identity = {},{},0,0
     local areas={'hand','jokers','consumeables','shop_jokers','shop_vouchers','shop_booster','pack_cards'}
+    local descriptions=setmetatable({},{__mode='k'})
     local pending_observation=false
     local observe_after=0
     local function scalar(v)
@@ -72,6 +73,7 @@ return function(JSON, version)
         counter=counter+1
         game=G.GAME;started=love.timer.getTime();sequence=0
         catalog={};identities=setmetatable({},{__mode='k'});next_card=0;next_identity=0
+        descriptions=setmetatable({},{__mode='k'})
         pending_observation=false
         assert(love.filesystem.createDirectory(directory))
         local id=tostring(os.time())..'-'..tostring(math.floor(started*1000000))..'-'..counter
@@ -100,6 +102,7 @@ return function(JSON, version)
                 if not id then next_card=next_card+1;id=tostring(next_card);catalog[encoded]=id;definitions[id]=entry.descriptor end
                 local instance=identities[entry.object]
                 if not instance then next_identity=next_identity+1;instance=next_identity;identities[entry.object]=instance end
+                descriptions[entry.object]=encoded
                 out[#out+1]={index=entry.index,card=id,instance=instance}
             end
         end
@@ -109,7 +112,7 @@ return function(JSON, version)
         if not event then return end
         if game~=G.GAME or not path then M.begin(true) end
         local definitions={}
-        for _,key in ipairs({'cards','targets','options'}) do if event[key] then event[key]=refs(event[key],definitions) end end
+        for _,key in ipairs({'cards','targets'}) do if event[key] then event[key]=refs(event[key],definitions) end end
         sequence=sequence+1;event.n=sequence;event.ms=math.floor((love.timer.getTime()-started)*1000+.5)
         append({cards=definitions,action=event})
         pending_observation=true
@@ -132,9 +135,15 @@ return function(JSON, version)
         for _,name in ipairs(areas) do
             local shop=name:match('^shop_');local pack=name=='pack_cards'
             local include=(not shop and not pack) or (shop and G.STATE==G.STATES.SHOP) or (pack and pack_phase)
-            if include and G[name] then visible[name]=refs(M.area(G[name]),definitions) end
+            if include and G[name] then
+                local changed=JSON.array()
+                for _,entry in ipairs(M.area(G[name])) do
+                    if not entry.hidden and descriptions[entry.object] and descriptions[entry.object]~=JSON.encode(entry.descriptor) then changed[#changed+1]=entry end
+                end
+                if #changed>0 then visible[name]=refs(changed,definitions) end
+            end
         end
-        append({cards=definitions,observation={after_action=sequence,context=context(),areas=visible}})
+        if next(visible) then append({cards=definitions,observation={after_action=sequence,areas=visible}}) end
         pending_observation=false
     end
     function M.safe(fn,...)

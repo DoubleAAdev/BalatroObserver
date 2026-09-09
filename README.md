@@ -120,4 +120,4 @@ The bundled vanilla calculator does not model Multiplayer rulesets, so it explai
 
 ## Action history
 
-Open **Mods > Balatro Observer > Config > Open Action Recorder** to export compact game logs with card positions and identities. See [recorder documentation](action-recorder/README.md). Disable any older standalone recorder and restart Balatro after updating.
+Open **Mods > Balatro Observer > Config > Open Action Recorder** to export readable action logs with card positions, identities, and brief property changes. See [recorder documentation](action-recorder/README.md). Disable any older standalone recorder and restart Balatro after updating.

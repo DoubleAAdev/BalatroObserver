@@ -1,17 +1,11 @@
-# Balatro Observer Action Recorder
+# Action Recorder
 
-Open **Mods > Balatro Observer > Config > Open Action Recorder** to start the local export page at http://127.0.0.1:8766. The Windows server uses built-in PowerShell/.NET. Restart Balatro after installing. Disable any older standalone companion to avoid duplicate recording; existing journals remain accessible.
+Open Mods > Balatro Observer > Config > Open Action Recorder. Export log downloads a plain .txt file, one numbered line per action. Cards are named at the time of the action, with their physical card ID and 1-based slot. First mentions include non-default properties. Later mentions report only changed properties. Hidden cards have no identity. Brief change lines can follow an action when its effects settle.
 
-Choose Export latest game or Export JSON. Journals stay in %APPDATA%/Balatro/balatro_action_recorder. Each new run has its own file; resumed runs start a segment marked partial:true.
+Tokens: play, discard, buy, sell, reroll, use, pack_pick, pack_skip, reorder, select_blind, skip_blind. Consumable targets, displayed costs, blind selections and reorder positions are retained. Automatic helpers using the same callbacks are also recorded.
 
-Tokens: play, discard, buy, sell, reroll, use, pack_pick, pack_skip, reorder, select_blind, skip_blind.
+No full deck, hand or Joker inventories are exported. New journals capture affected cards and targets only; after-action observations store changes to previously involved visible cards. Unrelated or unchanged cards are omitted. A card that changes while absent is updated on its next visible action; intermediate hidden changes and animation steps are not reconstructed.
 
-Card indices are 1-based positions in the named area at action time. Card references contain index, card (description dictionary key), and instance (physical card identity). Resolve descriptions using export.cards[reference.card]. Different physical cards can share a description. Changed properties create new descriptions. Reorders include order[new_index] = old_index. Targets identify selected consumable targets; options describe visible choices. Prices reflect pre-action displayed costs.
+Existing journals can be exported as text too. Internally the recorder retains append-only JSONL for crash recovery, stored in %APPDATA%/Balatro/balatro_action_recorder. Downloads are readable text, not dictionaries. Resumed games start partial segments. Incomplete trailing records are noted; corrupt complete records fail export. Exports are capped at 128 MB; original journals are never deleted.
 
-The game appends compact JSONL records without rewriting history. Export produces ordinary JSON with recording metadata, cards, actions, and observations. Observations capture later stable visible state; rapid actions may share an observation. This is an action history, not a deterministic replay. Interrupted trailing records are flagged; corrupt complete records fail export. Exports are limited to 128 MB. Original journals are retained.
-
-Face-down cards contain only their index and hidden:true. Stone cards omit rank and suit. Seeds, credentials, hidden opponent state, draw order, and arbitrary ability fields are excluded. Existing index-only logs cannot reconstruct identities. Disk failures stop the recording segment while gameplay continues.
-
-Run python scripts/run-lua-tests.py from this folder, followed by node tests/test_export.cjs (requires Playwright and Chromium). Install using the parent repository scripts/sync-mod.ps1.
-
-Exports use readable dictionary keys such as `Ace of Spades`; changed descriptions have numbered variants. Positions and physical instance IDs remain separate. Empty fields and default `c_base`, `Default`, and zero permanent bonus are omitted. Existing journals also receive this compact format when exported again.
+The server runs locally on Windows at port 8766 using PowerShell/.NET. Restart Balatro after updating the recorder. Run python scripts/run-lua-tests.py from this directory, then node tests/test_export.cjs with Playwright and Chromium available. Install using the parent scripts/sync-mod.ps1.

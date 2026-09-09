@@ -1,3 +1,10 @@
+# 1.4.0
+
+- Export readable text with one line per action and the cards involved.
+- Report property changes without repeating unchanged details or full inventories.
+- Stop capturing unrelated choices and unchanged after-action card lists.
+- Support text export of existing recorder journals.
+
 # 1.3.1
 
 - Use readable card identities in exported actions, including discards.

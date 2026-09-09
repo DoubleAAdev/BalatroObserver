@@ -29,3 +29,6 @@ __pycache__/
 /missing.txt
 
 *.tmp
+
+# Internal action journals and recorder status (downloads are text)
+/balatro_action_recorder/

@@ -21,7 +21,6 @@ return function(rec,JSON)
                 end
             end
             if #event.cards==0 then return end
-            event.options=rec.area(G.hand)
         elseif token=='buy' or token=='use' or token=='sell' then
             local c=token=='sell' and e or target(e)
             if type(c)~='table' then return end
@@ -30,17 +29,16 @@ return function(rec,JSON)
             event.area=area;event.cards=JSON.array({rec.card(c,index)})
             if token=='use' and area=='pack_cards' then event.type='pack_pick' end
             if token=='use' then event.targets=rec.area(G.hand,true) end
-            if area:match('^shop_') or area=='pack_cards' then event.options=rec.area(G[area]) end
             local amount=token=='sell' and c.sell_cost or (area:match('^shop_') and c.cost)
             if type(amount)=='number' and amount==amount and math.abs(amount)~=math.huge then event.price=amount end
             if token=='buy' and (e.config or {}).id=='buy_and_use' then event.use_after_buy=true;event.targets=rec.area(G.hand,true) end
         elseif token=='reroll' then
             if G.STATE~=G.STATES.SHOP then return end
-            event.area='shop_jokers';event.options=rec.area(G.shop_jokers)
+            event.area='shop_jokers'
             event.price=(G.GAME.current_round or {}).reroll_cost
         elseif token=='pack_skip' then
             if not G.pack_cards then return end
-            event.area='pack_cards';event.options=rec.area(G.pack_cards)
+            event.area='pack_cards'
         elseif token=='select_blind' or token=='skip_blind' then
             if not G.blind_select then return end
             local slot=G.GAME.blind_on_deck
