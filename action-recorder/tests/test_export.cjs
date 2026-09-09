@@ -48,6 +48,15 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   assert.equal(await fs.readFile(await download.path(),'utf8'),exported);
   for(const width of [1440,390]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}
   await page.screenshot({path:path.join(root,'work','export-page.png'),fullPage:true});
+  assert.equal((await fetch(base+'/remove?file='+filename,{method:'POST'})).status,403);
+  assert.equal((await fetch(base+'/remove?file=..%2FREADME.md',{method:'POST',headers:{'X-Recorder-Action':'remove'}})).status,422);
+  page.once('dialog',dialog=>dialog.dismiss());await page.getByRole('button',{name:'Remove',exact:true}).click();
+  assert.equal(await page.locator('.recording').count(),1);
+  page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Remove',exact:true}).click();
+  await page.locator('#empty').waitFor({state:'visible'});
+  assert.equal((await(await fetch(base+'/recordings')).json()).recordings.length,0);
+  assert.equal(await fs.readFile(path.join(dir,filename),'utf8'),journal);
+  await fs.unlink(path.join(dir,filename+'.removed'));
   assert.deepEqual(errors,[]);
   console.log('PASS: 11 tokens, readable identities and property changes, complete and interrupted journal export, corruption refusal, path isolation, real browser text download and mobile layout');
  }finally{if(browser)await browser.close();child.kill();await new Promise(r=>child.exitCode!==null?r():child.once('exit',r));}

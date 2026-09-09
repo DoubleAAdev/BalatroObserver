@@ -12,7 +12,7 @@ function Get-RecorderStatus {
     try {$probe.Start();return 'stopped'} catch {} finally {$probe.Stop()}
     try {
         $health=Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 2
-        if ($health.app -eq 'BalatroActionRecorder' -and $health.version -eq '0.2.1') {return 'ready'}
+        if ($health.app -eq 'BalatroActionRecorder' -and $health.version -eq '0.3.0') {return 'ready'}
     } catch {}
     return 'occupied'
 }

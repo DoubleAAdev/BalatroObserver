@@ -1,3 +1,7 @@
+# 1.5.0
+
+- Add confirmed removal of runs from the recorder page, retaining journals on disk for recovery.
+
 # 1.4.1
 
 - Format action cards and targets as arrays of (card, index) tuples, without internal card IDs.

@@ -1,5 +1,7 @@
 # Action Recorder
 
+Use **Remove** beside a run to hide it from the website after confirmation. Its journal stays on disk, including when the run is still being recorded. To restore a run, delete only its matching `.jsonl.removed` marker in `%APPDATA%/Balatro/balatro_action_recorder`, then refresh the page.
+
 Open Mods > Balatro Observer > Config > Open Action Recorder. Export log downloads a plain .txt file, one numbered line per action. Cards are listed as arrays of `(card, index)` tuples, for example `discard: [("Ace of Spades", 2), ("King of Spades", 3)]`. Indices are 1-based slots at the time of the action. Card names include current non-default properties when relevant. Internal physical IDs are not displayed. Change lines contain only changed cards, using the same tuple format. Hidden cards are labeled face-down.
 
 

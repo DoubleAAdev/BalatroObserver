@@ -116,7 +116,7 @@ public static class ActionRecorderServer {
         if(Directory.Exists(directory)){
             var files=new DirectoryInfo(directory).GetFiles("run-*.jsonl");
             Array.Sort(files,(a,b)=>b.LastWriteTimeUtc.CompareTo(a.LastWriteTimeUtc));
-            foreach(var file in files)if(ValidName(file.Name))list.Add(new{file=file.Name,bytes=file.Length,updated=file.LastWriteTimeUtc.ToString("o")});
+            foreach(var file in files)if(ValidName(file.Name) && !File.Exists(file.FullName+".removed"))list.Add(new{file=file.Name,bytes=file.Length,updated=file.LastWriteTimeUtc.ToString("o")});
         }
         object status=null;
         try{status=Json().DeserializeObject(File.ReadAllText(Path.Combine(directory,"status.json")));}catch{}
@@ -137,10 +137,24 @@ public static class ActionRecorderServer {
                 string[] first=header.ToString().Split(new[]{"\r\n"},StringSplitOptions.None)[0].Split(' ');
                 int code=200;string mime="application/json; charset=utf-8",attachment=null;byte[] body;
                 try{
-                    if(first.Length!=3 || first[0]!="GET"){code=405;body=Encoding.UTF8.GetBytes("{\"error\":\"GET required\"}");}
+                    if(first.Length==3 && first[0]=="POST" && first[1].StartsWith("/remove?")){
+                        // A custom header prevents cross-site forms from hiding local recordings.
+                        if(!header.ToString().Contains("\r\nX-Recorder-Action: remove\r\n")){
+                            code=403;body=Encoding.UTF8.GetBytes("{\"error\":\"Removal must be requested from the recorder page.\"}");
+                        }else{
+                            var query=System.Web.HttpUtility.ParseQueryString(new Uri("http://127.0.0.1"+first[1]).Query);
+                            string file=query["file"]??"";
+                            if(!ValidName(file))throw new InvalidDataException("Invalid recording filename.");
+                            string target=Path.Combine(directory,file);
+                            if(!File.Exists(target))throw new FileNotFoundException();
+                            File.WriteAllText(target+".removed", "Removed from the recorder page. Delete this marker to restore the listing.");
+                            body=Encoding.UTF8.GetBytes("{\"removed\":true}");
+                        }
+                    }
+                    else if(first.Length!=3 || first[0]!="GET"){code=405;body=Encoding.UTF8.GetBytes("{\"error\":\"GET required\"}");}
                     else{
                         var uri=new Uri("http://127.0.0.1"+first[1]);string route=uri.AbsolutePath;
-                        if(route=="/health")body=Encoding.UTF8.GetBytes("{\"app\":\"BalatroActionRecorder\",\"version\":\"0.2.1\"}");
+                        if(route=="/health")body=Encoding.UTF8.GetBytes("{\"app\":\"BalatroActionRecorder\",\"version\":\"0.3.0\"}");
                         else if(route=="/recordings")body=Encoding.UTF8.GetBytes(ListRecordings());
                         else if(route=="/export"){
                             var query=System.Web.HttpUtility.ParseQueryString(uri.Query);string file=query["file"]??"";
