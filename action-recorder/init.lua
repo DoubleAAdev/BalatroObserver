@@ -3,6 +3,7 @@ return function(mod, JSON)
     local recorder=load('mod/recorder.lua')(JSON,mod.version)
     local hooks=load('mod/hooks.lua')(recorder,JSON)
     BalatroActionRecorder=recorder
+    recorder.reset_orders=hooks.reset
     hooks.install()
     local open_page=load('mod/open-viewer.lua')
     load('mod/launcher.lua')(function(request,status_file) return open_page(mod.path..'/action-recorder',request,status_file) end,mod)

@@ -40,7 +40,7 @@ assert(not pcall(JSON.encode, math.huge))
 
 -- Exercise the actual update hook with fake SMODS and LÖVE objects.
 _G.G = G
-SMODS = {current_mod = {id = 'BalatroObserver', version = '1.5.0'}, load_file = function(file) return loadfile(file) end}
+SMODS = {current_mod = {id = 'BalatroObserver', version = '1.6.0'}, load_file = function(file) return loadfile(file) end}
 local writes, called, fail = {}, 0, false
 love = {timer = {getTime = function() return 1 end}, filesystem = {
     createDirectory = function() return true end,
@@ -53,9 +53,9 @@ Game:update(0.1)
 Game:update(0.2)
 assert(called == 3 and writes['balatro_observer/state-0.json'] and writes['balatro_observer/state-1.json'])
 assert(BalatroObserver.last_export_ok)
-assert(BalatroObserver.version == '1.5.0')
-assert(BalatroObserver.snapshot().mod_version == '1.5.0')
-assert(writes['balatro_observer/state-1.json']:find('1.5.0', 1, true))
+assert(BalatroObserver.version == '1.6.0')
+assert(BalatroObserver.snapshot().mod_version == '1.6.0')
+assert(writes['balatro_observer/state-1.json']:find('1.6.0', 1, true))
 fail = true
 Game:update(0.2)
 assert(not BalatroObserver.last_export_ok and called == 4)

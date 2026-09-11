@@ -32,3 +32,4 @@ __pycache__/
 
 # Internal action journals and recorder status (downloads are text)
 /balatro_action_recorder/
+/balatro_replayer/

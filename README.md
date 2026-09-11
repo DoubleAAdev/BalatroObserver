@@ -120,4 +120,6 @@ The bundled vanilla calculator does not model Multiplayer rulesets, so it explai
 
 ## Action history
 
+**Replayer** is available in Observer's config. Load a Multiplayer log, choose a run, and start from the main menu to replay local actions into Action Recorder. See [Replayer setup and limitations](replayer/README.md).
+
 Open **Mods > Balatro Observer > Config > Open Action Recorder** to export readable action logs with card positions, identities, and brief property changes. See [recorder documentation](action-recorder/README.md). Disable any older standalone recorder and restart Balatro after updating.

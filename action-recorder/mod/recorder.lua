@@ -87,7 +87,7 @@ return function(JSON, version)
             deck=scalar((((game.selected_back or {}).effect or {}).center or {}).key),stake=scalar(game.stake)},
             index_base=1}
         assert(love.filesystem.write(path,JSON.encode(metadata)..'\n'))
-        M.path=path;M.ok=true
+        M.path=path;M.ok=true;M.action_count=0
         love.filesystem.write(directory..'/status.json',JSON.encode({ok=true,recording=id}))
     end
     -- Descriptors are interned once; instance IDs distinguish duplicate physical cards.
@@ -115,6 +115,7 @@ return function(JSON, version)
         for _,key in ipairs({'cards','targets'}) do if event[key] then event[key]=refs(event[key],definitions) end end
         sequence=sequence+1;event.n=sequence;event.ms=math.floor((love.timer.getTime()-started)*1000+.5)
         append({cards=definitions,action=event})
+        M.action_count=sequence
         pending_observation=true
         observe_after=love.timer.getTime()+0.3
     end

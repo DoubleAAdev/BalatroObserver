@@ -10,7 +10,7 @@ using System.Web.Script.Serialization;
 // Independent read-only localhost export server; never opens arbitrary client-supplied paths.
 public static class ActionRecorderServer {
     static string root, directory;
-    static readonly HashSet<string> tokens=new HashSet<string>{"play","discard","buy","sell","reroll","use","pack_pick","pack_skip","reorder","select_blind","skip_blind"};
+    static readonly HashSet<string> tokens=new HashSet<string>{"play","discard","buy","sell","reroll","use","pack_pick","pack_skip","reorder","select_blind","skip_blind","set_ante_key","ready_blind","net_asteroid"};
     static JavaScriptSerializer Json(){return new JavaScriptSerializer{MaxJsonLength=134217728,RecursionLimit=64};}
     static bool ValidName(string name){return System.Text.RegularExpressions.Regex.IsMatch(name,@"\Arun-[0-9]+-[0-9]+-[0-9]+\.jsonl\z");}
     static string ReadJournal(string file){
@@ -92,6 +92,7 @@ public static class ActionRecorderServer {
                 var action=record["action"] as Dictionary<string,object>;
                 if(action==null || !tokens.Contains(Field(action,"type")) || !action.ContainsKey("n") || Convert.ToInt32(action["n"])!=++count)throw new InvalidDataException("Invalid action sequence.");
                 output.Append(count+". "+Field(action,"type"));
+                if(action.ContainsKey("value"))output.Append(" "+Field(action,"value"));
                 if(action.ContainsKey("area"))output.Append(" ["+Field(action,"area")+"]");
                 if(action.ContainsKey("cards"))output.Append(": "+history.List(action["cards"],false));
                 if(action.ContainsKey("targets")){string targets=history.List(action["targets"],false);if(targets!="")output.Append(" -> "+targets);}
@@ -154,7 +155,7 @@ public static class ActionRecorderServer {
                     else if(first.Length!=3 || first[0]!="GET"){code=405;body=Encoding.UTF8.GetBytes("{\"error\":\"GET required\"}");}
                     else{
                         var uri=new Uri("http://127.0.0.1"+first[1]);string route=uri.AbsolutePath;
-                        if(route=="/health")body=Encoding.UTF8.GetBytes("{\"app\":\"BalatroActionRecorder\",\"version\":\"0.3.0\"}");
+                        if(route=="/health")body=Encoding.UTF8.GetBytes("{\"app\":\"BalatroActionRecorder\",\"version\":\"0.4.0\"}");
                         else if(route=="/recordings")body=Encoding.UTF8.GetBytes(ListRecordings());
                         else if(route=="/export"){
                             var query=System.Web.HttpUtility.ParseQueryString(uri.Query);string file=query["file"]??"";

@@ -5,6 +5,7 @@ function Get-ReleaseFiles([string]$Root) {
     $files = @(
         # Root: Steamodded manifest, mod entry point, double-click viewer shortcut, documents
         'BalatroObserver.json', 'main.lua', 'start-viewer.cmd',
+        'replayer/init.lua', 'replayer/parser.lua', 'replayer/driver.lua', 'replayer/README.md',
         'LICENSE', 'README.md', 'CHANGELOG.md', 'THIRD_PARTY_NOTICES.md',
         # In-game collector and settings launcher
         'mod/observer.lua', 'mod/multiplayer.lua', 'mod/json.lua', 'mod/launcher.lua', 'mod/open-viewer.lua',

@@ -1,3 +1,10 @@
+# 1.6.0
+
+- Add Replayer config controls for importing Multiplayer logs and replaying local inputs through Action Recorder.
+- Apply recorded seed, deck, stake and Multiplayer gameplay settings using the installed ghost engine.
+- Validate action sequences and stop on ambiguous or unavailable inputs; isolate replay sessions from Multiplayer network sends.
+- Record ante-key, readiness and asteroid events alongside normal replay actions.
+
 # 1.5.0
 
 - Add confirmed removal of runs from the recorder page, retaining journals on disk for recovery.

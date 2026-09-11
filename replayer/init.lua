@@ -1,0 +1,145 @@
+return function(mod,JSON)
+    if not G or not G.FUNCS then return end
+    local function load(name) return assert(SMODS.load_file('replayer/'..name,mod.id))() end
+    local parser=load('parser.lua')(function(text) return require('json').decode(text) end)
+    local rec=BalatroActionRecorder
+    local driver=load('driver.lua')(parser,rec,JSON)
+    local M={status='Replayer: load replay.log or drop a .log onto Balatro',index=1,active=false}
+    BalatroReplayer=M
+    local directory='balatro_replayer'
+    local elapsed,waiting=0,0
+    local previous_config,previous_sp,previous_modifiers,previous_saving
+    local function status(text)
+        M.status=text
+        love.filesystem.createDirectory(directory)
+        love.filesystem.write(directory..'/status.json',JSON.encode({status=text,step=M.step or 0,active=M.active}))
+    end
+    local function protect(fn)
+        local ok,message=pcall(fn)
+        if not ok then M.active=false;status('Replayer stopped: '..tostring(message):gsub('^.-:%d+: ',''):sub(1,160)) end
+    end
+    function M.import(text)
+        assert(not M.session,'Finish the replay session before importing')
+        M.runs=parser.parse(text);M.index=1
+        -- Multiplayer owns opponent-score parsing; this adapter owns the local input stream.
+        assert(MP and MP.load_mp_file,'Multiplayer is required')
+        local log_parser=MP.load_mp_file('lib/log_parser.lua')
+        M.ghosts={}
+        for _,game in ipairs(log_parser.process_log(text)) do M.ghosts[#M.ghosts+1]=log_parser.to_replay(game) end
+        status('Replayer: run 1/'..#M.runs..' - '..#M.runs[1].actions..' actions')
+    end
+    local function validate(run)
+        assert(G.STAGE==G.STAGES.MAIN_MENU,'Start Replayer from the main menu')
+        assert(MP and MP.GHOST and MP.SP and MP.LOBBY and not MP.LOBBY.code,'Leave the Multiplayer lobby first')
+        assert(rec and rec.ok,'Action Recorder must be enabled')
+        local m=run.manifest
+        assert(G.P_CENTERS[m.deck],'Manifest deck is not installed')
+        assert(MP.Rulesets[m.ruleset],'Manifest ruleset is not installed')
+        assert(not m.challenge or m.challenge=='','Challenge replay is not supported')
+        local installed=SMODS.Mods and SMODS.Mods.Multiplayer
+        assert(installed and installed.version==m.mod_version,'Install the Multiplayer version named in the manifest')
+        local ghost
+        for _,r in ipairs(M.ghosts) do
+            if r.seed==m.seed then assert(not ghost,'Multiple opponent records share this seed');ghost=r end
+        end
+        assert(ghost and next(ghost.ante_snapshots or {}),'Log has no matching opponent history')
+        assert(MP.GHOST.is_ruleset_supported(ghost),'Ghost engine does not support this ruleset')
+        return ghost
+    end
+    function M.start()
+        assert(M.runs and not M.session,'Load a log before starting')
+        local run=M.runs[M.index];local ghost=validate(run);local m=run.manifest
+        previous_config=MP.LOBBY.config;previous_sp=MP.SP;previous_modifiers=MP.MODIFIERS;previous_saving=G.F_NO_SAVING
+        M.session=true
+        local config={}
+        -- Only existing gameplay option names are accepted. Session identifiers are never imported.
+        for key,value in pairs(previous_config) do config[key]=value end
+        for key,value in pairs(m.lobby_config or {}) do
+            if key~='action' and previous_config[key]~=nil and (type(value)=='boolean' or type(value)=='number' or type(value)=='string') then config[key]=value end
+        end
+        config.ruleset=m.ruleset;config.gamemode=m.gamemode;config.back=m.deck;config.stake=m.stake
+        config.cocktail=(m.lobby_config or {}).cocktail or config.cocktail
+        MP.LOBBY.config=config;MP.SP={practice=true,ruleset=m.ruleset,unlimited_slots=false,edition_cycling=false}
+        MP.apply_default_modifiers(m.ruleset:gsub('^ruleset_mp_',''))
+        if m.modifier_layers and m.modifier_layers~='' then MP.modifiers_parse(m.modifier_layers) end
+        MP.LoadReworks(m.ruleset:gsub('^ruleset_mp_',''))
+        ghost.seed=m.seed;ghost.deck=m.deck;ghost.stake=m.stake;ghost.ruleset=m.ruleset;ghost.gamemode=m.gamemode
+        M.session=true;M.active=true;M.step=1;elapsed=0;waiting=0;driver.ante_key=nil
+        MP.GHOST.load(ghost);MP.reset_game_states()
+        MP.GAME.lives=config.starting_lives or 4;MP.GAME.enemy.lives=MP.GAME.lives
+        G.F_NO_SAVING=true
+        G.FUNCS.exit_overlay_menu();G.GAME.viewed_back=G.P_CENTERS[m.deck]
+        G.FUNCS.start_run(nil,{seed=m.seed,stake=m.stake})
+        status('Replayer starting - '..#run.actions..' actions')
+    end
+    function M.stop() M.active=false;status('Replayer stopped at action '..tostring(M.step or 0)) end
+    function M.update(dt)
+        if M.session and G.STAGE==G.STAGES.MAIN_MENU and (M.started or not M.active) then
+            M.active=false;M.session=false;M.started=false
+            MP.GHOST.clear();MP.LOBBY.config=previous_config;MP.SP=previous_sp;MP.MODIFIERS=previous_modifiers;G.F_NO_SAVING=previous_saving
+            MP.LoadReworks((MP.get_active_ruleset() or ''):gsub('^ruleset_mp_',''))
+            status('Replayer: returned to menu');return
+        end
+        if not M.active then return end
+        if G.STAGE~=G.STAGES.RUN then return end
+        M.started=true
+        if G.OVERLAY_MENU or G.SETTINGS.paused then return end
+        waiting=waiting+dt;assert(waiting<45,'Timed out waiting for action '..M.step)
+        if not rec.ok then error('Action Recorder stopped writing') end
+        if not G.STATE_COMPLETE then return end
+        for _,locked in pairs((G.CONTROLLER or {}).locks or {}) do if locked then return end end
+        -- Wait for the game event queue before attempting the next input.
+        for _,queue in pairs((G.E_MANAGER or {}).queues or {}) do
+            for _,event in pairs(queue) do if event.blocking and not event.complete then return end end
+        end
+        elapsed=elapsed+dt;if elapsed<0.5 then return end;elapsed=0
+        local run=M.runs[M.index];local action=run.actions[M.step]
+        if not action then M.active=false;status(run.complete and 'Replayer complete - recording available' or 'Replayer reached end of partial log');return end
+        local recorded=rec.action_count or 0
+        if driver.step(action) then
+            assert(rec.ok and (rec.action_count or 0)>recorded,'Action was not accepted by Action Recorder at step '..M.step)
+            if action.op=='reorder' and rec.reset_orders then rec.reset_orders() end
+            M.step=M.step+1;waiting=0;status('Replayer '..(M.step-1)..'/'..#run.actions..' - '..action.op)
+        end
+    end
+    -- A replay session must never send logged moves to a live server, even through other mod hooks.
+    local guarded_client
+    local previous_update=Game.update
+    function Game:update(dt)
+        if Client and Client~=guarded_client and type(Client.send)=='function' then
+            guarded_client=Client;local send=Client.send
+            Client.send=function(...) if not M.session then return send(...) end end
+        end
+        local function pack(...) return {n=select('#',...),...} end
+        local result=pack(previous_update(self,dt))
+        protect(function() M.update(dt) end)
+        return unpack(result,1,result.n)
+    end
+    local previous_drop=love.filedropped
+    love.filedropped=function(file)
+        if file:getFilename():lower():match('%.log$') then
+            protect(function()
+                assert(not M.session,'Finish the replay session before importing')
+                assert(file:getSize()<=16*1024*1024,'Log exceeds 16 MB')
+                file:open('r');local text=file:read();file:close();M.import(text)
+            end)
+        elseif previous_drop then return previous_drop(file) end
+    end
+    G.FUNCS.bobs_replayer_load=function() protect(function()
+        local text=love.filesystem.read(directory..'/replay.log');assert(text,'Place replay.log in Balatro/balatro_replayer or drop a log onto the game');M.import(text)
+    end) end
+    G.FUNCS.bobs_replayer_next=function() if M.runs and not M.session then M.index=M.index%#M.runs+1;status('Replayer: run '..M.index..'/'..#M.runs..' - '..#M.runs[M.index].actions..' actions') end end
+    G.FUNCS.bobs_replayer_start=function() protect(M.start) end
+    G.FUNCS.bobs_replayer_stop=function() M.stop() end
+    local previous_tab=mod.config_tab
+    mod.config_tab=function()
+        local tab=previous_tab and previous_tab() or {nodes={}}
+        tab.nodes[#tab.nodes+1]={n=G.UIT.R,config={align='cm',padding=0.08},nodes={{n=G.UIT.T,config={ref_table=M,ref_value='status',scale=0.25,colour=G.C.WHITE}}}}
+        local nodes={}
+        for _,item in ipairs({{'Load replay.log','bobs_replayer_load'},{'Next run','bobs_replayer_next'},{'Start Replayer','bobs_replayer_start'},{'Stop Replayer','bobs_replayer_stop'}}) do
+            nodes[#nodes+1]={n=G.UIT.C,config={align='cm',button=item[2],colour=G.C.BLUE,padding=0.12,r=0.1},nodes={{n=G.UIT.T,config={text=item[1],scale=0.28,colour=G.C.WHITE}}}}
+        end
+        tab.nodes[#tab.nodes+1]={n=G.UIT.R,config={align='cm',padding=0.08},nodes=nodes};return tab
+    end
+    return M
+end
