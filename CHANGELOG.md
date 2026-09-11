@@ -1,3 +1,9 @@
+# 1.6.1
+
+- Open a native Windows file picker from Replayer's Load Log button.
+- Create a fresh run on Start and wait for the matching seed, deck and recorder before input.
+- Apply the manifest's Cocktail combination through Multiplayer's offline configuration and restore prior settings afterward.
+
 # 1.6.0
 
 - Add Replayer config controls for importing Multiplayer logs and replaying local inputs through Action Recorder.

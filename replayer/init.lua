@@ -4,11 +4,12 @@ return function(mod,JSON)
     local parser=load('parser.lua')(function(text) return require('json').decode(text) end)
     local rec=BalatroActionRecorder
     local driver=load('driver.lua')(parser,rec,JSON)
-    local M={status='Replayer: load replay.log or drop a .log onto Balatro',index=1,active=false}
+    local pick_file=load('file-picker.lua')
+    local M={status='Replayer: select Load Log to choose a Multiplayer log',index=1,active=false}
     BalatroReplayer=M
     local directory='balatro_replayer'
     local elapsed,waiting=0,0
-    local previous_config,previous_sp,previous_modifiers,previous_saving
+    local previous_config,previous_sp,previous_modifiers,previous_saving,previous_mod_config
     local function status(text)
         M.status=text
         love.filesystem.createDirectory(directory)
@@ -29,7 +30,7 @@ return function(mod,JSON)
         status('Replayer: run 1/'..#M.runs..' - '..#M.runs[1].actions..' actions')
     end
     local function validate(run)
-        assert(G.STAGE==G.STAGES.MAIN_MENU,'Start Replayer from the main menu')
+        assert(G.STAGE==G.STAGES.MAIN_MENU or G.STAGE==G.STAGES.RUN,'Wait for Balatro to finish loading')
         assert(MP and MP.GHOST and MP.SP and MP.LOBBY and not MP.LOBBY.code,'Leave the Multiplayer lobby first')
         assert(rec and rec.ok,'Action Recorder must be enabled')
         local m=run.manifest
@@ -38,6 +39,11 @@ return function(mod,JSON)
         assert(not m.challenge or m.challenge=='','Challenge replay is not supported')
         local installed=SMODS.Mods and SMODS.Mods.Multiplayer
         assert(installed and installed.version==m.mod_version,'Install the Multiplayer version named in the manifest')
+        if m.deck=='b_mp_cocktail' then
+            local cocktail=(m.lobby_config or {}).cocktail
+            assert(type(cocktail)=='string' and cocktail:match('^[012]+[HS]$'),'Manifest missing valid Cocktail settings')
+            assert(MP.get_cocktail_decks and #MP.get_cocktail_decks()+1==#cocktail,'Installed Cocktail deck pool differs from the log')
+        end
         local ghost
         for _,r in ipairs(M.ghosts) do
             if r.seed==m.seed then assert(not ghost,'Multiple opponent records share this seed');ghost=r end
@@ -50,6 +56,7 @@ return function(mod,JSON)
         assert(M.runs and not M.session,'Load a log before starting')
         local run=M.runs[M.index];local ghost=validate(run);local m=run.manifest
         previous_config=MP.LOBBY.config;previous_sp=MP.SP;previous_modifiers=MP.MODIFIERS;previous_saving=G.F_NO_SAVING
+        previous_mod_config=SMODS.Mods.Multiplayer.config
         M.session=true
         local config={}
         -- Only existing gameplay option names are accepted. Session identifiers are never imported.
@@ -59,12 +66,18 @@ return function(mod,JSON)
         end
         config.ruleset=m.ruleset;config.gamemode=m.gamemode;config.back=m.deck;config.stake=m.stake
         config.cocktail=(m.lobby_config or {}).cocktail or config.cocktail
+        if m.deck=='b_mp_cocktail' then
+            local replay_config={}
+            for key,value in pairs(previous_mod_config or {}) do replay_config[key]=value end
+            replay_config.cocktail=config.cocktail
+            SMODS.Mods.Multiplayer.config=replay_config
+        end
         MP.LOBBY.config=config;MP.SP={practice=true,ruleset=m.ruleset,unlimited_slots=false,edition_cycling=false}
         MP.apply_default_modifiers(m.ruleset:gsub('^ruleset_mp_',''))
         if m.modifier_layers and m.modifier_layers~='' then MP.modifiers_parse(m.modifier_layers) end
         MP.LoadReworks(m.ruleset:gsub('^ruleset_mp_',''))
         ghost.seed=m.seed;ghost.deck=m.deck;ghost.stake=m.stake;ghost.ruleset=m.ruleset;ghost.gamemode=m.gamemode
-        M.session=true;M.active=true;M.step=1;elapsed=0;waiting=0;driver.ante_key=nil
+        M.session=true;M.active=true;M.step=1;M.started=false;M.awaiting_start=true;elapsed=0;waiting=0;driver.ante_key=nil
         MP.GHOST.load(ghost);MP.reset_game_states()
         MP.GAME.lives=config.starting_lives or 4;MP.GAME.enemy.lives=MP.GAME.lives
         G.F_NO_SAVING=true
@@ -77,10 +90,12 @@ return function(mod,JSON)
         if M.session and G.STAGE==G.STAGES.MAIN_MENU and (M.started or not M.active) then
             M.active=false;M.session=false;M.started=false
             MP.GHOST.clear();MP.LOBBY.config=previous_config;MP.SP=previous_sp;MP.MODIFIERS=previous_modifiers;G.F_NO_SAVING=previous_saving
+            SMODS.Mods.Multiplayer.config=previous_mod_config
             MP.LoadReworks((MP.get_active_ruleset() or ''):gsub('^ruleset_mp_',''))
             status('Replayer: returned to menu');return
         end
         if not M.active then return end
+        if M.awaiting_start then waiting=waiting+dt;assert(waiting<45,'New replay run did not initialize');return end
         if G.STAGE~=G.STAGES.RUN then return end
         M.started=true
         if G.OVERLAY_MENU or G.SETTINGS.paused then return end
@@ -104,6 +119,23 @@ return function(mod,JSON)
     end
     -- A replay session must never send logged moves to a live server, even through other mod hooks.
     local guarded_client
+    local previous_start=Game.start_run
+    if previous_start then
+        function Game:start_run(...)
+            local function pack(...) return {n=select('#',...),...} end
+            local result=pack(previous_start(self,...))
+            if M.session and M.awaiting_start then
+                M.awaiting_start=false;M.started=true;waiting=0
+                protect(function()
+                    local manifest=M.runs[M.index].manifest
+                    assert((G.GAME.pseudorandom or {}).seed==manifest.seed,'New run seed differs from the log')
+                    assert(((((G.GAME.selected_back or {}).effect or {}).center or {}).key)==manifest.deck,'New run deck differs from the log')
+                    assert(rec.ok and rec.path,'Action Recorder did not start a recording for the new run')
+                end)
+            end
+            return unpack(result,1,result.n)
+        end
+    end
     local previous_update=Game.update
     function Game:update(dt)
         if Client and Client~=guarded_client and type(Client.send)=='function' then
@@ -126,7 +158,11 @@ return function(mod,JSON)
         elseif previous_drop then return previous_drop(file) end
     end
     G.FUNCS.bobs_replayer_load=function() protect(function()
-        local text=love.filesystem.read(directory..'/replay.log');assert(text,'Place replay.log in Balatro/balatro_replayer or drop a log onto the game');M.import(text)
+        assert(not M.session,'Finish the replay session before importing')
+        local path=pick_file()
+        if not path then return end
+        local info=NFS.getInfo(path);assert(info and info.type=='file' and info.size and info.size<=16*1024*1024,'Select a log file smaller than 16 MB')
+        local text=assert(NFS.read(path),'Could not read the selected log');M.import(text)
     end) end
     G.FUNCS.bobs_replayer_next=function() if M.runs and not M.session then M.index=M.index%#M.runs+1;status('Replayer: run '..M.index..'/'..#M.runs..' - '..#M.runs[M.index].actions..' actions') end end
     G.FUNCS.bobs_replayer_start=function() protect(M.start) end
@@ -136,7 +172,7 @@ return function(mod,JSON)
         local tab=previous_tab and previous_tab() or {nodes={}}
         tab.nodes[#tab.nodes+1]={n=G.UIT.R,config={align='cm',padding=0.08},nodes={{n=G.UIT.T,config={ref_table=M,ref_value='status',scale=0.25,colour=G.C.WHITE}}}}
         local nodes={}
-        for _,item in ipairs({{'Load replay.log','bobs_replayer_load'},{'Next run','bobs_replayer_next'},{'Start Replayer','bobs_replayer_start'},{'Stop Replayer','bobs_replayer_stop'}}) do
+        for _,item in ipairs({{'Load Log','bobs_replayer_load'},{'Next run','bobs_replayer_next'},{'Start Replayer','bobs_replayer_start'},{'Stop Replayer','bobs_replayer_stop'}}) do
             nodes[#nodes+1]={n=G.UIT.C,config={align='cm',button=item[2],colour=G.C.BLUE,padding=0.12,r=0.1},nodes={{n=G.UIT.T,config={text=item[1],scale=0.28,colour=G.C.WHITE}}}}
         end
         tab.nodes[#tab.nodes+1]={n=G.UIT.R,config={align='cm',padding=0.08},nodes=nodes};return tab
