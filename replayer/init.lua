@@ -90,6 +90,7 @@ return function(mod,JSON)
         for index,action in ipairs(run.actions) do
             assert(driver.supports(action.op),'Unsupported action '..tostring(action.op)..' at step '..index)
         end
+        driver.resolve(run.actions)
         previous_config=MP.LOBBY.config;previous_sp=MP.SP;previous_modifiers=MP.MODIFIERS;previous_saving=G.F_NO_SAVING
         previous_mod_config=SMODS.Mods.Multiplayer.config
         M.session=true
@@ -129,7 +130,7 @@ return function(mod,JSON)
         ghost.seed=m.seed;ghost.deck=m.deck;ghost.stake=m.stake;ghost.ruleset=m.ruleset;ghost.gamemode=m.gamemode
         M.session=true;M.active=true;M.step=1;M.started=false;M.awaiting_start=true;M.deck=deck;elapsed=0;waiting=0;reported=nil
         attempts=0;M.skipped=0
-        driver.ante_key=nil;driver.pending=nil;driver.diverged=0;driver.difference=nil
+        driver.ante_key=nil;driver.pending=nil
         MP.GHOST.load(ghost);MP.reset_game_states()
         MP.GAME.lives=config.starting_lives or 4;MP.GAME.enemy.lives=MP.GAME.lives
         G.F_NO_SAVING=true
@@ -141,15 +142,12 @@ return function(mod,JSON)
     -- Every outcome moves to the next action. Only a session-level failure (a
     -- dead recorder, a run that never started) ends playback; a single action
     -- that the drifted run cannot perform is skipped and counted.
-    local function tally(run)
-        local parts=''
-        if (M.skipped or 0)>0 then parts=parts..' - '..M.skipped..' skipped' end
-        if (driver.diverged or 0)>0 then parts=parts..' - '..driver.diverged..' card(s) differed' end
-        return parts
+    local function tally()
+        return (M.skipped or 0)>0 and (' - '..M.skipped..' skipped') or ''
     end
     local function next_action(run,action,text)
         if action.op=='reorder' and rec.reset_orders then rec.reset_orders() end
-        driver.difference=nil;driver.pending=nil
+        driver.pending=nil
         M.step=M.step+1;waiting=0;attempts=0;reported=nil
         status('Replayer '..(M.step-1)..'/'..#run.actions..' - '..action.op..text)
     end
@@ -175,7 +173,7 @@ return function(mod,JSON)
         -- menu or an overlay that would otherwise look like a hang.
         if not action then
             M.active=false
-            status((run.complete and 'Replayer complete - recording available' or 'Replayer reached end of partial log')..tally(run));return
+            status((run.complete and 'Replayer complete - recording available' or 'Replayer reached end of partial log')..tally());return
         end
         if G.OVERLAY_MENU or G.SETTINGS.paused then return end
         -- A broken recorder is the one thing worth stopping for: the replay
@@ -208,9 +206,7 @@ return function(mod,JSON)
         end
         if not rec.ok then error('Action Recorder stopped writing') end
         if (rec.action_count or 0)<=recorded then return skip(run,action,'the game did not accept it') end
-        -- A drifted card is reported but never stops the replay; the run keeps
-        -- following the log's positions to the end.
-        next_action(run,action,driver.difference and (' - card differs: '..driver.difference) or '')
+        next_action(run,action,'')
     end
     -- A replay session must never send logged moves to a live server, even through other mod hooks.
     local guarded_client

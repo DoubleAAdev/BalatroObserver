@@ -1,3 +1,9 @@
+# 1.6.8
+
+- Drive the replay from `MP_RLOG:` lines only. Multiplayer's mirrored human-readable stream is no longer read at all.
+- Resolve what every `use` slot refers to before playback from the action stream alone: hand targets mean a consumable, and a pack pick or skip answering the use means a booster was opened.
+- Settle the remaining `use` slots at runtime by which areas actually hold that slot and what the game will accept, instead of relying on a card name.
+
 # 1.6.7
 
 - Play the whole log through: an action the replayed run cannot perform is now skipped and counted instead of ending the session. Only a dead recorder stops playback.

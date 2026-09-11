@@ -99,31 +99,43 @@ assert(driver.step({op='select_blind',args={'0'}}) and driver.pending==nil)
 -- log, the kind of card the log names still resolves the area.
 local function card(rank) return {facing='front',base={value=rank,suit='Spades'},config={center={key='c_base'}},ability={set='Default'},states={drag={is=false}}} end
 local function shop_card(name,set) return {facing='front',config={center={key='x'}},ability={name=name,set=set},base={},states={drag={is=false}}} end
-G.P_CENTERS={p_buffoon={name='Buffoon Pack',set='Booster'},c_fool={name='The Fool',set='Tarot'}}
 G.STATE=2
 G.consumeables={cards={shop_card('The Fool','Tarot')}}
 G.shop_booster={cards={shop_card('Arcana Pack','Booster')}}
-driver.diverged=0
-assert(driver.step({op='use',args={'1'},name='Buffoon Pack'}))
-assert(used==G.shop_booster.cards[1],'a Booster name picks the booster slot even when the pack drifted')
-assert(driver.diverged==1 and driver.difference=='log Buffoon Pack, run Arcana Pack',tostring(driver.difference))
--- An exact name still wins over the kind-of-card fallback, and matches are silent.
-G.shop_booster.cards[1]=shop_card('Buffoon Pack','Booster')
-assert(driver.step({op='use',args={'1'},name='Buffoon Pack'}) and used==G.shop_booster.cards[1])
-assert(driver.diverged==1)
--- A different card in a position the log is sure of is replayed, not refused.
+G.shop_vouchers={cards={shop_card('Overstock','Voucher')}}
 G.shop_jokers={cards={shop_card('Blueprint','Joker')}}
 G.FUNCS.buy_from_shop=function() return nil end
-assert(driver.step({op='buy',args={'1','1'},name='Mail-In Rebate'}))
-assert(driver.diverged==2 and driver.difference=='log Mail-In Rebate, run Blueprint')
--- Without any name a two-area slot stays genuinely ambiguous.
-assert(not pcall(driver.step,{op='use',args={'1'}}))
+
+-- Resolution happens over the whole stream before playback: a use answered by a
+-- pack action opened the booster shelf, and a use carrying hand targets is a
+-- consumable. Actions that can happen with a pack open do not break the pairing.
+local resolved=driver.resolve({
+    {n=1,op='use',args={'1'}},{n=2,op='reorder',args={'4','2.1'}},{n=3,op='pack_skip',args={'0'}},
+    {n=4,op='use',args={'1','2.3'}},{n=5,op='use',args={'1'}},{n=6,op='reroll',args={}}})
+assert(resolved[1].area=='shop_booster','a pack action after a use means a booster was opened')
+assert(resolved[4].area=='consumeables','hand targets mean a consumable')
+assert(resolved[5].area==nil,'nothing in the stream settles this one')
+assert(driver.step(resolved[1]) and used==G.shop_booster.cards[1])
+
+-- With nothing resolved, the game rules out what it would refuse right now.
+G.FUNCS.can_use_consumeable=function(e) e.config.button=nil end
+G.FUNCS.can_redeem=function(e) e.config.button='use_card' end
+G.FUNCS.can_open=function(e) e.config.button=nil end
+assert(driver.step(resolved[5]) and used==G.shop_vouchers.cards[1],'only the voucher was acceptable')
+-- When the game would take either, a bare slot means the consumable.
+G.FUNCS.can_use_consumeable=function(e) e.config.button='use_card' end
+assert(driver.step({op='use',args={'1'}}) and used==G.consumeables.cards[1])
+-- A slot only one area has is never ambiguous in the first place.
+G.consumeables={cards={}};G.shop_vouchers={cards={}};G.shop_jokers={cards={}}
+G.FUNCS.can_open=function(e) e.config.button='use_card' end
+assert(driver.step({op='use',args={'1'}}) and used==G.shop_booster.cards[1])
 
 -- Closing the shop or a pack leaves the CardArea in G with cards set to nil,
 -- exactly as CardArea:remove does; scanning it must not crash.
+G.consumeables={cards={shop_card('The Fool','Tarot')}}
 G.shop_booster.cards=nil;G.shop_vouchers={cards=nil};G.shop_jokers.cards=nil;G.pack_cards={cards=nil}
 G.STATE=1
-assert(driver.step({op='use',args={'1'},name='The Fool'}) and used==G.consumeables.cards[1])
+assert(driver.step({op='use',args={'1'}}) and used==G.consumeables.cards[1])
 assert(driver.step({op='pack_pick',args={'1'}})==false and driver.pending=='no card in pack_cards slot 1')
 assert(driver.step({op='buy',args={'1','1'}})==false)
 G.jokers={cards=nil}
@@ -139,4 +151,4 @@ G.STATE=1;G.FUNCS.play_cards_from_highlighted=function() end
 assert(driver.step({op='play',args={'1.2'}}))
 assert(#G.hand.highlighted==2,'a forced card is kept, not duplicated')
 
-print('PASS: UIRoot traversal, nested boxes, on-deck blind scoping, booster skip, inferred cash-out, cycle safety, named waiting reasons, drift-tolerant card resolution, removed card areas and forced selections')
+print('PASS: UIRoot traversal, nested boxes, on-deck blind scoping, booster skip, inferred cash-out, cycle safety, named waiting reasons, positional use resolution, removed card areas and forced selections')

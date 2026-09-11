@@ -23,6 +23,7 @@ BalatroActionRecorder={ok=true,action_count=0}
 -- becomes possible, and the rest succeed.
 local attempted,stub={},{}
 function stub.supports() return true end
+function stub.resolve(actions) return actions end
 function stub.step(action)
     attempted[#attempted+1]=action.n
     if action.n==2 then error('Game rejected buy_from_shop') end

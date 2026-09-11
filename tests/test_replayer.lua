@@ -4,7 +4,8 @@ end)
 local input='MP_RLOG: MANIFEST {}\nMP_RLOG: 1 discard 2.3\nClient sent message: {"lines":["MP_RLOG: 1 discard 2.3"]}\nMP_RLOG: 2 use 1 2\nINFO :: MULTIPLAYER :: Client sent message: action:usedCard,card:The Magician\nMP_RLOG: END {}\nMP_RLOG: CHK v1 carbon=0\n'
 local runs=parser.parse(input)
 assert(#runs==1 and #runs[1].actions==2 and runs[1].complete and runs[1].manifest.stake==1)
-assert(runs[1].actions[2].name=='The Magician')
+-- Only MP_RLOG lines drive a replay; the mirrored human stream is ignored.
+assert(runs[1].actions[2].op=='use' and runs[1].actions[2].name==nil)
 assert(#parser.parse(input..input)==2)
 for _,bad in ipairs({'MP_RLOG: 2 play 1','MP_RLOG: 1 play 1.1','MP_RLOG: 1 play 0','MP_RLOG: 1 execute os.remove','MP_RLOG: 1 reorder 8 1','MP_RLOG: 1 ready_blind 4','MP_RLOG: 1 set_ante_key os.remove'}) do
     assert(not pcall(parser.parse,'MP_RLOG: MANIFEST {}\n'..bad))
@@ -17,13 +18,10 @@ end
 local abandoned=parser.parse('MP_RLOG: MANIFEST {}\nMP_RLOG: END {}\n'..input)
 assert(#abandoned==1 and #abandoned[1].actions==2)
 assert(not pcall(parser.parse,'MP_RLOG: MANIFEST {}\nMP_RLOG: END {}'))
--- Only the first mirrored line belongs to the action; later ones name cards the
--- game used by itself.
-local followed=parser.parse('MP_RLOG: MANIFEST {}\nMP_RLOG: 1 use 1\n:: MULTIPLAYER :: Client sent message: action:usedCard,card:Arcana Pack\n:: MULTIPLAYER :: Client sent message: action:usedCard,card:Strength\n')
-assert(followed[1].actions[1].name=='Arcana Pack')
--- Buys and sells name their card too; the driver reports drift instead of stopping.
-local named=parser.parse('MP_RLOG: MANIFEST {}\nMP_RLOG: 1 buy 1 1\n:: MULTIPLAYER :: Client sent message: action:boughtCardFromShop,card:Mail-In Rebate,cost:4\nMP_RLOG: 2 sell 4 1\n:: MULTIPLAYER :: Client sent message: action:soldCard,card:Blueprint\n')
-assert(named[1].actions[1].name=='Mail-In Rebate' and named[1].actions[2].name=='Blueprint')
+-- Mirrored card names are never read, whichever action they follow.
+local mirrored=parser.parse('MP_RLOG: MANIFEST {}\nMP_RLOG: 1 use 1\n:: MULTIPLAYER :: Client sent message: action:usedCard,card:Arcana Pack\nMP_RLOG: 2 buy 1 1\n:: MULTIPLAYER :: Client sent message: action:boughtCardFromShop,card:Mail-In Rebate,cost:4\n')
+assert(#mirrored[1].actions==2)
+for _,action in ipairs(mirrored[1].actions) do assert(action.name==nil,'the human stream must not reach the driver') end
 local JSON=dofile('mod/json.lua')
 local files,now={},1
 love={timer={getTime=function()return now end},filesystem={createDirectory=function()return true end,write=function(p,t)files[p]=t;return true end,append=function(p,t)files[p]=(files[p] or '')..t;return true end}}
@@ -51,6 +49,12 @@ assert(driver.step({op='net_asteroid',args={}}) and MP.GAME.asteroids==1)
 G.STATE=4;G.blind_select={}
 assert(driver.step({op='ready_blind',args={'1'}}) and MP.GAME.ready_blind)
 assert(files[rec.path]:find('"type":"ready_blind"'))
+-- A bare use slot present in two areas is resolved from the action stream.
 G.STATE=2;G.consumeables={cards={ace}};G.shop_booster={cards={king}}
-assert(not pcall(driver.step,{op='use',args={'1'}}))
-print('PASS: replay parsing, sequence rejection, empty-run skipping, first mirrored name, mirrored-line exclusion, accurate discard recording, reorder, ante key, asteroid and ambiguity checks')
+local used;G.FUNCS.use_card=function(e)used=e.config.ref_table end
+local uses=driver.resolve({{n=1,op='use',args={'1'}},{n=2,op='pack_pick',args={'1'}}})
+assert(uses[1].area=='shop_booster','a use answered by a pack pick opened the booster')
+assert(driver.step(uses[1]) and used==king)
+assert(driver.resolve({{n=1,op='use',args={'1','2.3'}}})[1].area=='consumeables','hand targets mean a consumable')
+assert(driver.step({op='use',args={'1'}}) and used==ace,'an unresolved bare slot falls back to the consumable')
+print('PASS: replay parsing, sequence rejection, empty-run skipping, MP_RLOG-only actions, mirrored-line exclusion, accurate discard recording, reorder, ante key, asteroid and positional use resolution')

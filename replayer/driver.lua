@@ -76,23 +76,43 @@ return function(parser,recorder,JSON)
     -- Every refusal names what the driver is still waiting for, so a stall
     -- reports the missing precondition instead of just a step number.
     local function pending(reason) M.pending=reason;return false end
-    -- `use` logs a slot but not an area. The mirrored card name resolves it, and
-    -- when the replay's contents have drifted, the kind of card it names still
-    -- points at the right area.
-    local function area_of(name)
-        for _,centre in pairs(G.P_CENTERS or {}) do
-            if centre.name==name then
-                return ({Booster='shop_booster',Voucher='shop_vouchers',Joker='shop_jokers'})[centre.set] or 'consumeables'
+    -- The game's own gate for putting this card into play, matching the button
+    -- the real UI would show for it.
+    local function check_name(card,op)
+        local set=(card.ability or {}).set
+        if set=='Booster' then return 'can_open' end
+        if set=='Voucher' then return 'can_redeem' end
+        if op=='pack_pick' and not card.ability.consumeable then return 'can_select_card' end
+        return 'can_use_consumeable'
+    end
+    -- Ask the game whether it would accept this card right now, without acting.
+    local function accepts(card)
+        local check=check_name(card,'use')
+        if type(G.FUNCS[check])~='function' then return true end
+        local probe={config={ref_table=card}}
+        local ok=pcall(G.FUNCS[check],probe)
+        return ok and probe.config.button~=nil
+    end
+    -- `use` records a slot but not an area. Resolve what each one meant before
+    -- playback, from the action stream alone: a use carrying hand targets is a
+    -- consumable, and one whose next meaningful action opens a pack came from
+    -- the booster shelf. Actions that can happen with a pack already open do
+    -- not break that pairing.
+    local transparent={reorder=true,set_ante_key=true,net_asteroid=true,ready_blind=true,sell=true}
+    function M.resolve(actions)
+        for index,action in ipairs(actions) do
+            if action.op=='use' then
+                action.area=nil
+                if action.args[2] then action.area='consumeables'
+                else
+                    local following=index+1
+                    while actions[following] and transparent[actions[following].op] do following=following+1 end
+                    local next_action=actions[following]
+                    if next_action and (next_action.op=='pack_pick' or next_action.op=='pack_skip') then action.area='shop_booster' end
+                end
             end
         end
-    end
-    -- A drifted run is replayed, not abandoned: the log's positions still apply,
-    -- and every card that came out different is counted and named.
-    local function compare(card,action)
-        local found=(card.ability or {}).name
-        if not action.name or found==action.name then return end
-        M.diverged=(M.diverged or 0)+1
-        M.difference='log '..tostring(action.name)..', run '..tostring(found)
+        return actions
     end
     -- The opcodes M.step knows how to perform. Checked over the whole log before
     -- playback starts, so no action can surprise the run half way through.
@@ -161,15 +181,23 @@ return function(parser,recorder,JSON)
             end
             if #candidates==1 then card=candidates[1].card
             elseif #candidates>1 then
-                for _,entry in ipairs(candidates) do if action.name and (entry.card.ability or {}).name==action.name then card=entry.card;break end end
-                local wanted=not card and action.name and area_of(action.name)
-                if wanted then for _,entry in ipairs(candidates) do if entry.area==wanted then card=entry.card;break end end end
-                assert(card,'Use action is ambiguous: log lacks a unique card identity')
+                -- The area worked out before playback wins; otherwise let the
+                -- game rule out what it would refuse, then take the commonest
+                -- meaning of a bare use slot.
+                for _,entry in ipairs(candidates) do if entry.area==action.area then card=entry.card;break end end
+                if not card then
+                    local allowed={}
+                    for _,entry in ipairs(candidates) do if accepts(entry.card) then allowed[#allowed+1]=entry end end
+                    if #allowed==0 then allowed=candidates end
+                    for _,area in ipairs({'consumeables','shop_vouchers','shop_booster','shop_jokers'}) do
+                        for _,entry in ipairs(allowed) do if entry.area==area then card=entry.card;break end end
+                        if card then break end
+                    end
+                end
             end
         elseif op=='pack_pick' then card=card_at(G.pack_cards,tonumber(a[1]))
         else card=card_at(G[names[tonumber(a[1])]],tonumber(a[2])) end
         if not card then return pending('no card in '..(op=='pack_pick' and 'pack_cards' or op=='use' and 'any use area' or tostring(names[tonumber(a[1])]))..' slot '..tostring(op=='use' and a[1] or op=='pack_pick' and a[1] or a[2])) end
-        compare(card,action)
         if op=='sell' then assert(not card.can_sell_card or card:can_sell_card(),'Game rejected sell');assert(card:sell_card()~=false,'Game rejected sell');return true end
         local set=(card.ability or {}).set
         -- Multiplayer gives shop packs and vouchers their own opcodes, but the
@@ -178,8 +206,7 @@ return function(parser,recorder,JSON)
             return call('buy_from_shop',{config={ref_table=card,id='buy'}},'can_buy')
         end
         if not select_cards(a[2] and (op=='use' or op=='pack_pick') and a[2] or nil) then return pending('the hand is not dealt yet') end
-        local check=set=='Booster' and 'can_open' or set=='Voucher' and 'can_redeem' or (op=='pack_pick' and not card.ability.consumeable) and 'can_select_card' or 'can_use_consumeable'
-        return call('use_card',{config={ref_table=card}},check)
+        return call('use_card',{config={ref_table=card}},check_name(card,op))
     end
     return M
 end
