@@ -151,10 +151,11 @@ return function(log)
         local cost = card.cost or 0
         local money = entry.money or {}
         local paid = cost == 0
-        for _, amount in ipairs(money) do if amount == -cost then paid = true end end
+        for _, amount in ipairs(money) do if tonumber(amount) == -cost then paid = true end end
         if not paid then return 'refused', 'the log shows no payment, so the game refused the click' end
         if not (card.ability or {}).consumeable then return 'buy', 'not a consumable' end
         if #money > (cost > 0 and 1 or 0) then return 'buy_and_use', 'money moved right after the purchase' end
+        if #money == 0 and cost == 0 then return 'buy', 'a free card with no other effect' end
         if card.can_use_consumeable and not card:can_use_consumeable() then return 'buy', 'it cannot be used from the shop' end
         if not has_buy_space(card) then return 'buy_and_use', 'no free consumable slot' end
         local mode, seq = slot_rule(entries, entry.position, card_name(card))
@@ -202,13 +203,20 @@ return function(log)
     end
 
     -- Transitions the log never records: Multiplayer logs neither the cash
-    -- out button nor the shop's next-round button.
+    -- out button nor the shop's next-round button. Money they move is flagged
+    -- so it is not mistaken for the effect of a logged input.
+    local function transition(fn)
+        M.transition = true
+        local ok, err = pcall(fn)
+        M.transition = false
+        if not ok then error(err, 0) end
+    end
     local function leave_round_eval()
-        if G.round_eval then G.FUNCS.cash_out({config = {}}) end
+        if G.round_eval then transition(function() G.FUNCS.cash_out({config = {}}) end) end
         return 'wait', 'cashing out'
     end
     local function leave_shop()
-        G.FUNCS.toggle_shop({config = {}})
+        transition(function() G.FUNCS.toggle_shop({config = {}}) end)
         return 'wait', 'leaving the shop'
     end
 
@@ -348,6 +356,21 @@ return function(log)
         return 'done'
     end
 
+    -- A drag lifts one card out and drops it back somewhere else, so every
+    -- other card keeps its order. The sort buttons permute the whole area and
+    -- also change how every later draw is sorted, so a drag must never be
+    -- mistaken for one: applying a sort would re-order every hand after it.
+    local function single_move(order)
+        for lifted = 1, #order do
+            local rest, rising = {}, true
+            for i, j in ipairs(order) do if i ~= lifted then rest[#rest + 1] = j end end
+            for i = 2, #rest do if rest[i] < rest[i - 1] then rising = false break end end
+            if rising then return true end
+        end
+        return false
+    end
+    M.single_move = single_move
+
     -- Sorted copy of a list using the game's own comparator, so a logged
     -- permutation that equals a sort result is treated as the sort button.
     local function sorted_like(list, method)
@@ -383,7 +406,7 @@ return function(log)
         end
         -- The hand's sort buttons leave the same permutation as a drag would,
         -- but they also change how every later draw is sorted.
-        if area == G.hand and list[1] and list[1].get_nominal then
+        if area == G.hand and not single_move(order) and list[1] and list[1].get_nominal then
             for _, method in ipairs({'suit desc', 'desc'}) do
                 if same_order(after, sorted_like(list, method)) then
                     area:sort(method)

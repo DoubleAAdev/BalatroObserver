@@ -36,6 +36,14 @@ return function(decode)
         joinedLobby = true, rejoinedLobby = true, lobbyInfo = true, lobbyOptions = true,
         enemyDisconnected = true, enemyReconnected = true, startGame = true, stopGame = true,
     }
+    -- Outbound messages whose payload is a pure function of the run's state.
+    -- They are the only checkpoints a log carries for what the replay cannot
+    -- otherwise see, so each one is compared against what the game sends.
+    local checkpoints = {
+        playHand = {'score', 'handsLeft'}, setAnte = {'ante'},
+        spentLastShop = {'amount'}, setFurthestBlind = {'furthestBlind'},
+    }
+    M.checkpoints = checkpoints
     -- Multiplayer prints every value with %s, so types are recovered from the
     -- key: these are numbers in the wire format, everything else stays text
     -- ("score" is a string the mod parses digit by digit, and a username or
@@ -122,7 +130,7 @@ return function(decode)
             local payload = line:match('^MP_RLOG: (.*)$') or line:match(':: MULTIPLAYER :: MP_RLOG: (.*)$')
             if payload then
                 if payload:match('^MANIFEST ') then
-                    run = {manifest = parse_manifest(payload:sub(10)), entries = {}, actions = 0, complete = false, lobby = lobby, line = number}
+                    run = {manifest = parse_manifest(payload:sub(10)), entries = {}, checks = {}, actions = 0, complete = false, lobby = lobby, line = number}
                     runs[#runs + 1] = run
                     pending, paying = nil, nil
                 elseif payload:match('^END ') then
@@ -153,14 +161,24 @@ return function(decode)
                     -- ease_dollars traces every money change with the same
                     -- prefix. Those belong to the last input until the next
                     -- one; the mirrored line is the first other line after it.
-                    local amount = human:match('^moneyMoved,amount:(%-?%d+)')
+                    -- Every dollar the run gained or lost, in the game's own
+                    -- wording, kept with the input that produced it.
+                    local amount = human:match('^moneyMoved,amount:(%S+)')
                     if amount then
-                        if paying then paying.money[#paying.money + 1] = tonumber(amount) end
+                        if paying then paying.money[#paying.money + 1] = amount end
                     elseif pending and mirrored[pending.op] and not pending.human then
                         pending.human = human:match('^%s*(.-)%s*$')
                         pending = nil
                     end
                 else
+                    local sent = run and line:match(':: MULTIPLAYER :: Client sent message: ({.*})%s*$')
+                    local kind = sent and sent:match('"action":"(%w+)"')
+                    if kind and checkpoints[kind] then
+                        local ok, fields = pcall(decode, sent)
+                        if ok and type(fields) == 'table' then
+                            run.checks[#run.checks + 1] = {action = kind, fields = fields, line = number, after = #run.entries}
+                        end
+                    end
                     local action, rest = line:match(':: MULTIPLAYER :: Client got (%w+) message:%s*(.*)$')
                     if action == 'lobbyInfo' then
                         local fields = M.message_fields(action, rest)

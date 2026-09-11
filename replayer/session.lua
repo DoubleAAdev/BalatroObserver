@@ -43,6 +43,13 @@ return function(log, driver, JSON, deps)
         return (session.done or 0) .. '/' .. session.run.actions
     end
 
+    local function list(items)
+        local parts = {}
+        for _, item in ipairs(items) do parts[#parts + 1] = '$' .. tostring(item) end
+        if #parts == 0 then return 'nothing' end
+        return table.concat(parts, ', ')
+    end
+
     local function clean(message)
         return tostring(message):gsub('^.-:%d+: ', '')
     end
@@ -75,6 +82,55 @@ return function(log, driver, JSON, deps)
     end
     S.format_args = format_args
 
+    -- Every dollar the game moves, in the order it moves them, kept with the
+    -- input that caused it. The log records the same stream, so comparing the
+    -- two catches a run that has drifted in ways the log cannot otherwise
+    -- show: a card held at the end of a round, a joker that did not pay.
+    function S.money(amount)
+        if not session or S.phase ~= 'running' or session.failure then return end
+        local text = tostring(amount)
+        if driver.transition then
+            -- The cash out and the shop exit are not logged, so the log puts
+            -- their money with whichever input the player happened to make
+            -- around them. Hold it aside and let it match either side.
+            session.carried[#session.carried + 1] = text
+        else
+            session.paid[#session.paid + 1] = text
+        end
+    end
+
+    local function sorted(items)
+        local copy = {}
+        for i, item in ipairs(items) do copy[i] = item end
+        table.sort(copy)
+        return copy
+    end
+
+    -- Compare the money one input moved with what the log recorded for it.
+    local function verify_money(entry)
+        if not entry or entry.kind ~= 'action' then session.paid = {}; return end
+        local expected = {}
+        for _, amount in ipairs(entry.money or {}) do expected[#expected + 1] = amount end
+        -- Money from an inferred transition counts wherever the log put it.
+        for index = #session.carried, 1, -1 do
+            for slot, amount in ipairs(expected) do
+                if amount == session.carried[index] then
+                    table.remove(expected, slot)
+                    table.remove(session.carried, index)
+                    break
+                end
+            end
+        end
+        local got, want = sorted(session.paid), sorted(expected)
+        local same = #got == #want
+        if same then for i = 1, #got do if got[i] ~= want[i] then same = false end end end
+        if not same then
+            fail('"' .. entry.text .. '" moved ' .. list(session.paid) .. ', the log moved ' .. list(entry.money or {}))
+            return
+        end
+        session.paid = {}
+    end
+
     -- Installed over MP.RLOG.record for the session. The game reports what
     -- it just did in the same words the original game used; the next
     -- expected line must match, otherwise the replay has diverged.
@@ -104,6 +160,9 @@ return function(log, driver, JSON, deps)
         local mirrored = human and tostring(human):gsub('^action:', '') or nil
         if matched and (entry.human or mirrored) and entry.human ~= mirrored then matched = false end
         if matched then
+            verify_money(session.previous)
+            if session.failure then return original(op, args, human) end
+            session.previous = entry
             session.cursor = session.cursor + 1
             session.done = session.done + 1
             session.issued, session.waiting_since, session.wait_reason = nil, nil, nil
@@ -114,6 +173,35 @@ return function(log, driver, JSON, deps)
             fail('the game did "' .. actual .. (mirrored and (' | ' .. mirrored) or '') .. '", the log says "' .. expected .. '"')
         end
         return original(op, args, human)
+    end
+
+    -- The game reports its own progress to the server as it plays: the score
+    -- of every hand of a PvP round, the ante, what was spent in each shop,
+    -- how far the run has come. Each is a pure function of the run's state,
+    -- so each is compared with the next one of its kind in the log.
+    function S.checkpoint(message)
+        if not session or S.phase ~= 'running' or session.failure then return end
+        local fields = log.checkpoints[message.action]
+        if not fields then return end
+        local from = session.checked[message.action] or 1
+        local expected
+        for i = from, #session.checks do
+            if session.checks[i].action == message.action then
+                expected = session.checks[i]
+                session.checked[message.action] = i + 1
+                break
+            end
+        end
+        if not expected then
+            return fail('the game reported ' .. message.action .. ' more often than the log did')
+        end
+        for _, key in ipairs(fields) do
+            local got, want = message[key], expected.fields[key]
+            if tostring(got) ~= tostring(want) then
+                local what = message.action == 'playHand' and key == 'score' and 'the hand scored ' or ('the game reported ' .. message.action .. ' ' .. key .. ' ')
+                return fail(what .. tostring(got) .. ', the log says ' .. tostring(want) .. ' (log line ' .. expected.line .. ')')
+            end
+        end
     end
 
     local function deck_key(deck)
@@ -224,11 +312,23 @@ return function(log, driver, JSON, deps)
         if MP.SP then MP.SP.practice = false end
         if MP.GHOST and MP.GHOST.clear then MP.GHOST.clear() end
         Client.send = function(msg)
-            if type(msg) == 'table' and allowed_sends[msg.action] then return saved.send(msg) end
+            if type(msg) ~= 'table' or not msg.action then return end
+            S.checkpoint(msg)
+            if allowed_sends[msg.action] then return saved.send(msg) end
+            -- Keep the trace line the real client writes, so a replay's log
+            -- reads like the log it came from and the two can be compared.
+            local ok, text = pcall(deps.encode, msg)
+            if ok and sendTraceMessage then sendTraceMessage('Client sent message: ' .. text, 'MULTIPLAYER') end
+        end
+        saved.ease_dollars = ease_dollars
+        ease_dollars = function(amount, instant)
+            S.money(amount)
+            return saved.ease_dollars(amount, instant)
         end
         MP.RLOG.record = S.record
         if MP.STATS then MP.STATS.record_match = function() end end
-        session = {run = run, entries = run.entries, cursor = 1, done = 0, key = key, began = clock(), tick = 0}
+        session = {run = run, entries = run.entries, checks = run.checks or {}, checked = {}, cursor = 1, done = 0,
+            key = key, began = clock(), tick = 0, paid = {}, carried = {}, previous = nil}
         session.code = m.lobby_code or 'REPLAY'
         -- Setting the code is what joining a lobby does; Multiplayer notices
         -- on its next update and re-enters the menu as a lobby member.
@@ -242,6 +342,7 @@ return function(log, driver, JSON, deps)
         if not saved then return end
         Client.send = saved.send
         MP.RLOG.record = saved.record
+        if saved.ease_dollars then ease_dollars = saved.ease_dollars end
         if MP.STATS then MP.STATS.record_match = saved.record_match end
         for field, value in pairs(saved.lobby) do MP.LOBBY[field] = value end
         MP.LOBBY.code = saved.lobby.code
@@ -252,6 +353,8 @@ return function(log, driver, JSON, deps)
     end
 
     local function finish()
+        verify_money(session.previous)
+        if session.failure then return end
         S.phase = 'finished'
         local rec = recorder()
         local text = session.run.complete and ('Replay complete - ' .. progress() .. ' inputs') or ('Replay reached the end of a partial log - ' .. progress() .. ' inputs')

@@ -1,3 +1,10 @@
+# 1.8.2
+
+- Check the money. Every dollar the game moves is now compared against the dollars the log recorded for the same input, so a run that has drifted in a way the positional log cannot show stops at the input where it happened instead of several actions later. Money moved by the cash out and the shop exit, which no log records, is held aside so it is not blamed on the wrong input.
+- Check the game's own progress reports: the score of every PvP hand, the ante, what was spent in each shop, and how far the run has come are compared with the log.
+- Tell a drag from a sort button. A reorder that lifts one card and drops it elsewhere is applied as the drag it was; only a permutation of the whole area is applied as a sort, because a sort also changes how every later hand is dealt.
+- Keep writing the trace line for the messages a replay does not send, so a replay's log can be compared directly with the log it came from.
+
 # 1.8.1
 
 - Replay "Buy & Use". Multiplayer logs it with the same line as a plain buy, so the replay now works out which one happened: money moving right after the purchase (a Hermit or Temperance used at once), no free consumable slot, a consumable the shop cannot use, and otherwise whether the first later use or sale of that consumable slot names the bought card. A purchase the log shows no payment for is replayed as the refused click it was.

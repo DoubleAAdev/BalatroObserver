@@ -1,3 +1,4 @@
+ease_dollars = function() end
 -- Run from the repository root: python scripts/run-lua-tests.py tests/test_replayer_session.lua
 local JSON = dofile('mod/json.lua')
 local now = 100
@@ -13,10 +14,12 @@ local log = dofile('replayer/log.lua')(function() return {} end)
 local performed, outcome = {}, 'done'
 local driver = {perform = function(entry) performed[#performed + 1] = entry.text; return outcome, 'not yet' end,
     signature = function() return 'stable' end, state_name = function() return 'STATE' end}
-local encoded = {}
+local encoded, pushed = {}, {}
+local function encode(t) encoded[#encoded + 1] = t; return 'json' .. #encoded end
+function channel:push(v) self.items[#self.items + 1] = v; pushed[#pushed + 1] = encoded[tonumber(v:match('%d+'))] end
+local function sent_last() return pushed[#pushed] end
 local session = dofile('replayer/session.lua')(log, driver, JSON, {clock = function() return now end,
-    channel = function(name) assert(name == 'networkToUi'); return channel end,
-    encode = function(t) encoded[#encoded + 1] = t; return 'json' .. #encoded end})
+    channel = function(name) assert(name == 'networkToUi'); return channel end, encode = encode})
 
 G = {STAGE = 1, STAGES = {MAIN_MENU = 1, RUN = 2}, STATES = {SELECTING_HAND = 1}, STATE = 1, STATE_COMPLETE = true, SETTINGS = {},
     GAME = {}, FUNCS = {exit_overlay_menu = function() G.OVERLAY_MENU = nil end}, CONTROLLER = {locks = {}}, E_MANAGER = {queues = {base = {}}},
@@ -46,6 +49,8 @@ local text = table.concat({
     P .. 'Client sent message: action:selectBlind,blind:bl_small',
     P .. 'MP_RLOG: 3 play 1.2',
     P .. 'Client sent message: action:play,cards:1.2',
+    P .. 'Client sent message: action:moneyMoved,amount:3',
+    P .. 'Client sent message: {"action":"playHand","handsLeft":2,"score":"4210"}',
     P .. 'Client got enemyInfo message:  (lives: 4)  (action: enemyInfo)  (noScore: true) ',
     P .. 'Client got enemyLocation message:  (location: loc_shop-bl_big)  (action: enemyLocation) ',
     P .. 'MP_RLOG: 4 ready_blind 1',
@@ -63,8 +68,14 @@ package.loaded.json = nil
 local manifest = {seed = 'TESTSEED', deck = 'b_red', ruleset = 'ruleset_mp_standard_ranked', gamemode = 'gamemode_mp_attrition', stake = 1,
     mod_version = '0.5.5', lobby_code = 'VILVX', is_host = true, player = 'Me', opponent = 'Them', the_order_enabled = true, modifier_layers = 'classic,ranked',
     lobby_config = {stake = 1, the_order = true, timer = true, action = 'lobbyOptions', starting_lives = 6, hide_score_until_played = true, back = 'b_red'}}
-session = dofile('replayer/session.lua')(dofile('replayer/log.lua')(function(text_) if text_ == '{}' then return manifest end return {} end), driver, JSON,
-    {clock = function() return now end, channel = function() return channel end, encode = function(t) encoded[#encoded + 1] = t; return 'json' .. #encoded end})
+local function decode(text_)
+    if text_ == '{}' then return manifest end
+    if text_:find('playHand') then return {action = 'playHand', score = text_:match('"score":"(%d+)"'), handsLeft = tonumber(text_:match('"handsLeft":(%d+)'))} end
+    return {}
+end
+local replay_log = dofile('replayer/log.lua')(decode)
+session = dofile('replayer/session.lua')(replay_log, driver, JSON,
+    {clock = function() return now end, channel = function() return channel end, encode = encode})
 session.load(text)
 assert(session.runs and session.runs[1].actions == 8 and session.text:find('8 inputs, seed TESTSEED'))
 
@@ -98,9 +109,10 @@ assert(config.starting_lives == 6 and config.hide_score_until_played == true and
 assert(config.timer == false, 'the round timer is off: a replay runs at animation speed')
 assert(config.back == 'Red Deck' and config.stake == 1 and config.modifier_layers == 'classic,ranked' and MP.LOBBY.deck.back == 'Red Deck')
 assert(MP.MODIFIERS[1] == 'classic' and MP.MODIFIERS[2] == 'ranked' and MP.SP.practice == false and MP.GHOST.cleared)
-Client.send({action = 'playHand'})
+Client.send({action = 'setLocation', location = 'loc_shop'})
 Client.send({action = 'username'})
 assert(#sends == 1 and sends[1].action == 'username', 'game messages are dropped, harmless ones pass')
+assert(type(ease_dollars) == 'function', 'money is watched for the session')
 MP.STATS.record_match(true)
 assert(matches == 0, 'a replayed win is not a recorded match')
 assert(#channel.items == 0, 'the run does not start before Multiplayer has entered the lobby')
@@ -115,7 +127,7 @@ assert(#channel.items == 0, 'the menu gets a moment to rebuild')
 now = now + 1
 session.update(0.1)
 assert(#channel.items == 1 and session.phase == 'starting', 'startGame is delivered like the server did')
-assert(encoded[1].action == 'startGame' and encoded[1].seed == 'TESTSEED' and encoded[1].stake == 1)
+assert(sent_last().action == 'startGame' and sent_last().seed == 'TESTSEED' and sent_last().stake == 1)
 channel:pop()
 
 -- The started run must be the logged one.
@@ -141,7 +153,7 @@ assert(session.phase == 'running', session.text)
 -- Messages before the first input are delivered first, in log order.
 now = now + 1
 session.update(0.1)
-assert(#channel.items == 1 and encoded[#encoded].action == 'playerInfo' and encoded[#encoded].lives == 4)
+assert(#channel.items == 1 and sent_last().action == 'playerInfo' and sent_last().lives == 4)
 channel:pop()
 -- The first input is select_blind; its ante key record comes from the game
 -- and is substituted with the logged value.
@@ -167,10 +179,21 @@ session.update(0.1)
 assert(#performed == 2, 'no input is repeated while its record is awaited')
 MP.RLOG.record('play', {{1, 2}}, 'action:play,cards:1.2')
 assert(session.progress() == '3/8')
+-- The money an input moves arrives after the game has recorded it, and is
+-- checked against the log when the next input is recorded.
+ease_dollars(3)
+-- Money moved by the cash out, which no log records, is held aside instead
+-- of being counted against the input that happens to be next.
+driver.transition = true
+ease_dollars(9)
+driver.transition = false
+-- The game reports the score of every PvP hand; the log has the same number.
+Client.send({action = 'playHand', score = '4210', handsLeft = 2})
+assert(session.phase == 'running', session.text)
 -- Two messages, then Ready, then the PvP blind the server starts.
 now = now + 1
 session.update(0.1)
-assert(#channel.items == 2 and encoded[#encoded].action == 'enemyLocation' and encoded[#encoded - 1].noScore == true)
+assert(#channel.items == 2 and sent_last().action == 'enemyLocation' and pushed[#pushed - 1].noScore == true)
 channel.items = {}
 now = now + 1
 session.update(0.1)
@@ -180,7 +203,7 @@ assert(performed[3] == 'ready_blind 1')
 MP.RLOG.record('ready_blind', 1)
 now = now + 1
 session.update(0.1)
-assert(encoded[#encoded].action == 'startBlind' and encoded[#encoded].firstPlayer == 'guest')
+assert(sent_last().action == 'startBlind' and sent_last().firstPlayer == 'guest')
 channel.items = {}
 for _ = 1, 5 do now = now + 1; session.update(0.1) end
 assert(#performed == 3, 'a PvP blind is selected by the game after Ready, never by the replay')
@@ -207,11 +230,13 @@ MP.RLOG.record('reroll', nil, 'action:rerollShop,cost:5')
 assert(#records == 8 and session.progress() == '6/8', 'after a failure records pass through untouched')
 
 -- Stopping from a run drops the lobby code; the menu hook restores the rest.
+local watched = ease_dollars
 session.stop()
 assert(session.phase == 'stopped' and MP.LOBBY.code == nil)
 session.on_main_menu()
 assert(session.phase == 'idle' and Client.send == original_send and MP.LOBBY.config == original_config and MP.LOBBY.username == 'Old')
 assert(MP.MODIFIERS[1] == 'old_layer' and MP.SP.practice == true and MP.GAME.reset and MP.STATS.record_match ~= nil)
+assert(ease_dollars ~= watched, 'the money watch is removed with the session')
 MP.STATS.record_match(true)
 assert(matches == 1)
 
@@ -239,7 +264,7 @@ session.on_main_menu()
 local function emit(entry)
     if entry.op == 'set_ante_key' then MP.RLOG.record('set_ante_key', '0.999')
     elseif entry.op == 'select_blind' then MP.RLOG.record('select_blind', 0, 'action:' .. entry.human)
-    elseif entry.op == 'play' then MP.RLOG.record('play', {{1, 2}}, 'action:' .. entry.human)
+    elseif entry.op == 'play' then MP.RLOG.record('play', {{1, 2}}, 'action:' .. entry.human); ease_dollars(3)
     elseif entry.op == 'ready_blind' then MP.RLOG.record('ready_blind', 1)
     elseif entry.op == 'buy' then MP.RLOG.record('buy', {1, 1}, 'action:' .. entry.human)
     elseif entry.op == 'reroll' then MP.RLOG.record('reroll', nil, 'action:' .. entry.human) end
@@ -280,4 +305,47 @@ assert(session.text:find('Replay complete %- 8/8 inputs') and session.text:find(
 assert(#channel.items == 0)
 session.on_main_menu()
 assert(session.phase == 'idle' and MP.LOBBY.code == nil)
-print('PASS: lobby emulation, refused starts, run start checks, delivery order, settling, ante key substitution, PvP blinds, pauses, mismatch reports, stalls, stop and cleanup')
+-- Drift the log cannot otherwise show: the hand that scored differently, and
+-- the dollar a card held at the end of a round did not pay.
+local function restart()
+    driver.perform = function(entry) performed[#performed + 1] = entry.text; return 'done' end
+    session.on_main_menu()
+    G.STAGE = 1
+    session.start()
+    session.on_main_menu()
+    now = now + 2
+    session.update(0.1)
+    channel.items = {}
+    G.STAGE = 2
+    session.on_run_started()
+    now = now + 1
+    session.update(0.1)
+    channel.items = {}
+    assert(session.phase == 'running', session.text)
+end
+local function through_the_play()
+    MP.RLOG.record('set_ante_key', '0.111')
+    MP.RLOG.record('select_blind', 0, 'action:selectBlind,blind:bl_small')
+    MP.RLOG.record('play', {{1, 2}}, 'action:play,cards:1.2')
+    assert(session.progress() == '3/8', session.text)
+    now = now + 1
+    session.update(0.1)
+    channel.items = {}
+end
+restart()
+through_the_play()
+Client.send({action = 'playHand', score = '999', handsLeft = 2})
+assert(session.phase == 'failed' and session.text:find('the hand scored 999, the log says 4210'), session.text)
+restart()
+through_the_play()
+ease_dollars(7)
+MP.RLOG.record('ready_blind', 1)
+assert(session.phase == 'failed' and session.text:find('"play 1.2" moved %$7, the log moved %$3'), session.text)
+restart()
+through_the_play()
+MP.RLOG.record('ready_blind', 1)
+assert(session.phase == 'failed' and session.text:find('"play 1.2" moved nothing, the log moved %$3'), session.text)
+session.stop()
+session.on_main_menu()
+
+print('PASS: lobby emulation, refused starts, run start checks, delivery order, settling, ante key substitution, PvP blinds, pauses, money and score checks, mismatch reports, stalls, stop and cleanup')

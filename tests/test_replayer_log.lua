@@ -7,6 +7,11 @@ local log = dofile('replayer/log.lua')(function(text)
             lobby_config = {stake = 1, the_order = true}, lobby_code = 'ABCDE', is_host = true, player = 'Me', opponent = 'Them'}
     end
     if text:find('"result"') then return {result = 'win'} end
+    if text:find('"action":"') then
+        local fields = {action = text:match('"action":"(%w+)"'), score = text:match('"score":"([^"]*)"')}
+        for key, value in text:gmatch('"(%w+)":(%-?%d+)') do fields[key] = tonumber(value) end
+        return fields
+    end
     return {seed = 'SECOND', deck = 'b_red', ruleset = 'r', gamemode = 'g', stake = 2}
 end)
 
@@ -29,6 +34,7 @@ local lines = {
     P .. 'Client sent message: action:discard,cards:1.2.3.8',
     P .. 'Client sent message: action:moneyMoved,amount:5',
     P .. 'Client sent message: action:moneyMoved,amount:5',
+    P .. 'Client sent message: {"action":"playHand","handsLeft":3,"score":"2984"}',
     P .. 'MP_RLOG: 5 buy 1 2',
     P .. 'Client sent message: action:boughtCardFromShop,card:Mail-In Rebate,cost:4',
     P .. 'Client sent message: action:moneyMoved,amount:-4',
@@ -51,6 +57,8 @@ local lines = {
     P .. 'Client got enemyDisconnected message:  (timeout: 60)  (action: enemyDisconnected) ',
     P .. 'MP_RLOG: 11 reorder 6 3.1.2',
     P .. 'Client sent message: action:reorder,area:6',
+    P .. 'Client sent message: {"amount":13,"action":"spentLastShop"}',
+    P .. 'Client sent message: {"ante":2,"action":"setAnte"}',
     P .. 'Client got winGame message:  (action: winGame) ',
     P .. 'MP_RLOG: END {"result":"win"}',
     P .. 'MP_RLOG: CHK v1 carbon=d5570caf human=4b19de72 bytes=46866',
@@ -90,10 +98,20 @@ assert(by_seq[10].human == 'netAsteroid' and by_seq[11].human == 'reorder,area:6
 assert(by_seq[1].args[1] == '3' and by_seq[1].args[2] == '4.5' and by_seq[4].line == 14)
 -- Money traces stay with the input that caused them, across ordinary
 -- messages, until the next input or the one opponent effect that pays.
-assert(#by_seq[4].money == 2 and by_seq[4].money[1] == 5 and by_seq[4].money[2] == 5)
-assert(#by_seq[5].money == 2 and by_seq[5].money[1] == -4 and by_seq[5].money[2] == 20, 'money after a buy: ' .. #by_seq[5].money)
+assert(#by_seq[4].money == 2 and by_seq[4].money[1] == '5' and by_seq[4].money[2] == '5')
+assert(#by_seq[5].money == 2 and by_seq[5].money[1] == '-4' and by_seq[5].money[2] == '20', 'money after a buy: ' .. #by_seq[5].money)
 assert(#by_seq[6].money == 0 and #by_seq[1].money == 0)
 for i, entry in ipairs(run.entries) do assert(entry.position == i) end
+
+-- The game's own progress reports are kept as checkpoints, in log order.
+local kinds_of = {}
+for _, check in ipairs(run.checks) do kinds_of[#kinds_of + 1] = check.action end
+assert(table.concat(kinds_of, ',') == 'playHand,playHand,spentLastShop,setAnte', table.concat(kinds_of, ','))
+assert(run.checks[1].fields.score == '0' and run.checks[1].fields.handsLeft == 4)
+assert(run.checks[2].fields.score == '2984' and run.checks[2].fields.handsLeft == 3)
+assert(run.checks[3].fields.amount == 13 and run.checks[4].fields.ante == 2)
+assert(run.checks[2].after == 6, 'a checkpoint remembers where in the run it happened')
+assert(log.checkpoints.playHand[1] == 'score' and log.checkpoints.setFurthestBlind[1] == 'furthestBlind')
 
 -- Message values get the types the wire format had.
 local messages = {}
@@ -140,10 +158,19 @@ if real then
         elseif not entry.human and entry.op ~= 'set_ante_key' and entry.op ~= 'ready_blind' then unmirrored = unmirrored + 1 end
     end
     assert(unmirrored == 0, 'every mirrored input in the real log names what it touched')
-    local hermit
-    for _, entry in ipairs(parsed[1].entries) do if entry.kind == 'action' and entry.seq == 53 then hermit = entry end end
-    assert(hermit.human == 'boughtCardFromShop,card:The Hermit,cost:3' and #hermit.money == 2 and hermit.money[1] == -3 and hermit.money[2] == 20,
+    local hermit, held
+    for _, entry in ipairs(parsed[1].entries) do
+        if entry.kind == 'action' and entry.seq == 53 then hermit = entry end
+        if entry.kind == 'action' and entry.seq == 115 then held = entry end
+    end
+    assert(hermit.human == 'boughtCardFromShop,card:The Hermit,cost:3' and #hermit.money == 2 and hermit.money[1] == '-3' and hermit.money[2] == '20',
         'the Hermit bought at action 53 was used at once')
+    -- The $3 a Gold Card pays for being held at the end of a round is the
+    -- only trace the log leaves of which cards stayed in hand.
+    assert(#held.money == 1 and held.money[1] == '3', 'action 115 is paid $3 by a card held in hand')
+    local playHands = 0
+    for _, check in ipairs(parsed[1].checks) do if check.action == 'playHand' then playHands = playHands + 1 end end
+    assert(playHands > 30 and #parsed[1].checks > 80, 'the real log carries ' .. #parsed[1].checks .. ' checkpoints')
     assert(counts.startBlind == 7 and counts.endPvP == 8 and counts.winGame == 1 and counts.asteroid == 2 and counts.stopGame == nil)
     assert(counts.enemyInfo == 114 and counts.playerInfo == 4 and counts.spentLastShop == 20, 'enemyInfo ' .. tostring(counts.enemyInfo))
     print('PASS: real log parsed - 641 inputs, ' .. #parsed[1].entries .. ' entries')

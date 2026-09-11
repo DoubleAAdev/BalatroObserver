@@ -90,6 +90,7 @@ G.STATE = G.STATES.ROUND_EVAL
 G.round_eval = {}
 local status, why = driver.perform(entry('play', {'1'}))
 assert(status == 'wait' and why == 'cashing out' and last() == 'cash_out')
+assert(driver.transition == false, 'the flag that marks unlogged money is cleared again')
 G.round_eval = nil
 G.STATE = G.STATES.SHOP
 status, why = driver.perform(entry('play', {'1'}))
@@ -100,7 +101,7 @@ G.shop_jokers = area({card('Square Joker', 'Joker', {cost = 4}), card('Mail-In R
 G.shop_booster = area({card('Buffoon Pack', 'Booster', {cost = 4})}, 'shop')
 G.shop_vouchers = area({card('Overstock', 'Voucher', {cost = 10})}, 'shop')
 -- Purchases carry the money the log traced after them; a joker is a plain buy.
-local paid = {-4}
+local paid = {'-4'}
 fails(function() driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4', paid)) end, 'slot 1 holds Square Joker, log says Mail%-In Rebate')
 fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:7', paid)) end, 'costs %$4, the log paid %$7')
 fails(function() driver.perform(entry('buy', {'1', '3'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4', paid)) end, 'has 2 card%(s%), no slot 3')
@@ -125,18 +126,18 @@ G.jokers.config.card_limit = 5
 local hermit = card('The Hermit', 'Tarot')
 hermit.can_use_consumeable = function() return true end
 G.shop_jokers.cards[1] = hermit
-assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:The Hermit,cost:3', {-3, 20})) == 'done')
+assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:The Hermit,cost:3', {'-3', '20'})) == 'done')
 assert(select(2, last()).config.id == 'buy_and_use' and driver.note:find('money moved'), driver.note)
 -- A consumable the shop cannot use (it needs selected cards) is a plain buy.
 local hanged = card('The Hanged Man', 'Tarot')
 hanged.can_use_consumeable = function() return false end
 G.shop_jokers.cards[1] = hanged
-assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:The Hanged Man,cost:3', {-3})) == 'done')
+assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:The Hanged Man,cost:3', {'-3'})) == 'done')
 assert(select(2, last()).config.id == 'buy' and driver.note:find('cannot be used from the shop'), driver.note)
 -- No free slot: only "Buy & Use" was possible.
 G.shop_jokers.cards[1] = card('Temperance', 'Tarot')
 G.shop_jokers.cards[1].can_use_consumeable = function() return true end
-assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:Temperance,cost:3', {-3})) == 'done')
+assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:Temperance,cost:3', {'-3'})) == 'done')
 assert(select(2, last()).config.id == 'buy_and_use' and driver.note:find('no free consumable slot'), driver.note)
 -- With a free slot the later use or sale of that slot decides. The rack
 -- holds The Fool and Mars; the bought asteroid would take slot 3.
@@ -145,7 +146,7 @@ local asteroid = card('c_mp_asteroid', 'Planet')
 asteroid.can_use_consumeable = function() return true end
 G.shop_jokers.cards[1] = asteroid
 local function stream(...)
-    local list = {entry('buy', {'1', '1'}, 'boughtCardFromShop,card:c_mp_asteroid,cost:3', {-3}, 1)}
+    local list = {entry('buy', {'1', '1'}, 'boughtCardFromShop,card:c_mp_asteroid,cost:3', {'-3'}, 1)}
     for _, item in ipairs({...}) do list[#list + 1] = item end
     return list
 end
@@ -156,10 +157,10 @@ local fired = stream(entry('reroll', {}, 'rerollShop,cost:5'), entry('use', {'1'
 assert(driver.perform(fired[1], fired) == 'done' and select(2, last()).config.id == 'buy_and_use' and driver.note:find('another card is in its slot'), driver.note)
 local silent = stream(entry('use', {'1'}, 'usedCard,card:Overstock'), entry('sell', {'4', '3'}, 'soldCard,card:Misprint'))
 assert(driver.perform(silent[1], silent) == 'done' and select(2, last()).config.id == 'buy' and driver.note:find('no later use'), driver.note)
-assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:c_mp_asteroid,cost:3', {-3})) == 'done' and select(2, last()).config.id == 'buy')
+assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:c_mp_asteroid,cost:3', {'-3'})) == 'done' and select(2, last()).config.id == 'buy')
 G.consumeables.config.card_limit = 2
 G.FUNCS.buy_from_shop = function() return false end
-fails(function() driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:c_mp_asteroid,cost:3', {-3})) end, 'rejected buying')
+fails(function() driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:c_mp_asteroid,cost:3', {'-3'})) end, 'rejected buying')
 G.FUNCS.buy_from_shop = record('buy_from_shop')
 
 -- use: the mirrored name decides between consumables, shop packs and vouchers.
@@ -222,13 +223,23 @@ assert(driver.perform(entry('reorder', {'4', '3.1.2'})) == 'done')
 assert(G.jokers.cards[1] == c and G.jokers.cards[2] == a and G.jokers.cards[3] == b and G.jokers.ranked and G.jokers.aligned)
 status, why = driver.perform(entry('reorder', {'4', '1.2'}))
 assert(status == 'wait' and why:find('holds 3 card%(s%), the log reorders 2'))
+-- A drag lifts one card and drops it elsewhere; a sort button permutes the
+-- whole area and changes how every later draw is sorted. Only the second
+-- may be applied as a sort, or every hand after it comes out different.
+assert(driver.single_move({1, 2, 4, 3, 5}) and driver.single_move({5, 1, 2, 3, 4}) and driver.single_move({2, 3, 4, 5, 1}))
+assert(not driver.single_move({2, 5, 4, 3, 1}) and not driver.single_move({3, 4, 5, 1, 2}))
 G.STATE = G.STATES.SELECTING_HAND
-G.hand.cards = {ace, king, seven, nine, two}
--- Sorted by suit: Spades (Ace, 9), Hearts 9, Clubs 7, Diamonds 2 -> 1.4.2.3.5
-assert(driver.perform(entry('reorder', {'6', '1.4.2.3.5'})) == 'done' and G.hand.sorted == 'suit desc', 'a suit sort is applied as the sort button')
-G.hand.cards = {ace, king, seven, nine, two}
+local aceD, nineS, sevenC, nineH, twoS = playing('Ace', 'Diamonds'), playing('9', 'Spades'), playing('7', 'Clubs'), playing('9', 'Hearts'), playing('2', 'Spades')
+G.hand.cards = {aceD, nineS, sevenC, nineH, twoS}
 G.hand.sorted = nil
-assert(driver.perform(entry('reorder', {'6', '5.1.2.3.4'})) == 'done' and G.hand.sorted == nil and G.hand.cards[1] == two and G.hand.cards[2] == ace)
+-- By rank this hand sorts to 1.2.4.3.5, which is also a one-card drag.
+assert(driver.perform(entry('reorder', {'6', '1.2.4.3.5'})) == 'done' and G.hand.sorted == nil, 'a one-card drag stays a drag')
+assert(G.hand.cards[3] == nineH and G.hand.cards[4] == sevenC)
+G.hand.cards = {aceD, nineS, sevenC, nineH, twoS}
+assert(driver.perform(entry('reorder', {'6', '2.5.4.3.1'})) == 'done' and G.hand.sorted == 'suit desc', 'a whole-area permutation matching a sort is the sort button')
+G.hand.cards = {aceD, nineS, sevenC, nineH, twoS}
+G.hand.sorted = nil
+assert(driver.perform(entry('reorder', {'6', '5.1.2.3.4'})) == 'done' and G.hand.sorted == nil and G.hand.cards[1] == twoS and G.hand.cards[2] == aceD)
 
 -- Blind panels: the on-deck column's own button, reached through nested boxes.
 local function element(config, children) return {config = config or {}, children = children or {}} end
