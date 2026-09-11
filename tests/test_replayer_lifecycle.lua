@@ -1,7 +1,7 @@
 local JSON=dofile('mod/json.lua')
 local writes,started,sends={},nil,0
 love={filesystem={createDirectory=function()return true end,write=function(p,t)writes[p]=t;return true end},timer={getTime=function()return 0 end}}
-G={STAGE=0,STAGES={MAIN_MENU=0,RUN=1},FUNCS={},GAME={},P_CENTERS={b_red={key='b_red'}},SETTINGS={},UIT={},C={}}
+G={STAGE=0,STAGES={MAIN_MENU=0,RUN=1},FUNCS={},GAME={},P_CENTERS={b_red={key='b_red',set='Back'}},SETTINGS={},UIT={},C={}}
 local original_config={ruleset='old',cocktail='old',starting_lives=4};local original_sp={practice=false}
 MP={LOBBY={config=original_config},SP=original_sp,MODIFIERS={},Rulesets={ruleset_mp_test={}},GAME={enemy={}},GHOST={}}
 function MP.GHOST.load(r)MP.GHOST.replay=r end
@@ -33,7 +33,7 @@ local log='MP_RLOG: MANIFEST {}\nMP_RLOG: 1 reroll\nMP_RLOG: END {}'
 NFS={getInfo=function()return{type='file',size=#log}end,read=function(path)assert(path=='selected.log');return log end}
 local mod={id='BalatroObserver',config_tab=function()return{nodes={{original=true}}}end}
 function G.FUNCS.exit_overlay_menu()G.OVERLAY_MENU=nil end
-function G.FUNCS.start_run(_,args)started=args;assert(G.GAME.viewed_back.key==manifest.deck);G.STAGE=1 end
+function G.FUNCS.start_run(_,args)started=args;assert(G.GAME.viewed_back.key==BalatroReplayer.deck);G.STAGE=1 end
 local replay=dofile('replayer/init.lua')(mod,JSON)
 local function pack(...)return{n=select('#',...),...}end
 local result=pack(Game:update(0));assert(result.n==2 and result[2]==42)
@@ -54,7 +54,7 @@ replay.stop();G.STAGE=0;Game:update(0)
 assert(not replay.session and MP.LOBBY.config==original_config and MP.SP==original_sp and not G.F_NO_SAVING)
 Client.send({});assert(sends==1)
 manifest.deck='b_mp_cocktail';manifest.lobby_config.cocktail='12H'
-G.P_CENTERS.b_mp_cocktail={key='b_mp_cocktail'};MP.get_cocktail_decks=function()return{'b_red','b_blue'}end
+G.P_CENTERS.b_mp_cocktail={key='b_mp_cocktail',set='Back'};MP.get_cocktail_decks=function()return{'b_red','b_blue'}end
 local saved_mod_config=SMODS.Mods.Multiplayer.config
 G.STAGE=1;G.OVERLAY_MENU=nil
 replay.start();assert(SMODS.Mods.Multiplayer.config.cocktail=='12H')
@@ -64,4 +64,17 @@ replay.stop();G.STAGE=0;Game:update(0)
 assert(SMODS.Mods.Multiplayer.config==saved_mod_config)
 assert(rework_calls==4,'Both startup and restoration must load reworks')
 manifest.lobby_config.cocktail='1H';assert(not pcall(replay.start))
-print('PASS: config controls, manifest setup, live-lobby refusal, network isolation, return values, pause and session restoration')
+-- The host writes the lobby deck as a display name, a guest as a centre key.
+G.P_CENTERS.b_red.name='Red Deck'
+manifest.deck='Red Deck';manifest.lobby_config.cocktail='12H'
+MP.UTILS={get_deck_key_from_name=function(name)return name=='Red Deck' and 'b_red' or nil end}
+G.STAGE=1;replay.start();assert(replay.deck=='b_red' and G.GAME.viewed_back.key=='b_red')
+assert(SMODS.Mods.Multiplayer.config==saved_mod_config,'A named deck is not the Cocktail deck')
+Game:start_run(started);assert(replay.active,'A display-name deck must still match the started run')
+replay.stop();G.STAGE=0;Game:update(0)
+-- Without Multiplayer's helper the centre list still resolves the name.
+MP.UTILS=nil;G.STAGE=1;replay.start();assert(replay.deck=='b_red')
+Game:start_run(started);assert(replay.active)
+replay.stop();G.STAGE=0;Game:update(0)
+manifest.deck='b_nonexistent';assert(not pcall(replay.start))
+print('PASS: config controls, manifest setup, deck name resolution, live-lobby refusal, network isolation, return values, pause and session restoration')

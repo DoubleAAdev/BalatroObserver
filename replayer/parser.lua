@@ -40,19 +40,27 @@ return function(decode)
                     elseif op=='buy' or op=='sell' or op=='open_pack' or op=='voucher' then
                         local area=tonumber(tokens[1]);assert(area and area>=1 and area<=7 and area%1==0,'Invalid area');assert(#M.indices(tokens[2])==1,'Invalid slot')
                     elseif op=='use' or op=='pack_pick' then assert(#M.indices(tokens[1])==1,'Invalid slot');if tokens[2] then M.indices(tokens[2]) end
-                    elseif op=='set_ante_key' then assert(tokens[1]:match('^%d+%.%d+$'),'Invalid ante key')
+                    -- Multiplayer writes tostring(math.random()); any finite
+                    -- number is valid, including "0" and exponent notation.
+                    elseif op=='set_ante_key' then assert(tonumber(tokens[1]),'Invalid ante key')
                     elseif op=='ready_blind' then assert(tokens[1]=='0' or tokens[1]=='1','Invalid ready state')
                     elseif op~='reroll' and op~='net_asteroid' then assert(tokens[1]=='0','Invalid action argument') end
                     last={n=tonumber(seq),op=op,args=tokens};current.actions[#current.actions+1]=last
                 end
-            elseif last then
+            elseif last and not last.name then
+                -- The first mirrored line after an action is that action's own;
+                -- later ones name cards the game went on to use by itself.
                 local name=line:match(':: MULTIPLAYER :: Client sent message: action:usedCard,card:(.*)$')
                 if name and (last.op=='use' or last.op=='pack_pick') then last.name=name end
             end
         end
         assert(#runs>0,'No original MP_RLOG manifest found')
-        for _,run in ipairs(runs) do assert(#run.actions>0,'Run contains no actions') end
-        return runs
+        -- An abandoned lobby leaves a manifest with no moves; drop it instead of
+        -- rejecting a log whose other runs are replayable.
+        local playable={}
+        for _,run in ipairs(runs) do if #run.actions>0 then playable[#playable+1]=run end end
+        assert(#playable>0,'No MP_RLOG run contains actions')
+        return playable
     end
     return M
 end

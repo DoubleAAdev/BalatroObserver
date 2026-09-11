@@ -54,4 +54,9 @@ assert(rec.path~=path and files[rec.path]:find('"partial":true') and files[path]
 local writes=0;love.filesystem.append=function() writes=writes+1;return false end
 G.STATE=2;G.FUNCS.reroll_shop({});assert(rec.ok==false and writes==1);G.FUNCS.reroll_shop({});assert(writes==1)
 local out=assert(io.open('work/test-recording.jsonl','wb'));out:write(before);out:close()
-print('PASS: all action tokens, identities, dictionary reuse, targets, callback returns, rejection, drag debounce, privacy, segments and disk failure')
+-- Starting outside a run closes the current file rather than leaving the next
+-- action to be appended to the run before it.
+love.filesystem.append=function(p,t)files[p]=(files[p] or '')..t;return true end
+rec.ok=true;G.STAGE=0;rec.begin(false);assert(rec.path==nil)
+G.STAGE=1;rec.begin(false);assert(rec.path and rec.path~=path)
+print('PASS: all action tokens, identities, dictionary reuse, targets, callback returns, rejection, drag debounce, privacy, segments, closed recordings and disk failure')

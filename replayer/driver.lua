@@ -12,21 +12,50 @@ return function(parser,recorder,JSON)
         end
         return true
     end
-    local function button(callback,ref)
-        local seen={}
-        local function visit(node)
-            if type(node)~='table' or seen[node] then return end;seen[node]=true
-            if node.config and node.config.button==callback and (not ref or node.config.ref_table==ref) then return node end
-            for _,child in pairs(node.children or {}) do local found=visit(child);if found then return found end end
+    -- A UIBox keeps its elements on UIRoot rather than in children, and embeds
+    -- other boxes as config.object, so walking children alone finds no buttons.
+    local function search(node,callback,accept,seen)
+        if type(node)~='table' or seen[node] then return end
+        seen[node]=true
+        local config=node.config
+        if config then
+            if config.button==callback and (not accept or accept(node)) then return node end
+            local nested=config.object
+            if type(nested)=='table' and nested.UIRoot then
+                local found=search(nested.UIRoot,callback,accept,seen);if found then return found end
+            end
         end
-        for _,box in pairs((G.I or {}).UIBOX or {}) do local found=visit(box);if found then return found end end
+        if node.UIRoot then local found=search(node.UIRoot,callback,accept,seen);if found then return found end end
+        for _,child in pairs(node.children or {}) do
+            local found=search(child,callback,accept,seen);if found then return found end
+        end
     end
+    -- Without a root every live UIBox is searched; pass one to stay inside a
+    -- single panel, because the three blind columns share button names.
+    local function button(callback,root,accept)
+        if root~=nil then return search(root,callback,accept,{}) end
+        for _,box in pairs((G.I or {}).UIBOX or {}) do
+            local found=search(box,callback,accept,{});if found then return found end
+        end
+    end
+    M.button=button
     local function call(name,e,check)
         assert(type(G.FUNCS[name])=='function','Missing game callback '..name)
         e=e or {config={}}
         if check and G.FUNCS[check] then G.FUNCS[check](e);assert(e.config.button,'Game rejected '..name) end
         assert(G.FUNCS[name](e)~=false,'Game rejected '..name)
         return true
+    end
+    -- The blind on deck decides which of the Small/Big/Boss panels to press.
+    local function blind_panel()
+        local slot=(G.GAME or {}).blind_on_deck
+        if not slot then return nil end
+        return (G.blind_select_opts or {})[tostring(slot):lower()]
+    end
+    local function blind_definition()
+        local slot=(G.GAME or {}).blind_on_deck
+        local key=slot and (((G.GAME or {}).round_resets or {}).blind_choices or {})[slot]
+        return key and (G.P_BLINDS or {})[key]
     end
     function M.step(action)
         local op,a=action.op,action.args
@@ -36,7 +65,10 @@ return function(parser,recorder,JSON)
         if op=='set_ante_key' then M.ante_key=a[1];MP.GAME.ante_key=a[1];return auxiliary() end
         if op=='net_asteroid' then assert(MP.UI and MP.UI.show_asteroid_hand_level_up,'Missing asteroid handler');MP.UI.show_asteroid_hand_level_up();return auxiliary() end
         if G.STATE==G.STATES.ROUND_EVAL then
-            local e=button('cash_out');if e then call('cash_out',e) end;return false
+            -- Cash-out is never logged; a synthetic event also bypasses keybind
+            -- helpers that suppress the real button after a skipped cash-out.
+            if G.round_eval then call('cash_out',{config={}}) end
+            return false
         end
         local blind_action=op=='select_blind' or op=='skip_blind' or op=='ready_blind'
         if blind_action and G.STATE==G.STATES.SHOP then call('toggle_shop');return false end
@@ -45,12 +77,18 @@ return function(parser,recorder,JSON)
             -- Readiness precedes a separate select_blind record; it must not select twice.
             if op=='ready_blind' then MP.GAME.ready_blind=a[1]=='1';return auxiliary() end
             local callback=op=='skip_blind' and 'skip_blind' or 'select_blind'
-            local e=button(callback) or (op=='select_blind' and button('mp_toggle_ready'))
+            local definition=blind_definition()
+            local panel=blind_panel()
+            -- Prefer the on-deck column; without it, match the blind itself so a
+            -- global search cannot press a different column's identical button.
+            local e=panel and button(callback,panel) or nil
+            if not e and definition then e=button(callback,nil,function(node) return node.config.ref_table==definition end) end
+            if not e and not panel then e=button(callback) end
+            if not e and op=='select_blind' then e=button('mp_toggle_ready',panel) end
             if not e then return false end
             -- Ghost games select locally; never send ready messages to a live lobby.
             if e.config.button=='mp_toggle_ready' then
-                local key=G.GAME.round_resets.blind_choices[G.GAME.blind_on_deck]
-                e={config={ref_table=assert(G.P_BLINDS[key],'Unknown blind')},UIBox=e.UIBox}
+                e={config={ref_table=assert(definition,'Unknown blind')},UIBox=e.UIBox}
             end
             MP.GAME.ready_blind=false;call(callback,e);if M.ante_key then MP.GAME.ante_key=M.ante_key end;return true
         end
@@ -83,9 +121,14 @@ return function(parser,recorder,JSON)
         if not card then return false end
         if action.name then assert((card.ability or {}).name==action.name,'Card identity differs from log') end
         if op=='sell' then assert(not card.can_sell_card or card:can_sell_card(),'Game rejected sell');assert(card:sell_card()~=false,'Game rejected sell');return true end
-        if op=='buy' then return call('buy_from_shop',{config={ref_table=card,id='buy'}},'can_buy') end
+        local set=(card.ability or {}).set
+        -- Multiplayer gives shop packs and vouchers their own opcodes, but the
+        -- game itself redeems both through use_card, as the shop buttons do.
+        if op=='buy' or ((op=='open_pack' or op=='voucher') and set~='Booster' and set~='Voucher') then
+            return call('buy_from_shop',{config={ref_table=card,id='buy'}},'can_buy')
+        end
         if not select_cards(a[2] and (op=='use' or op=='pack_pick') and a[2] or nil) then return false end
-        local check=card.ability.set=='Booster' and 'can_open' or card.ability.set=='Voucher' and 'can_redeem' or (op=='pack_pick' and not card.ability.consumeable) and 'can_select_card' or 'can_use_consumeable'
+        local check=set=='Booster' and 'can_open' or set=='Voucher' and 'can_redeem' or (op=='pack_pick' and not card.ability.consumeable) and 'can_select_card' or 'can_use_consumeable'
         return call('use_card',{config={ref_table=card}},check)
     end
     return M

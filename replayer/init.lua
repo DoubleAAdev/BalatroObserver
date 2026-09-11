@@ -8,38 +8,60 @@ return function(mod,JSON)
     local M={status='Replayer: select Load Log to choose a Multiplayer log',index=1,active=false}
     BalatroReplayer=M
     local directory='balatro_replayer'
+    local timeout=45
     local elapsed,waiting=0,0
     local previous_config,previous_sp,previous_modifiers,previous_saving,previous_mod_config
     local function status(text)
         M.status=text
+        if sendDebugMessage then sendDebugMessage(text,'BalatroObserver') end
         love.filesystem.createDirectory(directory)
         love.filesystem.write(directory..'/status.json',JSON.encode({status=text,step=M.step or 0,active=M.active}))
     end
+    local function phase()
+        for name,id in pairs(G.STATES or {}) do if G.STATE==id then return name end end
+        return 'unknown state'
+    end
     local function protect(fn)
         local ok,message=pcall(fn)
-        if not ok then M.active=false;status('Replayer stopped: '..tostring(message):gsub('^.-:%d+: ',''):sub(1,160)) end
+        if not ok then M.active=false;status('Replayer stopped: '..tostring(message):gsub('^.-:%d+: ',''):sub(1,120)) end
     end
     function M.import(text)
         assert(not M.session,'Finish the replay session before importing')
-        M.runs=parser.parse(text);M.index=1
+        local runs=parser.parse(text)
         -- Multiplayer owns opponent-score parsing; this adapter owns the local input stream.
         assert(MP and MP.load_mp_file,'Multiplayer is required')
         local log_parser=MP.load_mp_file('lib/log_parser.lua')
-        M.ghosts={}
-        for _,game in ipairs(log_parser.process_log(text)) do M.ghosts[#M.ghosts+1]=log_parser.to_replay(game) end
+        local ghosts={}
+        for _,game in ipairs(log_parser.process_log(text)) do ghosts[#ghosts+1]=log_parser.to_replay(game) end
+        -- Publish both halves together so a failed ghost pass leaves no stale runs.
+        M.runs=runs;M.ghosts=ghosts;M.index=1
         status('Replayer: run 1/'..#M.runs..' - '..#M.runs[1].actions..' actions')
+    end
+    -- Multiplayer records the lobby deck as a centre key or as its display name,
+    -- depending on which side wrote the option; accept either spelling.
+    local function deck_key(deck)
+        if type(deck)~='string' then return nil end
+        if (G.P_CENTERS[deck] or {}).set=='Back' then return deck end
+        if MP.UTILS and MP.UTILS.get_deck_key_from_name then
+            local key=MP.UTILS.get_deck_key_from_name(deck)
+            if key then return key end
+        end
+        for key,centre in pairs(G.P_CENTERS) do
+            if centre.set=='Back' and centre.name==deck then return key end
+        end
     end
     local function validate(run)
         assert(G.STAGE==G.STAGES.MAIN_MENU or G.STAGE==G.STAGES.RUN,'Wait for Balatro to finish loading')
         assert(MP and MP.GHOST and MP.SP and MP.LOBBY and not MP.LOBBY.code,'Leave the Multiplayer lobby first')
         assert(rec and rec.ok,'Action Recorder must be enabled')
         local m=run.manifest
-        assert(G.P_CENTERS[m.deck],'Manifest deck is not installed')
+        local deck=deck_key(m.deck)
+        assert(deck,'Manifest deck is not installed')
         assert(MP.Rulesets[m.ruleset],'Manifest ruleset is not installed')
         assert(not m.challenge or m.challenge=='','Challenge replay is not supported')
         local installed=SMODS.Mods and SMODS.Mods.Multiplayer
         assert(installed and installed.version==m.mod_version,'Install the Multiplayer version named in the manifest')
-        if m.deck=='b_mp_cocktail' then
+        if deck=='b_mp_cocktail' then
             local cocktail=(m.lobby_config or {}).cocktail
             assert(type(cocktail)=='string' and cocktail:match('^[012]+[HS]$'),'Manifest missing valid Cocktail settings')
             assert(MP.get_cocktail_decks and #MP.get_cocktail_decks()+1==#cocktail,'Installed Cocktail deck pool differs from the log')
@@ -50,11 +72,11 @@ return function(mod,JSON)
         end
         assert(ghost and next(ghost.ante_snapshots or {}),'Log has no matching opponent history')
         assert(MP.GHOST.is_ruleset_supported(ghost),'Ghost engine does not support this ruleset')
-        return ghost
+        return ghost,deck
     end
     function M.start()
         assert(M.runs and not M.session,'Load a log before starting')
-        local run=M.runs[M.index];local ghost=validate(run);local m=run.manifest
+        local run=M.runs[M.index];local ghost,deck=validate(run);local m=run.manifest
         previous_config=MP.LOBBY.config;previous_sp=MP.SP;previous_modifiers=MP.MODIFIERS;previous_saving=G.F_NO_SAVING
         previous_mod_config=SMODS.Mods.Multiplayer.config
         M.session=true
@@ -66,7 +88,7 @@ return function(mod,JSON)
         end
         config.ruleset=m.ruleset;config.gamemode=m.gamemode;config.back=m.deck;config.stake=m.stake
         config.cocktail=(m.lobby_config or {}).cocktail or config.cocktail
-        if m.deck=='b_mp_cocktail' then
+        if deck=='b_mp_cocktail' then
             local replay_config={}
             for key,value in pairs(previous_mod_config or {}) do replay_config[key]=value end
             replay_config.cocktail=config.cocktail
@@ -78,11 +100,11 @@ return function(mod,JSON)
         if m.modifier_layers and m.modifier_layers~='' then MP.modifiers_parse(m.modifier_layers) end
         MP.LoadReworks(ruleset_name)
         ghost.seed=m.seed;ghost.deck=m.deck;ghost.stake=m.stake;ghost.ruleset=m.ruleset;ghost.gamemode=m.gamemode
-        M.session=true;M.active=true;M.step=1;M.started=false;M.awaiting_start=true;elapsed=0;waiting=0;driver.ante_key=nil
+        M.session=true;M.active=true;M.step=1;M.started=false;M.awaiting_start=true;M.deck=deck;elapsed=0;waiting=0;driver.ante_key=nil
         MP.GHOST.load(ghost);MP.reset_game_states()
         MP.GAME.lives=config.starting_lives or 4;MP.GAME.enemy.lives=MP.GAME.lives
         G.F_NO_SAVING=true
-        G.FUNCS.exit_overlay_menu();G.GAME.viewed_back=G.P_CENTERS[m.deck]
+        G.FUNCS.exit_overlay_menu();G.GAME.viewed_back=G.P_CENTERS[deck]
         G.FUNCS.start_run(nil,{seed=m.seed,stake=m.stake})
         status('Replayer starting - '..#run.actions..' actions')
     end
@@ -97,11 +119,15 @@ return function(mod,JSON)
             status('Replayer: returned to menu');return
         end
         if not M.active then return end
-        if M.awaiting_start then waiting=waiting+dt;assert(waiting<45,'New replay run did not initialize');return end
+        if M.awaiting_start then waiting=waiting+dt;assert(waiting<timeout,'New replay run did not initialize');return end
         if G.STAGE~=G.STAGES.RUN then return end
         M.started=true
+        local run=M.runs[M.index];local action=run.actions[M.step]
+        -- Finish before the stall timer: the last action can leave the game in a
+        -- menu or an overlay that would otherwise look like a hang.
+        if not action then M.active=false;status(run.complete and 'Replayer complete - recording available' or 'Replayer reached end of partial log');return end
         if G.OVERLAY_MENU or G.SETTINGS.paused then return end
-        waiting=waiting+dt;assert(waiting<45,'Timed out waiting for action '..M.step)
+        waiting=waiting+dt;assert(waiting<timeout,'Timed out on action '..M.step..' ('..action.op..') during '..phase())
         if not rec.ok then error('Action Recorder stopped writing') end
         if not G.STATE_COMPLETE then return end
         for _,locked in pairs((G.CONTROLLER or {}).locks or {}) do if locked then return end end
@@ -110,8 +136,6 @@ return function(mod,JSON)
             for _,event in pairs(queue) do if event.blocking and not event.complete then return end end
         end
         elapsed=elapsed+dt;if elapsed<0.5 then return end;elapsed=0
-        local run=M.runs[M.index];local action=run.actions[M.step]
-        if not action then M.active=false;status(run.complete and 'Replayer complete - recording available' or 'Replayer reached end of partial log');return end
         local recorded=rec.action_count or 0
         if driver.step(action) then
             assert(rec.ok and (rec.action_count or 0)>recorded,'Action was not accepted by Action Recorder at step '..M.step)
@@ -131,7 +155,7 @@ return function(mod,JSON)
                 protect(function()
                     local manifest=M.runs[M.index].manifest
                     assert((G.GAME.pseudorandom or {}).seed==manifest.seed,'New run seed differs from the log')
-                    assert(((((G.GAME.selected_back or {}).effect or {}).center or {}).key)==manifest.deck,'New run deck differs from the log')
+                    assert(((((G.GAME.selected_back or {}).effect or {}).center or {}).key)==M.deck,'New run deck differs from the log')
                     assert(rec.ok and rec.path,'Action Recorder did not start a recording for the new run')
                 end)
             end
@@ -172,7 +196,7 @@ return function(mod,JSON)
     local previous_tab=mod.config_tab
     mod.config_tab=function()
         local tab=previous_tab and previous_tab() or {nodes={}}
-        tab.nodes[#tab.nodes+1]={n=G.UIT.R,config={align='cm',padding=0.08},nodes={{n=G.UIT.T,config={ref_table=M,ref_value='status',scale=0.25,colour=G.C.WHITE}}}}
+        tab.nodes[#tab.nodes+1]={n=G.UIT.R,config={align='cm',padding=0.08},nodes={{n=G.UIT.T,config={ref_table=M,ref_value='status',scale=0.25,colour=G.C.WHITE,maxw=9}}}}
         local nodes={}
         for _,item in ipairs({{'Load Log','bobs_replayer_load'},{'Next run','bobs_replayer_next'},{'Start Replayer','bobs_replayer_start'},{'Stop Replayer','bobs_replayer_stop'}}) do
             nodes[#nodes+1]={n=G.UIT.C,config={align='cm',button=item[2],colour=G.C.BLUE,padding=0.12,r=0.1},nodes={{n=G.UIT.T,config={text=item[1],scale=0.28,colour=G.C.WHITE}}}}

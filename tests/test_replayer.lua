@@ -6,9 +6,21 @@ local runs=parser.parse(input)
 assert(#runs==1 and #runs[1].actions==2 and runs[1].complete and runs[1].manifest.stake==1)
 assert(runs[1].actions[2].name=='The Magician')
 assert(#parser.parse(input..input)==2)
-for _,bad in ipairs({'MP_RLOG: 2 play 1','MP_RLOG: 1 play 1.1','MP_RLOG: 1 play 0','MP_RLOG: 1 execute os.remove','MP_RLOG: 1 reorder 8 1','MP_RLOG: 1 ready_blind 4'}) do
+for _,bad in ipairs({'MP_RLOG: 2 play 1','MP_RLOG: 1 play 1.1','MP_RLOG: 1 play 0','MP_RLOG: 1 execute os.remove','MP_RLOG: 1 reorder 8 1','MP_RLOG: 1 ready_blind 4','MP_RLOG: 1 set_ante_key os.remove'}) do
     assert(not pcall(parser.parse,'MP_RLOG: MANIFEST {}\n'..bad))
 end
+-- Multiplayer writes tostring(math.random()), which is not always "0.<digits>".
+for _,key in ipairs({'0','1e-05','0.16979563507933'}) do
+    assert(parser.parse('MP_RLOG: MANIFEST {}\nMP_RLOG: 1 set_ante_key '..key)[1].actions[1].args[1]==key)
+end
+-- An abandoned lobby leaves a manifest with no actions; it must not sink the log.
+local abandoned=parser.parse('MP_RLOG: MANIFEST {}\nMP_RLOG: END {}\n'..input)
+assert(#abandoned==1 and #abandoned[1].actions==2)
+assert(not pcall(parser.parse,'MP_RLOG: MANIFEST {}\nMP_RLOG: END {}'))
+-- Only the first mirrored line belongs to the action; later ones name cards the
+-- game used by itself.
+local followed=parser.parse('MP_RLOG: MANIFEST {}\nMP_RLOG: 1 use 1\n:: MULTIPLAYER :: Client sent message: action:usedCard,card:Arcana Pack\n:: MULTIPLAYER :: Client sent message: action:usedCard,card:Strength\n')
+assert(followed[1].actions[1].name=='Arcana Pack')
 local JSON=dofile('mod/json.lua')
 local files,now={},1
 love={timer={getTime=function()return now end},filesystem={createDirectory=function()return true end,write=function(p,t)files[p]=t;return true end,append=function(p,t)files[p]=(files[p] or '')..t;return true end}}
@@ -38,4 +50,4 @@ assert(driver.step({op='ready_blind',args={'1'}}) and MP.GAME.ready_blind)
 assert(files[rec.path]:find('"type":"ready_blind"'))
 G.STATE=2;G.consumeables={cards={ace}};G.shop_booster={cards={king}}
 assert(not pcall(driver.step,{op='use',args={'1'}}))
-print('PASS: replay parsing, sequence rejection, mirrored-line exclusion, accurate discard recording, reorder, ante key, asteroid and ambiguity checks')
+print('PASS: replay parsing, sequence rejection, empty-run skipping, first mirrored name, mirrored-line exclusion, accurate discard recording, reorder, ante key, asteroid and ambiguity checks')

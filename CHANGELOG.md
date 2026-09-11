@@ -1,3 +1,13 @@
+# 1.6.3
+
+- Fix Replayer never pressing in-game buttons: a UIBox keeps its elements on UIRoot and nests other boxes under config.object, so blind selection, blind skipping, booster skipping and cash-out all stalled until the run timed out.
+- Press the blind column the run is actually on instead of whichever Small/Big/Boss panel was found first.
+- Cash out through a synthetic event so a skipped-cash-out keybind helper cannot suppress the inferred transition.
+- Accept a manifest deck written either as a centre key or as its display name, which differ between the host and guest sides of a lobby.
+- Accept any finite ante key, skip action-less manifests left by abandoned lobbies, and keep only the first mirrored card name for an action.
+- Report the action and game state on a stall, log Replayer status to the Balatro log, and finish a completed run before the stall timer.
+- Close the Action Recorder file when a recording cannot start, instead of appending the next action to the previous run.
+
 # 1.6.2
 
 - Fix Replayer startup and settings restoration passing an unintended center key to Multiplayer's ruleset loader.

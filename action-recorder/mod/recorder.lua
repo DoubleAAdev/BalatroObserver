@@ -69,7 +69,9 @@ return function(JSON, version)
         assert(love.filesystem.append(path,JSON.encode(record)..'\n'))
     end
     function M.begin(resumed)
-        if not running() then return end
+        -- Drop the previous run's file too: a caller that cannot start a
+        -- recording must not go on appending to the run before it.
+        if not running() then path=nil;M.path=nil;return end
         counter=counter+1
         game=G.GAME;started=love.timer.getTime();sequence=0
         catalog={};identities=setmetatable({},{__mode='k'});next_card=0;next_identity=0
