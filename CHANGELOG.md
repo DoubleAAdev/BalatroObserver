@@ -1,3 +1,10 @@
+# 1.6.7
+
+- Play the whole log through: an action the replayed run cannot perform is now skipped and counted instead of ending the session. Only a dead recorder stops playback.
+- Give up on an action the idle game keeps refusing after a few passes rather than holding it for the full stall timeout.
+- Resolve every action in the log before the run starts, so nothing the log itself could reveal interrupts playback half way through.
+- Report skipped actions and drifted cards in the final status.
+
 # 1.6.6
 
 - Fix the replay crashing on the first card action after leaving a shop: a removed CardArea stays in G with its cards table set to nil, and the shop and pack areas were being indexed directly.

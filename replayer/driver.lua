@@ -94,6 +94,12 @@ return function(parser,recorder,JSON)
         M.diverged=(M.diverged or 0)+1
         M.difference='log '..tostring(action.name)..', run '..tostring(found)
     end
+    -- The opcodes M.step knows how to perform. Checked over the whole log before
+    -- playback starts, so no action can surprise the run half way through.
+    local handled={play=true,discard=true,buy=true,sell=true,reroll=true,use=true,pack_pick=true,
+        pack_skip=true,reorder=true,select_blind=true,skip_blind=true,open_pack=true,voucher=true,
+        ready_blind=true,set_ante_key=true,net_asteroid=true}
+    function M.supports(op) return handled[op]==true end
     function M.step(action)
         local op,a=action.op,action.args
         M.pending=nil

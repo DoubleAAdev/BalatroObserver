@@ -9,7 +9,8 @@ return function(mod,JSON)
     BalatroReplayer=M
     local directory='balatro_replayer'
     local timeout=45
-    local elapsed,waiting,reported=0,0,nil
+    local elapsed,waiting,reported,attempts=0,0,nil,0
+    local attempt_limit=12
     local previous_config,previous_sp,previous_modifiers,previous_saving,previous_mod_config
     local previous_order
     local function status(text)
@@ -84,6 +85,11 @@ return function(mod,JSON)
     function M.start()
         assert(M.runs and not M.session,'Load a log before starting')
         local run=M.runs[M.index];local ghost,deck=validate(run);local m=run.manifest
+        -- Resolve the whole action list up front: anything the log alone can
+        -- rule out is rejected now, never part way through playback.
+        for index,action in ipairs(run.actions) do
+            assert(driver.supports(action.op),'Unsupported action '..tostring(action.op)..' at step '..index)
+        end
         previous_config=MP.LOBBY.config;previous_sp=MP.SP;previous_modifiers=MP.MODIFIERS;previous_saving=G.F_NO_SAVING
         previous_mod_config=SMODS.Mods.Multiplayer.config
         M.session=true
@@ -122,15 +128,35 @@ return function(mod,JSON)
         MP.LoadReworks(ruleset_name)
         ghost.seed=m.seed;ghost.deck=m.deck;ghost.stake=m.stake;ghost.ruleset=m.ruleset;ghost.gamemode=m.gamemode
         M.session=true;M.active=true;M.step=1;M.started=false;M.awaiting_start=true;M.deck=deck;elapsed=0;waiting=0;reported=nil
+        attempts=0;M.skipped=0
         driver.ante_key=nil;driver.pending=nil;driver.diverged=0;driver.difference=nil
         MP.GHOST.load(ghost);MP.reset_game_states()
         MP.GAME.lives=config.starting_lives or 4;MP.GAME.enemy.lives=MP.GAME.lives
         G.F_NO_SAVING=true
         G.FUNCS.exit_overlay_menu();G.GAME.viewed_back=G.P_CENTERS[deck]
         G.FUNCS.start_run(nil,{seed=m.seed,stake=m.stake})
-        status('Replayer starting - '..#run.actions..' actions')
+        status('Replayer starting - '..#run.actions..' actions resolved')
     end
     function M.stop() M.active=false;status('Replayer stopped at action '..tostring(M.step or 0)) end
+    -- Every outcome moves to the next action. Only a session-level failure (a
+    -- dead recorder, a run that never started) ends playback; a single action
+    -- that the drifted run cannot perform is skipped and counted.
+    local function tally(run)
+        local parts=''
+        if (M.skipped or 0)>0 then parts=parts..' - '..M.skipped..' skipped' end
+        if (driver.diverged or 0)>0 then parts=parts..' - '..driver.diverged..' card(s) differed' end
+        return parts
+    end
+    local function next_action(run,action,text)
+        if action.op=='reorder' and rec.reset_orders then rec.reset_orders() end
+        driver.difference=nil;driver.pending=nil
+        M.step=M.step+1;waiting=0;attempts=0;reported=nil
+        status('Replayer '..(M.step-1)..'/'..#run.actions..' - '..action.op..text)
+    end
+    local function skip(run,action,reason)
+        M.skipped=(M.skipped or 0)+1
+        next_action(run,action,' skipped - '..tostring(reason):gsub('^.-:%d+: ',''):sub(1,90))
+    end
     function M.update(dt)
         if M.session and G.STAGE==G.STAGES.MAIN_MENU and (M.started or not M.active) then
             M.active=false;M.session=false;M.started=false
@@ -148,13 +174,17 @@ return function(mod,JSON)
         -- Finish before the stall timer: the last action can leave the game in a
         -- menu or an overlay that would otherwise look like a hang.
         if not action then
-            local drift=(driver.diverged or 0)>0 and (' - '..driver.diverged..' card(s) differed from the log') or ''
-            M.active=false;status((run.complete and 'Replayer complete - recording available' or 'Replayer reached end of partial log')..drift);return
+            M.active=false
+            status((run.complete and 'Replayer complete - recording available' or 'Replayer reached end of partial log')..tally(run));return
         end
         if G.OVERLAY_MENU or G.SETTINGS.paused then return end
-        waiting=waiting+dt
-        assert(waiting<timeout,'Timed out on action '..M.step..' ('..action.op..') during '..phase()..(driver.pending and ' - waiting for '..driver.pending or ''))
+        -- A broken recorder is the one thing worth stopping for: the replay
+        -- exists to produce a recording.
         if not rec.ok then error('Action Recorder stopped writing') end
+        waiting=waiting+dt
+        if waiting>=timeout then
+            return skip(run,action,'timed out during '..phase()..(driver.pending and ' - '..driver.pending or ''))
+        end
         if not G.STATE_COMPLETE then return end
         for _,locked in pairs((G.CONTROLLER or {}).locks or {}) do if locked then return end end
         -- Wait for the game event queue before attempting the next input.
@@ -163,20 +193,24 @@ return function(mod,JSON)
         end
         elapsed=elapsed+dt;if elapsed<0.5 then return end;elapsed=0
         local recorded=rec.action_count or 0
-        if driver.step(action) then
-            assert(rec.ok and (rec.action_count or 0)>recorded,'Action was not accepted by Action Recorder at step '..M.step)
-            if action.op=='reorder' and rec.reset_orders then rec.reset_orders() end
-            -- A drifted card is reported but never stops the replay; the run
-            -- keeps following the log's positions to the end.
-            local difference=driver.difference and (' - card differs: '..driver.difference) or ''
-            driver.difference=nil
-            M.step=M.step+1;waiting=0;reported=nil;status('Replayer '..(M.step-1)..'/'..#run.actions..' - '..action.op..difference)
-        elseif driver.pending and driver.pending~=reported then
-            -- Report a new hold-up once, so the panel explains a long pause
-            -- without writing a status line on every frame.
-            reported=driver.pending
-            status('Replayer '..M.step..'/'..#run.actions..' ('..action.op..') - waiting for '..driver.pending)
+        local ok,done=pcall(driver.step,action)
+        if not ok then return skip(run,action,done) end
+        if not done then
+            -- The game is idle and still refusing: give it a few more passes in
+            -- case an animation settles, then move on rather than hanging.
+            attempts=attempts+1
+            if attempts>=attempt_limit then return skip(run,action,driver.pending or 'the game never accepted it') end
+            if driver.pending and driver.pending~=reported then
+                reported=driver.pending
+                status('Replayer '..M.step..'/'..#run.actions..' ('..action.op..') - waiting for '..driver.pending)
+            end
+            return
         end
+        if not rec.ok then error('Action Recorder stopped writing') end
+        if (rec.action_count or 0)<=recorded then return skip(run,action,'the game did not accept it') end
+        -- A drifted card is reported but never stops the replay; the run keeps
+        -- following the log's positions to the end.
+        next_action(run,action,driver.difference and (' - card differs: '..driver.difference) or '')
     end
     -- A replay session must never send logged moves to a live server, even through other mod hooks.
     local guarded_client
