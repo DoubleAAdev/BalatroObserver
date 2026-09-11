@@ -19,15 +19,19 @@ local manifest={seed='TEST',deck='b_red',stake=1,ruleset='ruleset_mp_test',gamem
 package.loaded.json={decode=function()return manifest end}
 BalatroActionRecorder={ok=true,action_count=0}
 
--- A stub driver stands in for the game: action 2 throws, action 3 never
--- becomes possible, and the rest succeed.
-local attempted,stub={},{}
+-- A stub driver stands in for the game: action 2 throws, action 3 refuses from a
+-- stable state forever, action 4 is a transition the driver set in motion that
+-- needs longer than a standing refusal is given, and the rest succeed.
+local attempted,tries,stub={},{},{}
 function stub.supports() return true end
 function stub.resolve(actions) return actions end
 function stub.step(action)
     attempted[#attempted+1]=action.n
+    tries[action.n]=(tries[action.n] or 0)+1
+    stub.transient=false
     if action.n==2 then error('Game rejected buy_from_shop') end
     if action.n==3 then stub.pending='no card in shop_jokers slot 1';return false end
+    if action.n==4 and tries[4]<=6 then stub.pending='cashing out before the next action';stub.transient=true;return false end
     BalatroActionRecorder.action_count=BalatroActionRecorder.action_count+1
     return true
 end
@@ -49,13 +53,18 @@ assert(#replay.runs[1].actions==4)
 replay.start();Game:start_run({seed='TEST'})
 assert(replay.active and replay.step==1)
 
-for _=1,40 do if replay.active then Game:update(1) end end
+-- Action 3 refuses identically from a stable state, so it is dropped after a
+-- few passes rather than burning the whole budget.
+local passes=0
+for _=1,40 do if replay.active then passes=passes+1;Game:update(1) end end
 assert(not replay.active,'playback must finish rather than hang')
 assert(replay.step==5,'every action is stepped past: '..tostring(replay.step))
 assert(replay.skipped==2,'the throwing and the impossible action are both skipped')
 assert(attempted[1]==1 and attempted[2]==2,'a throwing action does not stop the run')
 assert(attempted[#attempted]==4,'the run continues past what it could not do')
 assert(replay.status:find('Replayer complete') and replay.status:find('2 skipped'),replay.status)
+assert(tries[3]<=3,'a standing refusal is dropped after a few passes, not a dozen: '..tostring(tries[3]))
+assert(tries[4]==7,'a transition the driver started gets the longer budget: '..tostring(tries[4]))
 
 -- A dead recorder is the one failure worth ending the session for.
 BalatroActionRecorder.action_count=0;attempted={}
@@ -65,4 +74,4 @@ BalatroActionRecorder.ok=false
 Game:update(1)
 assert(not replay.active and replay.status:find('Action Recorder stopped writing'),replay.status)
 
-print('PASS: playback skips what it cannot perform, counts it, reaches the end of the log, and stops only for a dead recorder')
+print('PASS: playback skips what it cannot perform, counts it, reaches the end of the log, drops standing refusals fast while giving real transitions time, and stops only for a dead recorder')

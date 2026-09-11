@@ -1,3 +1,8 @@
+# 1.6.9
+
+- Stop spending six seconds on each action the run cannot perform. A refusal repeated from an unchanged game state is dropped after a few passes instead of a full dozen, which is what made a drifted shop look frozen.
+- Keep the longer budget for a transition the driver itself started, such as cashing out or leaving the shop.
+
 # 1.6.8
 
 - Drive the replay from `MP_RLOG:` lines only. Multiplayer's mirrored human-readable stream is no longer read at all.

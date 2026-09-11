@@ -10,7 +10,10 @@ return function(mod,JSON)
     local directory='balatro_replayer'
     local timeout=45
     local elapsed,waiting,reported,attempts=0,0,nil,0
-    local attempt_limit=12
+    -- A standing refusal is skipped after a few identical idle attempts; one the
+    -- driver set in motion gets long enough for the game to finish the move.
+    local idle_limit,transient_limit=3,20
+    local refused_state,refused_reason
     local previous_config,previous_sp,previous_modifiers,previous_saving,previous_mod_config
     local previous_order
     local function status(text)
@@ -129,7 +132,7 @@ return function(mod,JSON)
         MP.LoadReworks(ruleset_name)
         ghost.seed=m.seed;ghost.deck=m.deck;ghost.stake=m.stake;ghost.ruleset=m.ruleset;ghost.gamemode=m.gamemode
         M.session=true;M.active=true;M.step=1;M.started=false;M.awaiting_start=true;M.deck=deck;elapsed=0;waiting=0;reported=nil
-        attempts=0;M.skipped=0
+        attempts=0;M.skipped=0;refused_state=nil;refused_reason=nil
         driver.ante_key=nil;driver.pending=nil
         MP.GHOST.load(ghost);MP.reset_game_states()
         MP.GAME.lives=config.starting_lives or 4;MP.GAME.enemy.lives=MP.GAME.lives
@@ -148,7 +151,7 @@ return function(mod,JSON)
     local function next_action(run,action,text)
         if action.op=='reorder' and rec.reset_orders then rec.reset_orders() end
         driver.pending=nil
-        M.step=M.step+1;waiting=0;attempts=0;reported=nil
+        M.step=M.step+1;waiting=0;attempts=0;reported=nil;refused_state=nil;refused_reason=nil
         status('Replayer '..(M.step-1)..'/'..#run.actions..' - '..action.op..text)
     end
     local function skip(run,action,reason)
@@ -194,10 +197,15 @@ return function(mod,JSON)
         local ok,done=pcall(driver.step,action)
         if not ok then return skip(run,action,done) end
         if not done then
-            -- The game is idle and still refusing: give it a few more passes in
-            -- case an animation settles, then move on rather than hanging.
-            attempts=attempts+1
-            if attempts>=attempt_limit then return skip(run,action,driver.pending or 'the game never accepted it') end
+            -- Retrying only pays while something is still changing. Idle, in the
+            -- same state, refusing for the same reason means it never will, so
+            -- do not spend the whole budget proving it.
+            local unchanged=G.STATE==refused_state and driver.pending==refused_reason
+            refused_state,refused_reason=G.STATE,driver.pending
+            attempts=unchanged and attempts+1 or 1
+            if attempts>=(driver.transient and transient_limit or idle_limit) then
+                return skip(run,action,driver.pending or 'the game never accepted it')
+            end
             if driver.pending and driver.pending~=reported then
                 reported=driver.pending
                 status('Replayer '..M.step..'/'..#run.actions..' ('..action.op..') - waiting for '..driver.pending)

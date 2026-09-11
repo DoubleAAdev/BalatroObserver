@@ -75,7 +75,10 @@ return function(parser,recorder,JSON)
     end
     -- Every refusal names what the driver is still waiting for, so a stall
     -- reports the missing precondition instead of just a step number.
-    local function pending(reason) M.pending=reason;return false end
+    -- `transient` marks a hold-up the driver itself set in motion, where the
+    -- game is expected to move on by itself; everything else is a standing
+    -- refusal that another identical attempt cannot change.
+    local function pending(reason,transient) M.pending=reason;M.transient=transient==true;return false end
     -- The game's own gate for putting this card into play, matching the button
     -- the real UI would show for it.
     local function check_name(card,op)
@@ -122,7 +125,7 @@ return function(parser,recorder,JSON)
     function M.supports(op) return handled[op]==true end
     function M.step(action)
         local op,a=action.op,action.args
-        M.pending=nil
+        M.pending=nil;M.transient=false
         local function auxiliary()
             local event=assert(recorder.capture(op),'Recorder unavailable');event.value=a[1];recorder.record(event);return true
         end
@@ -132,10 +135,10 @@ return function(parser,recorder,JSON)
             -- Cash-out is never logged; a synthetic event also bypasses keybind
             -- helpers that suppress the real button after a skipped cash-out.
             if G.round_eval then call('cash_out',{config={}}) end
-            return pending('cashing out before the next action')
+            return pending('cashing out before the next action',G.round_eval~=nil)
         end
         local blind_action=op=='select_blind' or op=='skip_blind' or op=='ready_blind'
-        if blind_action and G.STATE==G.STATES.SHOP then call('toggle_shop');return pending('leaving the shop') end
+        if blind_action and G.STATE==G.STATES.SHOP then call('toggle_shop');return pending('leaving the shop',true) end
         if blind_action then
             if G.STATE~=G.STATES.BLIND_SELECT or not G.blind_select then return pending('blind select is not open') end
             -- Readiness precedes a separate select_blind record; it must not select twice.
