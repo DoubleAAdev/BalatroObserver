@@ -73,9 +73,10 @@ return function(mod,JSON)
             SMODS.Mods.Multiplayer.config=replay_config
         end
         MP.LOBBY.config=config;MP.SP={practice=true,ruleset=m.ruleset,unlimited_slots=false,edition_cycling=false}
-        MP.apply_default_modifiers(m.ruleset:gsub('^ruleset_mp_',''))
+        local ruleset_name=m.ruleset:gsub('^ruleset_mp_','')
+        MP.apply_default_modifiers(ruleset_name)
         if m.modifier_layers and m.modifier_layers~='' then MP.modifiers_parse(m.modifier_layers) end
-        MP.LoadReworks(m.ruleset:gsub('^ruleset_mp_',''))
+        MP.LoadReworks(ruleset_name)
         ghost.seed=m.seed;ghost.deck=m.deck;ghost.stake=m.stake;ghost.ruleset=m.ruleset;ghost.gamemode=m.gamemode
         M.session=true;M.active=true;M.step=1;M.started=false;M.awaiting_start=true;elapsed=0;waiting=0;driver.ante_key=nil
         MP.GHOST.load(ghost);MP.reset_game_states()
@@ -91,7 +92,8 @@ return function(mod,JSON)
             M.active=false;M.session=false;M.started=false
             MP.GHOST.clear();MP.LOBBY.config=previous_config;MP.SP=previous_sp;MP.MODIFIERS=previous_modifiers;G.F_NO_SAVING=previous_saving
             SMODS.Mods.Multiplayer.config=previous_mod_config
-            MP.LoadReworks((MP.get_active_ruleset() or ''):gsub('^ruleset_mp_',''))
+            local ruleset_name=(MP.get_active_ruleset() or ''):gsub('^ruleset_mp_','')
+            MP.LoadReworks(ruleset_name)
             status('Replayer: returned to menu');return
         end
         if not M.active then return end

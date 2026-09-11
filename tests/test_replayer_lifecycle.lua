@@ -8,7 +8,11 @@ function MP.GHOST.load(r)MP.GHOST.replay=r end
 function MP.GHOST.clear()MP.GHOST.replay=nil end
 function MP.GHOST.is_ruleset_supported()return true end
 function MP.apply_default_modifiers()end
-function MP.LoadReworks()end
+local rework_calls=0
+function MP.LoadReworks(...)
+    assert(select('#',...)==1,'LoadReworks received an unintended center key')
+    assert((...)=='test');rework_calls=rework_calls+1
+end
 function MP.reset_game_states()MP.GAME={enemy={}}end
 function MP.get_active_ruleset()return 'ruleset_mp_test'end
 MP.load_mp_file=function()return {process_log=function()return {{}}end,to_replay=function()return {seed='TEST',ante_snapshots={[1]={}}}end}end
@@ -58,5 +62,6 @@ assert(saved_mod_config.cocktail=='OLD')
 Game:start_run(started);assert(replay.active and G.GAME.selected_back.effect.center.key=='b_mp_cocktail')
 replay.stop();G.STAGE=0;Game:update(0)
 assert(SMODS.Mods.Multiplayer.config==saved_mod_config)
+assert(rework_calls==4,'Both startup and restoration must load reworks')
 manifest.lobby_config.cocktail='1H';assert(not pcall(replay.start))
 print('PASS: config controls, manifest setup, live-lobby refusal, network isolation, return values, pause and session restoration')

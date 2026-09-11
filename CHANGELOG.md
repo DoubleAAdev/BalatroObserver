@@ -1,3 +1,7 @@
+# 1.6.2
+
+- Fix Replayer startup and settings restoration passing an unintended center key to Multiplayer's ruleset loader.
+
 # 1.6.1
 
 - Open a native Windows file picker from Replayer's Load Log button.
