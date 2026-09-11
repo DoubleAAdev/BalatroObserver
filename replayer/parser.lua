@@ -49,9 +49,17 @@ return function(decode)
                 end
             elseif last and not last.name then
                 -- The first mirrored line after an action is that action's own;
-                -- later ones name cards the game went on to use by itself.
-                local name=line:match(':: MULTIPLAYER :: Client sent message: action:usedCard,card:(.*)$')
-                if name and (last.op=='use' or last.op=='pack_pick') then last.name=name end
+                -- later ones name cards the game went on to use by itself. The
+                -- name is a hint, never a requirement: it disambiguates `use`,
+                -- whose slot alone does not say which area it came from.
+                local human=line:match(':: MULTIPLAYER :: Client sent message: action:(.*)$')
+                if human then
+                    local name
+                    if last.op=='use' or last.op=='pack_pick' then name=human:match('^usedCard,card:(.*)$')
+                    elseif last.op=='sell' then name=human:match('^soldCard,card:(.*)$')
+                    elseif last.op=='buy' or last.op=='open_pack' or last.op=='voucher' then name=human:match('^boughtCardFromShop,card:(.-),cost:') end
+                    if name then last.name=name end
+                end
             end
         end
         assert(#runs>0,'No original MP_RLOG manifest found')

@@ -1,3 +1,9 @@
+# 1.6.5
+
+- Replay every logged action instead of stopping when a card comes out different. The mirrored card name is now a hint, not a requirement.
+- Resolve which area a `use` slot refers to from the kind of card the log names, so a drifted shop or pack still replays the right slot in the right area.
+- Capture card names for buys and sells as well, and report each difference and a final count rather than abandoning the run.
+
 # 1.6.4
 
 - Fix the replay refusing to start with "New run seed differs from the log": Multiplayer's The Order prefixes the run seed with `*`, so the started run never equalled the manifest seed.

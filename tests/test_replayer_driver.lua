@@ -40,6 +40,8 @@ G.FUNCS.select_blind=function(e) chosen=e.config.ref_table.key end
 G.FUNCS.skip_blind=function(e) skipped=e.config.ref_table.slot end
 G.FUNCS.cash_out=function(e) cashed=cashed+1;e.config.button=nil end
 G.FUNCS.skip_booster=function() packs=packs+1 end
+local used=nil
+G.FUNCS.use_card=function(e) used=e.config.ref_table end
 hooks.install();rec.begin(false)
 local driver=dofile('replayer/driver.lua')(parser,rec,JSON)
 
@@ -93,4 +95,27 @@ assert(driver.pending=='no card in shop_jokers slot 2',driver.pending)
 G.STATE=4;G.blind_select={};G.blind_select_opts=panels;G.I.UIBOX={panels.small}
 assert(driver.step({op='select_blind',args={'0'}}) and driver.pending==nil)
 
-print('PASS: UIRoot traversal, nested boxes, on-deck blind scoping, booster skip, inferred cash-out, cycle safety and named waiting reasons')
+-- `use` logs a slot but no area. When the run's contents have drifted off the
+-- log, the kind of card the log names still resolves the area.
+local function shop_card(name,set) return {facing='front',config={center={key='x'}},ability={name=name,set=set},base={},states={drag={is=false}}} end
+G.P_CENTERS={p_buffoon={name='Buffoon Pack',set='Booster'},c_fool={name='The Fool',set='Tarot'}}
+G.STATE=2
+G.consumeables={cards={shop_card('The Fool','Tarot')}}
+G.shop_booster={cards={shop_card('Arcana Pack','Booster')}}
+driver.diverged=0
+assert(driver.step({op='use',args={'1'},name='Buffoon Pack'}))
+assert(used==G.shop_booster.cards[1],'a Booster name picks the booster slot even when the pack drifted')
+assert(driver.diverged==1 and driver.difference=='log Buffoon Pack, run Arcana Pack',tostring(driver.difference))
+-- An exact name still wins over the kind-of-card fallback, and matches are silent.
+G.shop_booster.cards[1]=shop_card('Buffoon Pack','Booster')
+assert(driver.step({op='use',args={'1'},name='Buffoon Pack'}) and used==G.shop_booster.cards[1])
+assert(driver.diverged==1)
+-- A different card in a position the log is sure of is replayed, not refused.
+G.shop_jokers={cards={shop_card('Blueprint','Joker')}}
+G.FUNCS.buy_from_shop=function() return nil end
+assert(driver.step({op='buy',args={'1','1'},name='Mail-In Rebate'}))
+assert(driver.diverged==2 and driver.difference=='log Mail-In Rebate, run Blueprint')
+-- Without any name a two-area slot stays genuinely ambiguous.
+assert(not pcall(driver.step,{op='use',args={'1'}}))
+
+print('PASS: UIRoot traversal, nested boxes, on-deck blind scoping, booster skip, inferred cash-out, cycle safety, named waiting reasons and drift-tolerant card resolution')

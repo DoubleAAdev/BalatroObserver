@@ -21,6 +21,9 @@ assert(not pcall(parser.parse,'MP_RLOG: MANIFEST {}\nMP_RLOG: END {}'))
 -- game used by itself.
 local followed=parser.parse('MP_RLOG: MANIFEST {}\nMP_RLOG: 1 use 1\n:: MULTIPLAYER :: Client sent message: action:usedCard,card:Arcana Pack\n:: MULTIPLAYER :: Client sent message: action:usedCard,card:Strength\n')
 assert(followed[1].actions[1].name=='Arcana Pack')
+-- Buys and sells name their card too; the driver reports drift instead of stopping.
+local named=parser.parse('MP_RLOG: MANIFEST {}\nMP_RLOG: 1 buy 1 1\n:: MULTIPLAYER :: Client sent message: action:boughtCardFromShop,card:Mail-In Rebate,cost:4\nMP_RLOG: 2 sell 4 1\n:: MULTIPLAYER :: Client sent message: action:soldCard,card:Blueprint\n')
+assert(named[1].actions[1].name=='Mail-In Rebate' and named[1].actions[2].name=='Blueprint')
 local JSON=dofile('mod/json.lua')
 local files,now={},1
 love={timer={getTime=function()return now end},filesystem={createDirectory=function()return true end,write=function(p,t)files[p]=t;return true end,append=function(p,t)files[p]=(files[p] or '')..t;return true end}}

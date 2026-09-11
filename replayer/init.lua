@@ -121,7 +121,8 @@ return function(mod,JSON)
         if m.modifier_layers and m.modifier_layers~='' then MP.modifiers_parse(m.modifier_layers) end
         MP.LoadReworks(ruleset_name)
         ghost.seed=m.seed;ghost.deck=m.deck;ghost.stake=m.stake;ghost.ruleset=m.ruleset;ghost.gamemode=m.gamemode
-        M.session=true;M.active=true;M.step=1;M.started=false;M.awaiting_start=true;M.deck=deck;elapsed=0;waiting=0;reported=nil;driver.ante_key=nil;driver.pending=nil
+        M.session=true;M.active=true;M.step=1;M.started=false;M.awaiting_start=true;M.deck=deck;elapsed=0;waiting=0;reported=nil
+        driver.ante_key=nil;driver.pending=nil;driver.diverged=0;driver.difference=nil
         MP.GHOST.load(ghost);MP.reset_game_states()
         MP.GAME.lives=config.starting_lives or 4;MP.GAME.enemy.lives=MP.GAME.lives
         G.F_NO_SAVING=true
@@ -146,7 +147,10 @@ return function(mod,JSON)
         local run=M.runs[M.index];local action=run.actions[M.step]
         -- Finish before the stall timer: the last action can leave the game in a
         -- menu or an overlay that would otherwise look like a hang.
-        if not action then M.active=false;status(run.complete and 'Replayer complete - recording available' or 'Replayer reached end of partial log');return end
+        if not action then
+            local drift=(driver.diverged or 0)>0 and (' - '..driver.diverged..' card(s) differed from the log') or ''
+            M.active=false;status((run.complete and 'Replayer complete - recording available' or 'Replayer reached end of partial log')..drift);return
+        end
         if G.OVERLAY_MENU or G.SETTINGS.paused then return end
         waiting=waiting+dt
         assert(waiting<timeout,'Timed out on action '..M.step..' ('..action.op..') during '..phase()..(driver.pending and ' - waiting for '..driver.pending or ''))
@@ -162,7 +166,11 @@ return function(mod,JSON)
         if driver.step(action) then
             assert(rec.ok and (rec.action_count or 0)>recorded,'Action was not accepted by Action Recorder at step '..M.step)
             if action.op=='reorder' and rec.reset_orders then rec.reset_orders() end
-            M.step=M.step+1;waiting=0;reported=nil;status('Replayer '..(M.step-1)..'/'..#run.actions..' - '..action.op)
+            -- A drifted card is reported but never stops the replay; the run
+            -- keeps following the log's positions to the end.
+            local difference=driver.difference and (' - card differs: '..driver.difference) or ''
+            driver.difference=nil
+            M.step=M.step+1;waiting=0;reported=nil;status('Replayer '..(M.step-1)..'/'..#run.actions..' - '..action.op..difference)
         elseif driver.pending and driver.pending~=reported then
             -- Report a new hold-up once, so the panel explains a long pause
             -- without writing a status line on every frame.

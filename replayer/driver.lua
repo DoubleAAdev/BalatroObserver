@@ -60,6 +60,24 @@ return function(parser,recorder,JSON)
     -- Every refusal names what the driver is still waiting for, so a stall
     -- reports the missing precondition instead of just a step number.
     local function pending(reason) M.pending=reason;return false end
+    -- `use` logs a slot but not an area. The mirrored card name resolves it, and
+    -- when the replay's contents have drifted, the kind of card it names still
+    -- points at the right area.
+    local function area_of(name)
+        for _,centre in pairs(G.P_CENTERS or {}) do
+            if centre.name==name then
+                return ({Booster='shop_booster',Voucher='shop_vouchers',Joker='shop_jokers'})[centre.set] or 'consumeables'
+            end
+        end
+    end
+    -- A drifted run is replayed, not abandoned: the log's positions still apply,
+    -- and every card that came out different is counted and named.
+    local function compare(card,action)
+        local found=(card.ability or {}).name
+        if not action.name or found==action.name then return end
+        M.diverged=(M.diverged or 0)+1
+        M.difference='log '..tostring(action.name)..', run '..tostring(found)
+    end
     function M.step(action)
         local op,a=action.op,action.args
         M.pending=nil
@@ -116,14 +134,19 @@ return function(parser,recorder,JSON)
             local candidates={}
             for _,area in ipairs({'consumeables','shop_booster','shop_vouchers','shop_jokers'}) do
                 local c=G[area] and G[area].cards[tonumber(a[1])]
-                if c and (not a[2] or G.hand) and (not action.name or (c.ability or {}).name==action.name) and (area=='consumeables' or G.STATE==G.STATES.SHOP) then candidates[#candidates+1]=c end
+                if c and (not a[2] or G.hand) and (area=='consumeables' or G.STATE==G.STATES.SHOP) then candidates[#candidates+1]={area=area,card=c} end
             end
-            assert(#candidates<=1,'Use action is ambiguous: log lacks a unique card identity')
-            card=candidates[1]
+            if #candidates==1 then card=candidates[1].card
+            elseif #candidates>1 then
+                for _,entry in ipairs(candidates) do if action.name and (entry.card.ability or {}).name==action.name then card=entry.card;break end end
+                local wanted=not card and action.name and area_of(action.name)
+                if wanted then for _,entry in ipairs(candidates) do if entry.area==wanted then card=entry.card;break end end end
+                assert(card,'Use action is ambiguous: log lacks a unique card identity')
+            end
         elseif op=='pack_pick' then card=G.pack_cards and G.pack_cards.cards[tonumber(a[1])]
         else local area=G[names[tonumber(a[1])]];card=area and area.cards[tonumber(a[2])] end
         if not card then return pending('no card in '..(op=='pack_pick' and 'pack_cards' or op=='use' and 'any use area' or tostring(names[tonumber(a[1])]))..' slot '..tostring(op=='use' and a[1] or op=='pack_pick' and a[1] or a[2])) end
-        if action.name then assert((card.ability or {}).name==action.name,'Card identity differs from log') end
+        compare(card,action)
         if op=='sell' then assert(not card.can_sell_card or card:can_sell_card(),'Game rejected sell');assert(card:sell_card()~=false,'Game rejected sell');return true end
         local set=(card.ability or {}).set
         -- Multiplayer gives shop packs and vouchers their own opcodes, but the
