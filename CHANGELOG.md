@@ -1,3 +1,8 @@
+# 1.8.1
+
+- Replay "Buy & Use". Multiplayer logs it with the same line as a plain buy, so the replay now works out which one happened: money moving right after the purchase (a Hermit or Temperance used at once), no free consumable slot, a consumable the shop cannot use, and otherwise whether the first later use or sale of that consumable slot names the bought card. A purchase the log shows no payment for is replayed as the refused click it was.
+- Log the decision and its evidence for every consumable purchase in the Balatro log.
+
 # 1.8.0
 
 - Rewrite the Replayer from scratch. A replay now joins a copy of the recorded Multiplayer lobby instead of practice mode: Multiplayer's own jokers, rulesets and PvP handling only exist inside a lobby, which is why the earlier replayer never got the same first shop.

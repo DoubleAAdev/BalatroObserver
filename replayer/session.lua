@@ -423,7 +423,8 @@ return function(log, driver, JSON, deps)
         -- Most callbacks write their MP_RLOG line before returning, so the
         -- cursor may already have moved on by the time perform comes back.
         local cursor = session.cursor
-        local ok, result, detail = pcall(driver.perform, target)
+        local ok, result, detail = pcall(driver.perform, target, session.entries)
+        if driver.note then debug('Replay ' .. progress() .. ' ' .. driver.note) end
         if not ok then return fail(result) end
         if result == 'done' then
             if session.cursor == cursor and not session.failure then session.issued = now end

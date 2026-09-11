@@ -27,7 +27,8 @@ Transitions Multiplayer does not log are inferred: cashing out when the next inp
 
 - The Multiplayer version, ruleset, game mode, deck and Cocktail deck pool must match the log. Other installed mods should match the original game; a different mod set changes card pools and is reported at the first differing card.
 - Challenge runs are not replayed.
-- Multiplayer logs "Buy" and "Buy & Use" the same way. A consumable bought with no free slot is bought and used at once; one bought with a free slot is bought only, which is what the log shows in every other case.
+- Multiplayer logs "Buy" and "Buy & Use" the same way. The replay decides from the evidence, in this order: money moving right after the purchase means the card was used at once (a Hermit or Temperance); a consumable the shop cannot use (it needs selected cards) was bought only; no free consumable slot means Buy & Use; otherwise the first later use or sale of the slot the card would occupy tells, since every card the game adds later lands behind it and every removal in front of it is logged. Without any later reference it is a plain buy. A purchase the log shows no payment for is replayed as the refused click it was. The Balatro log names the decision and its evidence for every consumable purchase.
+- Multiplayer does not log drag reorders of the consumable rack. A run that reordered consumables by hand is reported at the first use or sale that names a different card.
 - A hand reorder that leaves the hand exactly as the sort-by-suit or sort-by-rank button would is applied as that button, so later draws sort the same way.
 - The Multiplayer round timer is off during a replay, since a replay runs at animation speed. It changes no card.
 - Replayed wins and losses are not written to Multiplayer's match history. Career statistics count as in practice mode.

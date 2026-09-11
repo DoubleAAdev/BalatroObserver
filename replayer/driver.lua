@@ -106,6 +106,62 @@ return function(log)
     end
     M.has_buy_space = has_buy_space
 
+    -- Whether a mirrored name belongs to the consumable rack rather than to
+    -- a shop pack or voucher, by the game's own centre definitions.
+    local function is_consumable(name)
+        for key, centre in pairs(G.P_CENTERS or {}) do
+            if centre.name == name or key == name then
+                if centre.set == 'Booster' or centre.set == 'Voucher' or centre.set == 'Joker' then return false end
+                return centre.consumeable ~= nil or centre.set == 'Tarot' or centre.set == 'Planet' or centre.set == 'Spectral'
+            end
+        end
+        return true
+    end
+
+    -- Multiplayer logs "Buy" and "Buy & Use" with the same line. A card
+    -- bought and kept sits in the rack at a known slot from then on: every
+    -- card the game adds later lands behind it, and every removal in front
+    -- of it is logged. The first later use or sale of that slot tells.
+    local function slot_rule(entries, position, name)
+        if not entries or not position then return nil end
+        local slot = #(cards_of(G.consumeables) or {}) + 1
+        for i = position + 1, #entries do
+            local e = entries[i]
+            if e.kind == 'action' then
+                local referenced, used
+                if e.op == 'use' then
+                    used = log.expectation(e).name
+                    if used and is_consumable(used) then referenced = tonumber(e.args[1]) end
+                elseif e.op == 'sell' and e.args[1] == '5' then
+                    used = log.expectation(e).name
+                    referenced = tonumber(e.args[2])
+                end
+                if referenced then
+                    if referenced == slot then return (used == name) and 'buy' or 'buy_and_use', tostring(e.seq or e.text) end
+                    if referenced < slot then slot = slot - 1 end
+                end
+            end
+        end
+        return nil
+    end
+
+    -- How a logged purchase was made: a refused click, a plain buy, or
+    -- "Buy & Use". Returns the mode and the evidence.
+    function M.purchase_mode(entry, card, entries)
+        local cost = card.cost or 0
+        local money = entry.money or {}
+        local paid = cost == 0
+        for _, amount in ipairs(money) do if amount == -cost then paid = true end end
+        if not paid then return 'refused', 'the log shows no payment, so the game refused the click' end
+        if not (card.ability or {}).consumeable then return 'buy', 'not a consumable' end
+        if #money > (cost > 0 and 1 or 0) then return 'buy_and_use', 'money moved right after the purchase' end
+        if card.can_use_consumeable and not card:can_use_consumeable() then return 'buy', 'it cannot be used from the shop' end
+        if not has_buy_space(card) then return 'buy_and_use', 'no free consumable slot' end
+        local mode, seq = slot_rule(entries, entry.position, card_name(card))
+        if mode then return mode, (mode == 'buy' and 'its slot is used at action ' or 'another card is in its slot at action ') .. seq end
+        return 'buy', 'no later use of its slot in the log'
+    end
+
     -- Walk a UIBox the way the game builds it: elements hang off UIRoot and
     -- nested boxes sit in config.object.
     local function find_node(node, accept, seen)
@@ -204,7 +260,7 @@ return function(log)
         return 'done'
     end
 
-    handlers.buy = function(entry)
+    handlers.buy = function(entry, entries)
         if state_is('ROUND_EVAL') then return leave_round_eval() end
         if not state_is('SHOP') then return 'wait', 'the shop is not open (' .. state_name() .. ')' end
         local area_name = areas[tonumber(entry.args[1])]
@@ -215,19 +271,14 @@ return function(log)
         if want.cost and card.cost ~= want.cost then
             error(card_name(card) .. ' costs $' .. tostring(card.cost) .. ', the log paid $' .. want.cost)
         end
-        -- Multiplayer logs "Buy" and "Buy & Use" alike. A consumable bought
-        -- with no free slot can only have been bought and used at once.
-        local id, check = 'buy', 'can_buy'
-        if not has_buy_space(card) then
-            if (card.ability or {}).consumeable and card.can_use_consumeable and card:can_use_consumeable() then
-                id, check = 'buy_and_use', 'can_buy_and_use'
-            else
-                error('no room to buy ' .. card_name(card))
-            end
-        end
-        local e, button = probe(check, card, id)
+        local mode, evidence = M.purchase_mode(entry, card, entries)
+        M.note = card_name(card) .. ': ' .. mode .. ' (' .. evidence .. ')'
+        local id = mode == 'buy_and_use' and 'buy_and_use' or 'buy'
+        local e, button = probe(id == 'buy_and_use' and 'can_buy_and_use' or 'can_buy', card, id)
         if button ~= 'buy_from_shop' then error('the game refuses to buy ' .. card_name(card) .. ' (not enough money)') end
-        if G.FUNCS.buy_from_shop(e) == false then error('the game rejected buying ' .. card_name(card)) end
+        local accepted = G.FUNCS.buy_from_shop(e) ~= false
+        if mode == 'refused' and accepted then error('the log shows a refused purchase of ' .. card_name(card) .. ', but the game accepted it') end
+        if mode ~= 'refused' and not accepted then error('the game rejected buying ' .. card_name(card) .. ' (no room)') end
         return 'done'
     end
 
@@ -382,11 +433,13 @@ return function(log)
         return 'done'
     end
 
-    -- Perform one input. Returns 'done' or 'wait', reason.
-    function M.perform(entry)
+    -- Perform one input. Returns 'done' or 'wait', reason. `entries` is the
+    -- whole log, for inputs whose meaning depends on what follows.
+    function M.perform(entry, entries)
         local handler = handlers[entry.op]
         if not handler then error('the replay cannot perform ' .. tostring(entry.op)) end
-        return handler(entry)
+        M.note = nil
+        return handler(entry, entries)
     end
 
     -- A signature of everything an input could be waiting on. The session

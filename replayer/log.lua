@@ -116,7 +116,7 @@ return function(decode)
     -- lobby names seen before the game started.
     function M.parse(text)
         assert(type(text) == 'string' and #text <= 16 * 1024 * 1024, 'Log exceeds 16 MB')
-        local runs, run, lobby, pending, number = {}, nil, nil, nil, 0
+        local runs, run, lobby, pending, paying, number = {}, nil, nil, nil, nil, 0
         for line in (text .. '\n'):gmatch('(.-)\r?\n') do
             number = number + 1
             local payload = line:match('^MP_RLOG: (.*)$') or line:match(':: MULTIPLAYER :: MP_RLOG: (.*)$')
@@ -124,14 +124,14 @@ return function(decode)
                 if payload:match('^MANIFEST ') then
                     run = {manifest = parse_manifest(payload:sub(10)), entries = {}, actions = 0, complete = false, lobby = lobby, line = number}
                     runs[#runs + 1] = run
-                    pending = nil
+                    pending, paying = nil, nil
                 elseif payload:match('^END ') then
                     assert(run, 'END without a manifest')
                     local ok, outcome = pcall(decode, payload:sub(5))
                     run.complete = true
                     run.result = ok and type(outcome) == 'table' and outcome.result or nil
                     run = nil
-                    pending = nil
+                    pending, paying = nil, nil
                 elseif not payload:match('^CHK ') then
                     assert(run, 'Action outside a run at line ' .. number)
                     local seq, op, args = payload:match('^(%d+) ([%w_]+)%s*(.-)%s*$')
@@ -141,16 +141,22 @@ return function(decode)
                     for token in args:gmatch('%S+') do tokens[#tokens + 1] = token end
                     validate_action(op, tokens)
                     run.actions = run.actions + 1
-                    pending = {kind = 'action', seq = tonumber(seq), op = op, args = tokens,
-                        text = op .. (#tokens > 0 and (' ' .. table.concat(tokens, ' ')) or ''), line = number}
+                    pending = {kind = 'action', seq = tonumber(seq), op = op, args = tokens, money = {},
+                        text = op .. (#tokens > 0 and (' ' .. table.concat(tokens, ' ')) or ''), line = number,
+                        position = #run.entries + 1}
                     run.entries[#run.entries + 1] = pending
+                    paying = pending
                 end
             else
                 local human = line:match(':: MULTIPLAYER :: Client sent message: action:(.*)$')
                 if human then
                     -- ease_dollars traces every money change with the same
-                    -- prefix; only the mirrored line of an input is wanted.
-                    if pending and mirrored[pending.op] and not pending.human and not human:match('^moneyMoved,') then
+                    -- prefix. Those belong to the last input until the next
+                    -- one; the mirrored line is the first other line after it.
+                    local amount = human:match('^moneyMoved,amount:(%-?%d+)')
+                    if amount then
+                        if paying then paying.money[#paying.money + 1] = tonumber(amount) end
+                    elseif pending and mirrored[pending.op] and not pending.human then
                         pending.human = human:match('^%s*(.-)%s*$')
                         pending = nil
                     end
@@ -161,7 +167,10 @@ return function(decode)
                         lobby = {host = fields.host, guest = fields.guest, is_host = fields.isHost}
                     elseif action and run and not not_delivered[action] then
                         run.entries[#run.entries + 1] = {kind = 'message', action = action,
-                            fields = M.message_fields(action, rest), line = number}
+                            fields = M.message_fields(action, rest), line = number, position = #run.entries + 1}
+                        -- The one opponent effect that moves money must not
+                        -- be read as the effect of the player's last input.
+                        if action == 'letsGoGamblingNemesis' then paying = nil end
                     end
                 end
             end

@@ -36,7 +36,11 @@ local calls = {}
 local function record(name) return function(e) calls[#calls + 1] = {name, e} end end
 G = {STATES = {SELECTING_HAND = 1, HAND_PLAYED = 2, SHOP = 5, BLIND_SELECT = 7, ROUND_EVAL = 8, SMODS_BOOSTER_OPENED = 999, GAME_OVER = 4},
     STATE = 1, GAME = {dollars = 10, current_round = {reroll_cost = 5}, round_resets = {ante = 1}, blind_on_deck = 'Small'},
-    FUNCS = {}, CONTROLLER = {locks = {}}}
+    FUNCS = {}, CONTROLLER = {locks = {}},
+    P_CENTERS = {c_fool = {name = 'The Fool', set = 'Tarot', consumeable = true}, c_mars = {name = 'Mars', set = 'Planet', consumeable = true},
+        c_temperance = {name = 'Temperance', set = 'Tarot', consumeable = true}, c_mp_asteroid = {name = 'c_mp_asteroid', set = 'Planet', consumeable = true},
+        c_hanged_man = {name = 'The Hanged Man', set = 'Tarot', consumeable = true}, p_arcana = {name = 'Arcana Pack', set = 'Booster'},
+        v_overstock = {name = 'Overstock', set = 'Voucher'}, j_misprint = {name = 'Misprint', set = 'Joker'}}}
 MP = {GAME = {ready_blind = false}}
 local ace, king, seven, nine, two = playing('Ace', 'Spades'), playing('9', 'Hearts'), playing('7', 'Clubs'), playing('9', 'Spades'), playing('2', 'Diamonds')
 G.hand = area({ace, king, seven, nine, two})
@@ -59,7 +63,7 @@ for _, name in ipairs({'play_cards_from_highlighted', 'discard_cards_from_highli
     G.FUNCS[name] = record(name)
 end
 local function last() return calls[#calls] and calls[#calls][1], calls[#calls] and calls[#calls][2] end
-local function entry(op, args, human) return {kind = 'action', op = op, args = args, text = op, human = human} end
+local function entry(op, args, human, money, position) return {kind = 'action', op = op, args = args, text = op, human = human, money = money or {}, position = position} end
 local function fails(fn, pattern)
     local ok, err = pcall(fn)
     assert(not ok, 'expected a failure matching ' .. pattern)
@@ -95,28 +99,67 @@ assert(status == 'wait' and why:find('not selecting a hand') and last() ~= 'play
 G.shop_jokers = area({card('Square Joker', 'Joker', {cost = 4}), card('Mail-In Rebate', 'Joker', {cost = 4})}, 'shop')
 G.shop_booster = area({card('Buffoon Pack', 'Booster', {cost = 4})}, 'shop')
 G.shop_vouchers = area({card('Overstock', 'Voucher', {cost = 10})}, 'shop')
-fails(function() driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4')) end, 'slot 1 holds Square Joker, log says Mail%-In Rebate')
-fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:7')) end, 'costs %$4, the log paid %$7')
-fails(function() driver.perform(entry('buy', {'1', '3'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4')) end, 'has 2 card%(s%), no slot 3')
-assert(driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4')) == 'done')
+-- Purchases carry the money the log traced after them; a joker is a plain buy.
+local paid = {-4}
+fails(function() driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4', paid)) end, 'slot 1 holds Square Joker, log says Mail%-In Rebate')
+fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:7', paid)) end, 'costs %$4, the log paid %$7')
+fails(function() driver.perform(entry('buy', {'1', '3'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4', paid)) end, 'has 2 card%(s%), no slot 3')
+assert(driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4', paid)) == 'done')
 local name, e = last()
 assert(name == 'buy_from_shop' and e.config.ref_table == G.shop_jokers.cards[2] and e.config.id == 'buy')
+assert(driver.note == 'Mail-In Rebate: buy (not a consumable)', tostring(driver.note))
 G.GAME.dollars = 1
-fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4')) end, 'not enough money')
+fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4', paid)) end, 'not enough money')
 G.GAME.dollars = 10
--- A consumable bought with no free slot must have been "Buy & Use".
+-- No payment in the log means the click was refused; the game must refuse it too.
+G.jokers.config.card_limit = 2
+G.FUNCS.buy_from_shop = function() return false end
+assert(driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4', {})) == 'done')
+assert(driver.note:find('refused'), driver.note)
+fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4', paid)) end, 'rejected buying Mail%-In Rebate %(no room%)')
+G.FUNCS.buy_from_shop = record('buy_from_shop')
+fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4', {})) end, 'refused purchase of Mail%-In Rebate, but the game accepted it')
+G.jokers.config.card_limit = 5
+-- "Buy & Use" is logged like a buy. Money moving right after the purchase
+-- is the clearest sign: the Hermit doubled the money here.
+local hermit = card('The Hermit', 'Tarot')
+hermit.can_use_consumeable = function() return true end
+G.shop_jokers.cards[1] = hermit
+assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:The Hermit,cost:3', {-3, 20})) == 'done')
+assert(select(2, last()).config.id == 'buy_and_use' and driver.note:find('money moved'), driver.note)
+-- A consumable the shop cannot use (it needs selected cards) is a plain buy.
+local hanged = card('The Hanged Man', 'Tarot')
+hanged.can_use_consumeable = function() return false end
+G.shop_jokers.cards[1] = hanged
+assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:The Hanged Man,cost:3', {-3})) == 'done')
+assert(select(2, last()).config.id == 'buy' and driver.note:find('cannot be used from the shop'), driver.note)
+-- No free slot: only "Buy & Use" was possible.
 G.shop_jokers.cards[1] = card('Temperance', 'Tarot')
 G.shop_jokers.cards[1].can_use_consumeable = function() return true end
-assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:Temperance,cost:3')) == 'done')
-name, e = last()
-assert(name == 'buy_from_shop' and e.config.id == 'buy_and_use')
+assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:Temperance,cost:3', {-3})) == 'done')
+assert(select(2, last()).config.id == 'buy_and_use' and driver.note:find('no free consumable slot'), driver.note)
+-- With a free slot the later use or sale of that slot decides. The rack
+-- holds The Fool and Mars; the bought asteroid would take slot 3.
 G.consumeables.config.card_limit = 3
-assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:Temperance,cost:3')) == 'done' and select(2, last()).config.id == 'buy')
-G.jokers.config.card_limit = 2
-fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4')) end, 'no room to buy')
-G.jokers.config.card_limit = 5
+local asteroid = card('c_mp_asteroid', 'Planet')
+asteroid.can_use_consumeable = function() return true end
+G.shop_jokers.cards[1] = asteroid
+local function stream(...)
+    local list = {entry('buy', {'1', '1'}, 'boughtCardFromShop,card:c_mp_asteroid,cost:3', {-3}, 1)}
+    for _, item in ipairs({...}) do list[#list + 1] = item end
+    return list
+end
+local kept = stream(entry('use', {'1'}, 'usedCard,card:Arcana Pack'), entry('sell', {'5', '1'}, 'soldCard,card:The Fool'),
+    entry('use', {'2'}, 'usedCard,card:c_mp_asteroid'))
+assert(driver.perform(kept[1], kept) == 'done' and select(2, last()).config.id == 'buy' and driver.note:find('its slot is used at action'), driver.note)
+local fired = stream(entry('reroll', {}, 'rerollShop,cost:5'), entry('use', {'1'}, 'usedCard,card:Mars'), entry('use', {'2'}, 'usedCard,card:Temperance'))
+assert(driver.perform(fired[1], fired) == 'done' and select(2, last()).config.id == 'buy_and_use' and driver.note:find('another card is in its slot'), driver.note)
+local silent = stream(entry('use', {'1'}, 'usedCard,card:Overstock'), entry('sell', {'4', '3'}, 'soldCard,card:Misprint'))
+assert(driver.perform(silent[1], silent) == 'done' and select(2, last()).config.id == 'buy' and driver.note:find('no later use'), driver.note)
+assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:c_mp_asteroid,cost:3', {-3})) == 'done' and select(2, last()).config.id == 'buy')
+G.consumeables.config.card_limit = 2
 G.FUNCS.buy_from_shop = function() return false end
-fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4')) end, 'rejected buying')
+fails(function() driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:c_mp_asteroid,cost:3', {-3})) end, 'rejected buying')
 G.FUNCS.buy_from_shop = record('buy_from_shop')
 
 -- use: the mirrored name decides between consumables, shop packs and vouchers.
@@ -228,4 +271,4 @@ G.GAME.dollars = 11
 assert(driver.signature() ~= before)
 G.shop_jokers.cards = nil
 assert(driver.signature():find('%-'), 'a removed area reads as absent, not as an error')
-print('PASS: selections, transitions, named-card checks, buy and use resolution, packs, sells, rerolls, reorders, blind buttons and readiness')
+print('PASS: selections, transitions, named-card checks, purchase modes, use resolution, packs, sells, rerolls, reorders, blind buttons and readiness')

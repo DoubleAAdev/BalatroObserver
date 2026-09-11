@@ -32,6 +32,10 @@ local lines = {
     P .. 'MP_RLOG: 5 buy 1 2',
     P .. 'Client sent message: action:boughtCardFromShop,card:Mail-In Rebate,cost:4',
     P .. 'Client sent message: action:moneyMoved,amount:-4',
+    P .. 'Client got enemyLocation message:  (location: loc_shop-bl_big)  (action: enemyLocation) ',
+    P .. 'Client sent message: action:moneyMoved,amount:20',
+    P .. 'Client got letsGoGamblingNemesis message:  (action: letsGoGamblingNemesis) ',
+    P .. 'Client sent message: action:moneyMoved,amount:5',
     P .. 'MP_RLOG: 6 reroll',
     P .. 'Client sent message: action:rerollShop,cost:5',
     P .. 'MP_RLOG: 7 ready_blind 1',
@@ -70,8 +74,8 @@ assert(runs[2].actions == 1 and not runs[2].complete and runs[2].manifest.stake 
 local kinds = {}
 for _, entry in ipairs(run.entries) do kinds[#kinds + 1] = entry.kind == 'action' and entry.text or ('msg:' .. entry.action) end
 local expected = {'msg:playerInfo', 'pack_pick 3 4.5', 'set_ante_key 0.16979563507933', 'select_blind 0', 'msg:enemyInfo', 'discard 1.2.3.8',
-    'buy 1 2', 'reroll', 'ready_blind 1', 'msg:startBlind', 'set_ante_key 0.5', 'select_blind 0', 'msg:enemyInfo', 'msg:asteroid',
-    'net_asteroid', 'msg:endPvP', 'reorder 6 3.1.2', 'msg:winGame'}
+    'buy 1 2', 'msg:enemyLocation', 'msg:letsGoGamblingNemesis', 'reroll', 'ready_blind 1', 'msg:startBlind', 'set_ante_key 0.5', 'select_blind 0',
+    'msg:enemyInfo', 'msg:asteroid', 'net_asteroid', 'msg:endPvP', 'reorder 6 3.1.2', 'msg:winGame'}
 assert(#kinds == #expected, 'got ' .. #kinds .. ' entries: ' .. table.concat(kinds, ', '))
 for i, text in ipairs(expected) do assert(kinds[i] == text, i .. ': ' .. kinds[i] .. ' vs ' .. text) end
 
@@ -84,15 +88,22 @@ assert(by_seq[4].human == 'discard,cards:1.2.3.8' and by_seq[5].human == 'bought
 assert(by_seq[6].human == 'rerollShop,cost:5' and by_seq[7].human == nil and by_seq[9].human == 'selectBlind,blind:bl_mp_nemesis')
 assert(by_seq[10].human == 'netAsteroid' and by_seq[11].human == 'reorder,area:6')
 assert(by_seq[1].args[1] == '3' and by_seq[1].args[2] == '4.5' and by_seq[4].line == 14)
+-- Money traces stay with the input that caused them, across ordinary
+-- messages, until the next input or the one opponent effect that pays.
+assert(#by_seq[4].money == 2 and by_seq[4].money[1] == 5 and by_seq[4].money[2] == 5)
+assert(#by_seq[5].money == 2 and by_seq[5].money[1] == -4 and by_seq[5].money[2] == 20, 'money after a buy: ' .. #by_seq[5].money)
+assert(#by_seq[6].money == 0 and #by_seq[1].money == 0)
+for i, entry in ipairs(run.entries) do assert(entry.position == i) end
 
 -- Message values get the types the wire format had.
 local messages = {}
 for _, entry in ipairs(run.entries) do if entry.kind == 'message' then messages[#messages + 1] = entry.fields end end
 assert(messages[1].action == 'playerInfo' and messages[1].lives == 4)
 assert(messages[2].noScore == true and messages[2].handsLeft == 4 and messages[2].skips == 0)
-assert(messages[4].score == '39949166664' and messages[4].pvpTimerOrder == 'host' and messages[4].lives == 1)
-assert(messages[6].action == 'endPvP' and messages[6].lost == false)
-assert(messages[3].firstPlayer == 'guest')
+assert(messages[3].action == 'enemyLocation' and messages[4].action == 'letsGoGamblingNemesis')
+assert(messages[6].score == '39949166664' and messages[6].pvpTimerOrder == 'host' and messages[6].lives == 1)
+assert(messages[8].action == 'endPvP' and messages[8].lost == false)
+assert(messages[5].firstPlayer == 'guest')
 local fields = log.message_fields('enemyLocation', ' (location: loc_shop-bl_big)  (action: enemyLocation) ')
 assert(fields.location == 'loc_shop-bl_big' and fields.action == 'enemyLocation')
 
@@ -129,6 +140,10 @@ if real then
         elseif not entry.human and entry.op ~= 'set_ante_key' and entry.op ~= 'ready_blind' then unmirrored = unmirrored + 1 end
     end
     assert(unmirrored == 0, 'every mirrored input in the real log names what it touched')
+    local hermit
+    for _, entry in ipairs(parsed[1].entries) do if entry.kind == 'action' and entry.seq == 53 then hermit = entry end end
+    assert(hermit.human == 'boughtCardFromShop,card:The Hermit,cost:3' and #hermit.money == 2 and hermit.money[1] == -3 and hermit.money[2] == 20,
+        'the Hermit bought at action 53 was used at once')
     assert(counts.startBlind == 7 and counts.endPvP == 8 and counts.winGame == 1 and counts.asteroid == 2 and counts.stopGame == nil)
     assert(counts.enemyInfo == 114 and counts.playerInfo == 4 and counts.spentLastShop == 20, 'enemyInfo ' .. tostring(counts.enemyInfo))
     print('PASS: real log parsed - 641 inputs, ' .. #parsed[1].entries .. ' entries')
