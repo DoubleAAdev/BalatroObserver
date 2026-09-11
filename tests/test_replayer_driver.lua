@@ -40,8 +40,9 @@ G.FUNCS.select_blind=function(e) chosen=e.config.ref_table.key end
 G.FUNCS.skip_blind=function(e) skipped=e.config.ref_table.slot end
 G.FUNCS.cash_out=function(e) cashed=cashed+1;e.config.button=nil end
 G.FUNCS.skip_booster=function() packs=packs+1 end
-local used=nil
+local used,bought=nil,nil
 G.FUNCS.use_card=function(e) used=e.config.ref_table end
+G.FUNCS.buy_from_shop=function(e) bought=e.config.ref_table end
 hooks.install();rec.begin(false)
 local driver=dofile('replayer/driver.lua')(parser,rec,JSON)
 
@@ -104,7 +105,6 @@ G.consumeables={cards={shop_card('The Fool','Tarot')}}
 G.shop_booster={cards={shop_card('Arcana Pack','Booster')}}
 G.shop_vouchers={cards={shop_card('Overstock','Voucher')}}
 G.shop_jokers={cards={shop_card('Blueprint','Joker')}}
-G.FUNCS.buy_from_shop=function() return nil end
 
 -- Resolution happens over the whole stream before playback: a use answered by a
 -- pack action opened the booster shelf, and a use carrying hand targets is a
@@ -130,6 +130,34 @@ G.consumeables={cards={}};G.shop_vouchers={cards={}};G.shop_jokers={cards={}}
 G.FUNCS.can_open=function(e) e.config.button='use_card' end
 assert(driver.step({op='use',args={'1'}}) and used==G.shop_booster.cards[1])
 
+-- The point of the mirrored name: a drifted shop still holds the card the run
+-- bought, one slot over, and the log's slot must not win over the card itself.
+G.STATE=2
+G.shop_jokers={cards={shop_card('Square Joker','Joker'),shop_card('Mail-In Rebate','Joker')}}
+G.consumeables={cards={}};G.shop_vouchers={cards={}};G.shop_booster={cards={}}
+driver.moved=0
+assert(driver.step({op='buy',args={'1','1'},name='Mail-In Rebate'}))
+assert(bought==G.shop_jokers.cards[2],'the named card wins over the logged slot')
+assert(driver.moved==1 and driver.movement=='buy found at slot 2, log said 1',tostring(driver.movement))
+-- A card sitting where the log said is not reported as moved.
+assert(driver.step({op='buy',args={'1','1'},name='Square Joker'}) and bought==G.shop_jokers.cards[1])
+assert(driver.moved==1)
+-- Modded cards are logged by centre key, and match on that too.
+G.shop_jokers={cards={shop_card('Blueprint','Joker'),shop_card('Hanging Chad','Joker')}}
+G.shop_jokers.cards[2].config.center.key='j_mp_hanging_chad'
+assert(driver.step({op='buy',args={'1','1'},name='j_mp_hanging_chad'}) and bought==G.shop_jokers.cards[2])
+-- A name the run no longer holds falls back to the logged slot rather than
+-- skipping the purchase entirely.
+assert(driver.step({op='buy',args={'1','2'},name='Gone Forever'}) and bought==G.shop_jokers.cards[2])
+-- Two copies are ambiguous, so the slot decides.
+G.shop_jokers={cards={shop_card('Splash','Joker'),shop_card('Splash','Joker')}}
+assert(driver.step({op='buy',args={'1','1'},name='Splash'}) and bought==G.shop_jokers.cards[1])
+-- A use finds its card in whichever area now holds it.
+G.shop_booster={cards={shop_card('Arcana Pack','Booster'),shop_card('Buffoon Pack','Booster')}}
+G.consumeables={cards={shop_card('The Fool','Tarot')}}
+G.FUNCS.can_open=function(e) e.config.button='use_card' end
+assert(driver.step({op='use',args={'1'},name='Buffoon Pack'}) and used==G.shop_booster.cards[2])
+
 -- Closing the shop or a pack leaves the CardArea in G with cards set to nil,
 -- exactly as CardArea:remove does; scanning it must not crash.
 G.consumeables={cards={shop_card('The Fool','Tarot')}}
@@ -151,4 +179,4 @@ G.STATE=1;G.FUNCS.play_cards_from_highlighted=function() end
 assert(driver.step({op='play',args={'1.2'}}))
 assert(#G.hand.highlighted==2,'a forced card is kept, not duplicated')
 
-print('PASS: UIRoot traversal, nested boxes, on-deck blind scoping, booster skip, inferred cash-out, cycle safety, named waiting reasons, positional use resolution, removed card areas and forced selections')
+print('PASS: UIRoot traversal, nested boxes, on-deck blind scoping, booster skip, inferred cash-out, cycle safety, named waiting reasons, positional use resolution, locating logged cards in the live game, removed card areas and forced selections')

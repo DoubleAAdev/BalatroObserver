@@ -1,3 +1,9 @@
+# 1.7.0
+
+- Cross-reference the log against the live game: every buy, sell, use and pack pick now looks up the card Multiplayer named and plays it wherever it actually sits, instead of trusting the slot it sat in during the original run.
+- Match a card by display name or centre key, since modded Multiplayer cards are logged by key.
+- Fall back to the logged slot when the run no longer holds that card, and report how many cards were found somewhere else.
+
 # 1.6.9
 
 - Stop spending six seconds on each action the run cannot perform. A refusal repeated from an unchanged game state is dropped after a few passes instead of a full dozen, which is what made a drifted shop look frozen.

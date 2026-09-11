@@ -133,7 +133,7 @@ return function(mod,JSON)
         ghost.seed=m.seed;ghost.deck=m.deck;ghost.stake=m.stake;ghost.ruleset=m.ruleset;ghost.gamemode=m.gamemode
         M.session=true;M.active=true;M.step=1;M.started=false;M.awaiting_start=true;M.deck=deck;elapsed=0;waiting=0;reported=nil
         attempts=0;M.skipped=0;refused_state=nil;refused_reason=nil
-        driver.ante_key=nil;driver.pending=nil
+        driver.ante_key=nil;driver.pending=nil;driver.moved=0;driver.movement=nil
         MP.GHOST.load(ghost);MP.reset_game_states()
         MP.GAME.lives=config.starting_lives or 4;MP.GAME.enemy.lives=MP.GAME.lives
         G.F_NO_SAVING=true
@@ -146,11 +146,14 @@ return function(mod,JSON)
     -- dead recorder, a run that never started) ends playback; a single action
     -- that the drifted run cannot perform is skipped and counted.
     local function tally()
-        return (M.skipped or 0)>0 and (' - '..M.skipped..' skipped') or ''
+        local parts=''
+        if (M.skipped or 0)>0 then parts=parts..' - '..M.skipped..' skipped' end
+        if (driver.moved or 0)>0 then parts=parts..' - '..driver.moved..' card(s) found elsewhere' end
+        return parts
     end
     local function next_action(run,action,text)
         if action.op=='reorder' and rec.reset_orders then rec.reset_orders() end
-        driver.pending=nil
+        driver.pending=nil;driver.movement=nil
         M.step=M.step+1;waiting=0;attempts=0;reported=nil;refused_state=nil;refused_reason=nil
         status('Replayer '..(M.step-1)..'/'..#run.actions..' - '..action.op..text)
     end
@@ -214,7 +217,7 @@ return function(mod,JSON)
         end
         if not rec.ok then error('Action Recorder stopped writing') end
         if (rec.action_count or 0)<=recorded then return skip(run,action,'the game did not accept it') end
-        next_action(run,action,'')
+        next_action(run,action,driver.movement and (' - '..driver.movement) or '')
     end
     -- A replay session must never send logged moves to a live server, even through other mod hooks.
     local guarded_client

@@ -79,6 +79,32 @@ return function(parser,recorder,JSON)
     -- game is expected to move on by itself; everything else is a standing
     -- refusal that another identical attempt cannot change.
     local function pending(reason,transient) M.pending=reason;M.transient=transient==true;return false end
+    -- Multiplayer names a card by its display name, or by its centre key for
+    -- modded content whose ability.name is the key, so match either.
+    local function is_card(card,wanted)
+        if not wanted or type(card)~='table' then return false end
+        if (card.ability or {}).name==wanted then return true end
+        return (((card.config or {}).center or {}).key)==wanted
+    end
+    -- Find the logged card where it actually sits now. A run that drifted still
+    -- usually holds the card, one slot over; two copies means the slot decides.
+    local function locate(area,wanted)
+        local list=cards_of(area)
+        if not list or not wanted then return nil end
+        local found
+        for index,card in ipairs(list) do
+            if is_card(card,wanted) then
+                if found then return nil end
+                found=index
+            end
+        end
+        return found
+    end
+    local function relocated(op,slot,index)
+        if not index or index==slot then return end
+        M.moved=(M.moved or 0)+1
+        M.movement=op..' found at slot '..index..', log said '..tostring(slot)
+    end
     -- The game's own gate for putting this card into play, matching the button
     -- the real UI would show for it.
     local function check_name(card,op)
@@ -125,7 +151,7 @@ return function(parser,recorder,JSON)
     function M.supports(op) return handled[op]==true end
     function M.step(action)
         local op,a=action.op,action.args
-        M.pending=nil;M.transient=false
+        M.pending=nil;M.transient=false;M.movement=nil
         local function auxiliary()
             local event=assert(recorder.capture(op),'Recorder unavailable');event.value=a[1];recorder.record(event);return true
         end
@@ -177,11 +203,21 @@ return function(parser,recorder,JSON)
         end
         local card
         if op=='use' then
+            local slot=tonumber(a[1])
             local candidates={}
             for _,area in ipairs({'consumeables','shop_booster','shop_vouchers','shop_jokers'}) do
-                local c=card_at(G[area],tonumber(a[1]))
-                if c and (not a[2] or G.hand) and (area=='consumeables' or G.STATE==G.STATES.SHOP) then candidates[#candidates+1]={area=area,card=c} end
+                local open=(area=='consumeables' or G.STATE==G.STATES.SHOP) and (not a[2] or G.hand)
+                -- Prefer wherever the logged card actually is over the slot it
+                -- used to be in; the areas are searched in the same order either
+                -- way, so a named card settles the area as well as the index.
+                local index=open and locate(G[area],action.name)
+                local c=open and card_at(G[area],index or slot)
+                if c then
+                    if index then relocated(op,slot,index);card=c;break end
+                    candidates[#candidates+1]={area=area,card=c}
+                end
             end
+            if card then candidates={} end
             if #candidates==1 then card=candidates[1].card
             elseif #candidates>1 then
                 -- The area worked out before playback wins; otherwise let the
@@ -198,8 +234,17 @@ return function(parser,recorder,JSON)
                     end
                 end
             end
-        elseif op=='pack_pick' then card=card_at(G.pack_cards,tonumber(a[1]))
-        else card=card_at(G[names[tonumber(a[1])]],tonumber(a[2])) end
+        elseif op=='pack_pick' then
+            local slot=tonumber(a[1])
+            local index=locate(G.pack_cards,action.name)
+            relocated(op,slot,index)
+            card=card_at(G.pack_cards,index or slot)
+        else
+            local area,slot=G[names[tonumber(a[1])]],tonumber(a[2])
+            local index=locate(area,action.name)
+            relocated(op,slot,index)
+            card=card_at(area,index or slot)
+        end
         if not card then return pending('no card in '..(op=='pack_pick' and 'pack_cards' or op=='use' and 'any use area' or tostring(names[tonumber(a[1])]))..' slot '..tostring(op=='use' and a[1] or op=='pack_pick' and a[1] or a[2])) end
         if op=='sell' then assert(not card.can_sell_card or card:can_sell_card(),'Game rejected sell');assert(card:sell_card()~=false,'Game rejected sell');return true end
         local set=(card.ability or {}).set

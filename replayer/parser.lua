@@ -1,6 +1,8 @@
--- Read only the original RLOG stream: the MP_RLOG lines and nothing else. The
--- mirrored "Client sent message" stream is a separate, human-readable log that
--- is not aligned action-for-action, so it never drives a replay.
+-- MP_RLOG is the action stream: it alone carries reorder permutations, ante
+-- keys and readiness, and tells a pack pick from a shop use. The mirrored
+-- "Client sent message" lines add the card each action touched, which the
+-- driver matches against the live game so a drifted run still plays the same
+-- cards. Copies of MP_RLOG lines inside network messages are never read.
 return function(decode)
     local M={}
     local arities={play={1,1},discard={1,1},buy={2,2},sell={2,2},reroll={0,0},use={1,2},
@@ -17,7 +19,7 @@ return function(decode)
     end
     function M.parse(text)
         assert(type(text)=='string' and #text<=16*1024*1024,'Log exceeds 16 MB')
-        local runs,current={},nil
+        local runs,current,last={},nil,nil
         for line in (text..'\n'):gmatch('(.-)\r?\n') do
             local payload=line:match('^MP_RLOG: (.*)$') or line:match(':: MULTIPLAYER :: MP_RLOG: (.*)$')
             if payload then
@@ -27,9 +29,9 @@ return function(decode)
                     for _,key in ipairs({'seed','deck','ruleset','gamemode'}) do assert(type(manifest[key])=='string' and #manifest[key]>0,'Manifest missing '..key) end
                     manifest.stake=manifest.stake or (manifest.lobby_config or {}).stake
                     assert(type(manifest.stake)=='number' and manifest.stake>=1 and manifest.stake%1==0,'Manifest missing stake')
-                    current={manifest=manifest,actions={},complete=false};runs[#runs+1]=current
+                    current={manifest=manifest,actions={},complete=false};runs[#runs+1]=current;last=nil
                 elseif payload:match('^END ') then
-                    assert(current,'END without manifest');current.complete=true
+                    assert(current,'END without manifest');current.complete=true;last=nil
                 elseif not payload:match('^CHK ') then
                     assert(current and not current.complete,'Action outside a run')
                     local seq,op,args=payload:match('^(%d+) ([%w_]+)%s*(.*)$')
@@ -47,7 +49,21 @@ return function(decode)
                     elseif op=='set_ante_key' then assert(tonumber(tokens[1]),'Invalid ante key')
                     elseif op=='ready_blind' then assert(tokens[1]=='0' or tokens[1]=='1','Invalid ready state')
                     elseif op~='reroll' and op~='net_asteroid' then assert(tokens[1]=='0','Invalid action argument') end
-                    current.actions[#current.actions+1]={n=tonumber(seq),op=op,args=tokens}
+                    last={n=tonumber(seq),op=op,args=tokens};current.actions[#current.actions+1]=last
+                end
+            elseif last and not last.name then
+                -- MP_RLOG says which slot was acted on; the mirrored human line
+                -- says which card was in it. The driver uses the name to find
+                -- that card in the live game, so a shop whose order drifted is
+                -- still played as the run played it. The first mirrored line
+                -- after an action is that action's own.
+                local human=line:match(':: MULTIPLAYER :: Client sent message: action:(.*)$')
+                if human then
+                    local name
+                    if last.op=='use' or last.op=='pack_pick' then name=human:match('^usedCard,card:(.*)$')
+                    elseif last.op=='sell' then name=human:match('^soldCard,card:(.*)$')
+                    elseif last.op=='buy' or last.op=='open_pack' or last.op=='voucher' then name=human:match('^boughtCardFromShop,card:(.-),cost:') end
+                    if name then last.name=name end
                 end
             end
         end
