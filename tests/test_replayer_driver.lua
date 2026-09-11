@@ -79,4 +79,18 @@ assert(driver.step({op='play',args={'1'}})==false and cashed==1)
 local loop=element({});loop.config.object={UIRoot=loop}
 assert(driver.button('nothing',loop)==nil)
 
-print('PASS: UIRoot traversal, nested boxes, on-deck blind scoping, booster skip, inferred cash-out and cycle safety')
+-- A refusal names the missing precondition, so a stall is self-explaining.
+G.STATE=4;G.blind_select=nil
+assert(driver.step({op='select_blind',args={'0'}})==false)
+assert(driver.pending=='blind select is not open',driver.pending)
+G.blind_select={};G.GAME.blind_on_deck='Small';G.I.UIBOX={}
+assert(driver.step({op='select_blind',args={'0'}})==false)
+assert(driver.pending:find('select_blind button on the Small blind'),driver.pending)
+G.STATE=2;G.shop_jokers={cards={}}
+assert(driver.step({op='buy',args={'1','2'}})==false)
+assert(driver.pending=='no card in shop_jokers slot 2',driver.pending)
+-- A completed action clears the reason it was previously waiting on.
+G.STATE=4;G.blind_select={};G.blind_select_opts=panels;G.I.UIBOX={panels.small}
+assert(driver.step({op='select_blind',args={'0'}}) and driver.pending==nil)
+
+print('PASS: UIRoot traversal, nested boxes, on-deck blind scoping, booster skip, inferred cash-out, cycle safety and named waiting reasons')

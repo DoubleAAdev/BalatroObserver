@@ -1,3 +1,10 @@
+# 1.6.4
+
+- Fix the replay refusing to start with "New run seed differs from the log": Multiplayer's The Order prefixes the run seed with `*`, so the started run never equalled the manifest seed.
+- Follow the manifest's recorded The Order setting instead of letting practice mode force it on; it changes the seed and every random pool, so a log recorded without it was being replayed as a different run.
+- Name the game state and the missing precondition on a stall, and report a new hold-up in the config panel and the Balatro log while the driver waits.
+- Report both values when the started run's seed or deck differs from the log.
+
 # 1.6.3
 
 - Fix Replayer never pressing in-game buttons: a UIBox keeps its elements on UIRoot and nests other boxes under config.object, so blind selection, blind skipping, booster skipping and cash-out all stalled until the run timed out.

@@ -19,8 +19,12 @@ MP.load_mp_file=function()return {process_log=function()return {{}}end,to_replay
 local manifest={seed='TEST',deck='b_red',stake=1,ruleset='ruleset_mp_test',gamemode='gamemode_mp_attrition',mod_version='0.5.5',lobby_config={cocktail='NEW',starting_lives=6,action='bad',lobby_code='PRIVATE'}}
 package.loaded.json={decode=function()return manifest end}
 Client={send=function()sends=sends+1 end}
+-- The Order prefixes the seed with "*", exactly as Multiplayer's patch does.
+function MP.is_practice_mode()return MP.SP.practice==true end
+function MP.should_use_the_order()return MP.is_practice_mode()end
 Game={update=function()return nil,42 end,start_run=function(self,args)
-    G.GAME.pseudorandom={seed=args.seed};G.GAME.selected_back={effect={center=G.GAME.viewed_back}}
+    local seed=MP.should_use_the_order() and ('*'..args.seed) or args.seed
+    G.GAME.pseudorandom={seed=seed};G.GAME.selected_back={effect={center=G.GAME.viewed_back}}
     BalatroActionRecorder.path='new-recording';return nil,7
 end}
 BalatroActionRecorder={ok=true}
@@ -46,6 +50,7 @@ assert(not replay.session and MP.LOBBY.config==original_config)
 replay.start();assert(started.seed=='TEST' and started.stake==1)
 Game:update(0.1);assert(replay.awaiting_start and replay.step==1)
 local start_result=pack(Game:start_run(started));assert(start_result.n==2 and start_result[2]==7 and replay.active and not replay.awaiting_start)
+assert(G.GAME.pseudorandom.seed=='*TEST','a seed differing only by The Order marker still matches the log')
 assert(MP.LOBBY.config.cocktail=='NEW' and MP.LOBBY.config.starting_lives==6)
 assert(MP.LOBBY.config.lobby_code==nil and MP.LOBBY.config.action==nil and G.F_NO_SAVING)
 Client.send({});assert(sends==0)
@@ -76,5 +81,14 @@ replay.stop();G.STAGE=0;Game:update(0)
 MP.UTILS=nil;G.STAGE=1;replay.start();assert(replay.deck=='b_red')
 Game:start_run(started);assert(replay.active)
 replay.stop();G.STAGE=0;Game:update(0)
+manifest.deck='b_red'
+-- Practice mode forces The Order on; a log recorded without it must not be
+-- replayed with a "*" seed and a different card pool.
+manifest.the_order_enabled=false
+G.STAGE=1;replay.start();assert(MP.should_use_the_order()==false)
+Game:start_run(started);assert(replay.active and G.GAME.pseudorandom.seed=='TEST')
+replay.stop();G.STAGE=0;Game:update(0)
+original_sp.practice=true
+assert(MP.should_use_the_order()==true,'the override lasts only for the replay session')
 manifest.deck='b_nonexistent';assert(not pcall(replay.start))
-print('PASS: config controls, manifest setup, deck name resolution, live-lobby refusal, network isolation, return values, pause and session restoration')
+print('PASS: config controls, manifest setup, deck name resolution, The Order seed marker and session scoping, live-lobby refusal, network isolation, return values, pause and session restoration')

@@ -57,8 +57,12 @@ return function(parser,recorder,JSON)
         local key=slot and (((G.GAME or {}).round_resets or {}).blind_choices or {})[slot]
         return key and (G.P_BLINDS or {})[key]
     end
+    -- Every refusal names what the driver is still waiting for, so a stall
+    -- reports the missing precondition instead of just a step number.
+    local function pending(reason) M.pending=reason;return false end
     function M.step(action)
         local op,a=action.op,action.args
+        M.pending=nil
         local function auxiliary()
             local event=assert(recorder.capture(op),'Recorder unavailable');event.value=a[1];recorder.record(event);return true
         end
@@ -68,12 +72,12 @@ return function(parser,recorder,JSON)
             -- Cash-out is never logged; a synthetic event also bypasses keybind
             -- helpers that suppress the real button after a skipped cash-out.
             if G.round_eval then call('cash_out',{config={}}) end
-            return false
+            return pending('cashing out before the next action')
         end
         local blind_action=op=='select_blind' or op=='skip_blind' or op=='ready_blind'
-        if blind_action and G.STATE==G.STATES.SHOP then call('toggle_shop');return false end
+        if blind_action and G.STATE==G.STATES.SHOP then call('toggle_shop');return pending('leaving the shop') end
         if blind_action then
-            if G.STATE~=G.STATES.BLIND_SELECT or not G.blind_select then return false end
+            if G.STATE~=G.STATES.BLIND_SELECT or not G.blind_select then return pending('blind select is not open') end
             -- Readiness precedes a separate select_blind record; it must not select twice.
             if op=='ready_blind' then MP.GAME.ready_blind=a[1]=='1';return auxiliary() end
             local callback=op=='skip_blind' and 'skip_blind' or 'select_blind'
@@ -85,7 +89,7 @@ return function(parser,recorder,JSON)
             if not e and definition then e=button(callback,nil,function(node) return node.config.ref_table==definition end) end
             if not e and not panel then e=button(callback) end
             if not e and op=='select_blind' then e=button('mp_toggle_ready',panel) end
-            if not e then return false end
+            if not e then return pending('no '..callback..' button on the '..tostring((G.GAME or {}).blind_on_deck)..' blind') end
             -- Ghost games select locally; never send ready messages to a live lobby.
             if e.config.button=='mp_toggle_ready' then
                 e={config={ref_table=assert(definition,'Unknown blind')},UIBox=e.UIBox}
@@ -93,13 +97,13 @@ return function(parser,recorder,JSON)
             MP.GAME.ready_blind=false;call(callback,e);if M.ante_key then MP.GAME.ante_key=M.ante_key end;return true
         end
         if op=='play' or op=='discard' then
-            if G.STATE~=G.STATES.SELECTING_HAND then return false end
+            if G.STATE~=G.STATES.SELECTING_HAND then return pending('not selecting a hand yet') end
             select_cards(a[1]);return call(op=='play' and 'play_cards_from_highlighted' or 'discard_cards_from_highlighted',nil,op=='play' and 'can_play' or 'can_discard')
         end
-        if op=='reroll' then if G.STATE~=G.STATES.SHOP then return false end;return call('reroll_shop',nil,'can_reroll') end
-        if op=='pack_skip' then local e=button('skip_booster');if not e then return false end;return call('skip_booster',e) end
+        if op=='reroll' then if G.STATE~=G.STATES.SHOP then return pending('the shop is not open') end;return call('reroll_shop',nil,'can_reroll') end
+        if op=='pack_skip' then local e=button('skip_booster');if not e then return pending('no booster skip button') end;return call('skip_booster',e) end
         if op=='reorder' then
-            local area=G[names[tonumber(a[1])]];if not area then return false end
+            local area=G[names[tonumber(a[1])]];if not area then return pending(tostring(names[tonumber(a[1])])..' does not exist yet') end
             local order=parser.indices(a[2]);assert(#order==#area.cards,'Reorder card count differs')
             local before={};for i,c in ipairs(area.cards) do before[i]=c end
             for i,j in ipairs(order) do assert(before[j],'Invalid reorder position');area.cards[i]=before[j] end
@@ -118,7 +122,7 @@ return function(parser,recorder,JSON)
             card=candidates[1]
         elseif op=='pack_pick' then card=G.pack_cards and G.pack_cards.cards[tonumber(a[1])]
         else local area=G[names[tonumber(a[1])]];card=area and area.cards[tonumber(a[2])] end
-        if not card then return false end
+        if not card then return pending('no card in '..(op=='pack_pick' and 'pack_cards' or op=='use' and 'any use area' or tostring(names[tonumber(a[1])]))..' slot '..tostring(op=='use' and a[1] or op=='pack_pick' and a[1] or a[2])) end
         if action.name then assert((card.ability or {}).name==action.name,'Card identity differs from log') end
         if op=='sell' then assert(not card.can_sell_card or card:can_sell_card(),'Game rejected sell');assert(card:sell_card()~=false,'Game rejected sell');return true end
         local set=(card.ability or {}).set
@@ -127,7 +131,7 @@ return function(parser,recorder,JSON)
         if op=='buy' or ((op=='open_pack' or op=='voucher') and set~='Booster' and set~='Voucher') then
             return call('buy_from_shop',{config={ref_table=card,id='buy'}},'can_buy')
         end
-        if not select_cards(a[2] and (op=='use' or op=='pack_pick') and a[2] or nil) then return false end
+        if not select_cards(a[2] and (op=='use' or op=='pack_pick') and a[2] or nil) then return pending('the hand is not dealt yet') end
         local check=set=='Booster' and 'can_open' or set=='Voucher' and 'can_redeem' or (op=='pack_pick' and not card.ability.consumeable) and 'can_select_card' or 'can_use_consumeable'
         return call('use_card',{config={ref_table=card}},check)
     end

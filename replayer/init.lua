@@ -9,8 +9,9 @@ return function(mod,JSON)
     BalatroReplayer=M
     local directory='balatro_replayer'
     local timeout=45
-    local elapsed,waiting=0,0
+    local elapsed,waiting,reported=0,0,nil
     local previous_config,previous_sp,previous_modifiers,previous_saving,previous_mod_config
+    local previous_order
     local function status(text)
         M.status=text
         if sendDebugMessage then sendDebugMessage(text,'BalatroObserver') end
@@ -20,6 +21,12 @@ return function(mod,JSON)
     local function phase()
         for name,id in pairs(G.STATES or {}) do if G.STATE==id then return name end end
         return 'unknown state'
+    end
+    -- The Order prefixes the run seed with "*", so the manifest's seed and the
+    -- seed the game ends up using differ by that marker alone.
+    local function same_seed(actual,expected)
+        local function bare(seed) if type(seed)~='string' then return seed end;local stripped=seed:gsub('^%*','');return stripped end
+        return bare(actual)==bare(expected)
     end
     local function protect(fn)
         local ok,message=pcall(fn)
@@ -95,12 +102,26 @@ return function(mod,JSON)
             SMODS.Mods.Multiplayer.config=replay_config
         end
         MP.LOBBY.config=config;MP.SP={practice=true,ruleset=m.ruleset,unlimited_slots=false,edition_cycling=false}
+        -- Practice mode turns The Order on unconditionally, but it prefixes the
+        -- seed and reshapes every random pool, so follow what the log recorded.
+        local order=m.the_order_enabled
+        if type(order)~='boolean' then order=(m.lobby_config or {}).the_order end
+        -- Assign in a branch: "type(order)=='boolean' and order or nil" would
+        -- turn a recorded false back into nil and fall through to practice mode.
+        if type(order)=='boolean' then M.the_order=order else M.the_order=nil end
+        if not previous_order and type(MP.should_use_the_order)=='function' then
+            previous_order=MP.should_use_the_order
+            MP.should_use_the_order=function(...)
+                if M.session and M.the_order~=nil then return M.the_order end
+                return previous_order(...)
+            end
+        end
         local ruleset_name=m.ruleset:gsub('^ruleset_mp_','')
         MP.apply_default_modifiers(ruleset_name)
         if m.modifier_layers and m.modifier_layers~='' then MP.modifiers_parse(m.modifier_layers) end
         MP.LoadReworks(ruleset_name)
         ghost.seed=m.seed;ghost.deck=m.deck;ghost.stake=m.stake;ghost.ruleset=m.ruleset;ghost.gamemode=m.gamemode
-        M.session=true;M.active=true;M.step=1;M.started=false;M.awaiting_start=true;M.deck=deck;elapsed=0;waiting=0;driver.ante_key=nil
+        M.session=true;M.active=true;M.step=1;M.started=false;M.awaiting_start=true;M.deck=deck;elapsed=0;waiting=0;reported=nil;driver.ante_key=nil;driver.pending=nil
         MP.GHOST.load(ghost);MP.reset_game_states()
         MP.GAME.lives=config.starting_lives or 4;MP.GAME.enemy.lives=MP.GAME.lives
         G.F_NO_SAVING=true
@@ -127,7 +148,8 @@ return function(mod,JSON)
         -- menu or an overlay that would otherwise look like a hang.
         if not action then M.active=false;status(run.complete and 'Replayer complete - recording available' or 'Replayer reached end of partial log');return end
         if G.OVERLAY_MENU or G.SETTINGS.paused then return end
-        waiting=waiting+dt;assert(waiting<timeout,'Timed out on action '..M.step..' ('..action.op..') during '..phase())
+        waiting=waiting+dt
+        assert(waiting<timeout,'Timed out on action '..M.step..' ('..action.op..') during '..phase()..(driver.pending and ' - waiting for '..driver.pending or ''))
         if not rec.ok then error('Action Recorder stopped writing') end
         if not G.STATE_COMPLETE then return end
         for _,locked in pairs((G.CONTROLLER or {}).locks or {}) do if locked then return end end
@@ -140,7 +162,12 @@ return function(mod,JSON)
         if driver.step(action) then
             assert(rec.ok and (rec.action_count or 0)>recorded,'Action was not accepted by Action Recorder at step '..M.step)
             if action.op=='reorder' and rec.reset_orders then rec.reset_orders() end
-            M.step=M.step+1;waiting=0;status('Replayer '..(M.step-1)..'/'..#run.actions..' - '..action.op)
+            M.step=M.step+1;waiting=0;reported=nil;status('Replayer '..(M.step-1)..'/'..#run.actions..' - '..action.op)
+        elseif driver.pending and driver.pending~=reported then
+            -- Report a new hold-up once, so the panel explains a long pause
+            -- without writing a status line on every frame.
+            reported=driver.pending
+            status('Replayer '..M.step..'/'..#run.actions..' ('..action.op..') - waiting for '..driver.pending)
         end
     end
     -- A replay session must never send logged moves to a live server, even through other mod hooks.
@@ -154,8 +181,10 @@ return function(mod,JSON)
                 M.awaiting_start=false;M.started=true;waiting=0
                 protect(function()
                     local manifest=M.runs[M.index].manifest
-                    assert((G.GAME.pseudorandom or {}).seed==manifest.seed,'New run seed differs from the log')
-                    assert(((((G.GAME.selected_back or {}).effect or {}).center or {}).key)==M.deck,'New run deck differs from the log')
+                    local seed=(G.GAME.pseudorandom or {}).seed
+                    local deck=((((G.GAME.selected_back or {}).effect or {}).center or {}).key)
+                    assert(same_seed(seed,manifest.seed),'New run seed '..tostring(seed)..' differs from the log seed '..tostring(manifest.seed))
+                    assert(deck==M.deck,'New run deck '..tostring(deck)..' differs from the log deck '..tostring(M.deck))
                     assert(rec.ok and rec.path,'Action Recorder did not start a recording for the new run')
                 end)
             end
