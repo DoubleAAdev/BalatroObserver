@@ -97,6 +97,7 @@ assert(driver.step({op='select_blind',args={'0'}}) and driver.pending==nil)
 
 -- `use` logs a slot but no area. When the run's contents have drifted off the
 -- log, the kind of card the log names still resolves the area.
+local function card(rank) return {facing='front',base={value=rank,suit='Spades'},config={center={key='c_base'}},ability={set='Default'},states={drag={is=false}}} end
 local function shop_card(name,set) return {facing='front',config={center={key='x'}},ability={name=name,set=set},base={},states={drag={is=false}}} end
 G.P_CENTERS={p_buffoon={name='Buffoon Pack',set='Booster'},c_fool={name='The Fool',set='Tarot'}}
 G.STATE=2
@@ -118,4 +119,24 @@ assert(driver.diverged==2 and driver.difference=='log Mail-In Rebate, run Bluepr
 -- Without any name a two-area slot stays genuinely ambiguous.
 assert(not pcall(driver.step,{op='use',args={'1'}}))
 
-print('PASS: UIRoot traversal, nested boxes, on-deck blind scoping, booster skip, inferred cash-out, cycle safety, named waiting reasons and drift-tolerant card resolution')
+-- Closing the shop or a pack leaves the CardArea in G with cards set to nil,
+-- exactly as CardArea:remove does; scanning it must not crash.
+G.shop_booster.cards=nil;G.shop_vouchers={cards=nil};G.shop_jokers.cards=nil;G.pack_cards={cards=nil}
+G.STATE=1
+assert(driver.step({op='use',args={'1'},name='The Fool'}) and used==G.consumeables.cards[1])
+assert(driver.step({op='pack_pick',args={'1'}})==false and driver.pending=='no card in pack_cards slot 1')
+assert(driver.step({op='buy',args={'1','1'}})==false)
+G.jokers={cards=nil}
+assert(driver.step({op='reorder',args={'4','2.1'}})==false and driver.pending=='jokers does not exist yet')
+
+-- A boss blind keeps a forced card highlighted through unhighlight_all; the
+-- driver must not add it twice and read that back as a rejected selection.
+local forced=card('Ace')
+G.hand={cards={forced,card('King'),card('Queen')},highlighted={}}
+function G.hand:unhighlight_all() self.highlighted={forced} end
+function G.hand:add_to_highlighted(c) table.insert(self.highlighted,c) end
+G.STATE=1;G.FUNCS.play_cards_from_highlighted=function() end
+assert(driver.step({op='play',args={'1.2'}}))
+assert(#G.hand.highlighted==2,'a forced card is kept, not duplicated')
+
+print('PASS: UIRoot traversal, nested boxes, on-deck blind scoping, booster skip, inferred cash-out, cycle safety, named waiting reasons, drift-tolerant card resolution, removed card areas and forced selections')

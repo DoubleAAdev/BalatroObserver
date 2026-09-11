@@ -1,15 +1,31 @@
 -- Invoke the same game callbacks as the UI, so Action Recorder sees real actions.
 return function(parser,recorder,JSON)
     local M={};local names={'shop_jokers','shop_booster','shop_vouchers','jokers','consumeables','hand','pack_cards'}
+    -- A removed CardArea stays referenced from G with its cards table set to
+    -- nil: closing the shop or a booster pack does exactly that, and the game's
+    -- own CardArea methods guard against it, so never index .cards directly.
+    local function cards_of(area) return type(area)=='table' and area.cards or nil end
+    local function card_at(area,index)
+        local list=cards_of(area)
+        if not list or not index then return nil end
+        return list[index]
+    end
     local function select_cards(text)
         local indices=text and parser.indices(text) or {}
-        if #indices>0 and not G.hand then return false end
-        for _,i in ipairs(indices) do assert(G.hand.cards[i],'Selected card position is unavailable') end
-        if G.hand then
-            G.hand:unhighlight_all()
-            for _,i in ipairs(indices) do G.hand:add_to_highlighted(G.hand.cards[i],true) end
-            assert(#G.hand.highlighted==#indices,'Game rejected card selection')
+        local hand=G.hand
+        local list=cards_of(hand)
+        if #indices>0 and not list then return false end
+        if not hand then return true end
+        for _,i in ipairs(indices) do assert(list[i],'Selected card position is unavailable') end
+        hand:unhighlight_all()
+        -- A boss blind can force a card to stay highlighted; adding it a second
+        -- time would double it and make the selection look rejected.
+        local highlighted={}
+        for _,c in ipairs(hand.highlighted or {}) do highlighted[c]=true end
+        for _,i in ipairs(indices) do
+            if not highlighted[list[i]] then highlighted[list[i]]=true;hand:add_to_highlighted(list[i],true) end
         end
+        assert(#(hand.highlighted or {})==#indices,'Game rejected card selection')
         return true
     end
     -- A UIBox keeps its elements on UIRoot rather than in children, and embeds
@@ -121,10 +137,11 @@ return function(parser,recorder,JSON)
         if op=='reroll' then if G.STATE~=G.STATES.SHOP then return pending('the shop is not open') end;return call('reroll_shop',nil,'can_reroll') end
         if op=='pack_skip' then local e=button('skip_booster');if not e then return pending('no booster skip button') end;return call('skip_booster',e) end
         if op=='reorder' then
-            local area=G[names[tonumber(a[1])]];if not area then return pending(tostring(names[tonumber(a[1])])..' does not exist yet') end
-            local order=parser.indices(a[2]);assert(#order==#area.cards,'Reorder card count differs')
-            local before={};for i,c in ipairs(area.cards) do before[i]=c end
-            for i,j in ipairs(order) do assert(before[j],'Invalid reorder position');area.cards[i]=before[j] end
+            local area=G[names[tonumber(a[1])]];local list=cards_of(area)
+            if not list then return pending(tostring(names[tonumber(a[1])])..' does not exist yet') end
+            local order=parser.indices(a[2]);assert(#order==#list,'Reorder card count differs')
+            local before={};for i,c in ipairs(list) do before[i]=c end
+            for i,j in ipairs(order) do assert(before[j],'Invalid reorder position');list[i]=before[j] end
             if area.align_cards then area:align_cards() end
             local event=recorder.capture('reorder');assert(event,'Recorder unavailable');event.area=names[tonumber(a[1])];event.order=JSON.array(order);event.cards=recorder.area(area);recorder.record(event)
             return true
@@ -133,7 +150,7 @@ return function(parser,recorder,JSON)
         if op=='use' then
             local candidates={}
             for _,area in ipairs({'consumeables','shop_booster','shop_vouchers','shop_jokers'}) do
-                local c=G[area] and G[area].cards[tonumber(a[1])]
+                local c=card_at(G[area],tonumber(a[1]))
                 if c and (not a[2] or G.hand) and (area=='consumeables' or G.STATE==G.STATES.SHOP) then candidates[#candidates+1]={area=area,card=c} end
             end
             if #candidates==1 then card=candidates[1].card
@@ -143,8 +160,8 @@ return function(parser,recorder,JSON)
                 if wanted then for _,entry in ipairs(candidates) do if entry.area==wanted then card=entry.card;break end end end
                 assert(card,'Use action is ambiguous: log lacks a unique card identity')
             end
-        elseif op=='pack_pick' then card=G.pack_cards and G.pack_cards.cards[tonumber(a[1])]
-        else local area=G[names[tonumber(a[1])]];card=area and area.cards[tonumber(a[2])] end
+        elseif op=='pack_pick' then card=card_at(G.pack_cards,tonumber(a[1]))
+        else card=card_at(G[names[tonumber(a[1])]],tonumber(a[2])) end
         if not card then return pending('no card in '..(op=='pack_pick' and 'pack_cards' or op=='use' and 'any use area' or tostring(names[tonumber(a[1])]))..' slot '..tostring(op=='use' and a[1] or op=='pack_pick' and a[1] or a[2])) end
         compare(card,action)
         if op=='sell' then assert(not card.can_sell_card or card:can_sell_card(),'Game rejected sell');assert(card:sell_card()~=false,'Game rejected sell');return true end

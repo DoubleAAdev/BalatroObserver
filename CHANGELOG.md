@@ -1,3 +1,8 @@
+# 1.6.6
+
+- Fix the replay crashing on the first card action after leaving a shop: a removed CardArea stays in G with its cards table set to nil, and the shop and pack areas were being indexed directly.
+- Keep a boss blind's forced card selection instead of adding it a second time and reading the doubled highlight back as a rejected selection.
+
 # 1.6.5
 
 - Replay every logged action instead of stopping when a card comes out different. The mirrored card name is now a hint, not a requirement.
