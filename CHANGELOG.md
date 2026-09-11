@@ -1,3 +1,11 @@
+# 1.8.0
+
+- Rewrite the Replayer from scratch. A replay now joins a copy of the recorded Multiplayer lobby instead of practice mode: Multiplayer's own jokers, rulesets and PvP handling only exist inside a lobby, which is why the earlier replayer never got the same first shop.
+- Deliver the opponent's and server's recorded messages back to Multiplayer's handlers in log order, so opponent scores, PvP results, lives, the start of each PvP blind and received asteroids come out as they did. Nothing is sent to the server.
+- Check every input against the log twice: the card, cost or blind named by the mirrored `Client sent message` line before acting, and the `MP_RLOG:` line the game writes afterwards, word for word. Any difference stops the replay with both lines and leaves the run open.
+- Perform inputs through the game's own can_* checks and button callbacks, infer the unlogged cash-out and shop-exit transitions, detect hand sorts, and put the logged ante key back so the new log reads like the original.
+- Report progress and failures in the config tab, the Balatro log and `balatro_replayer/status.json`; the final status names the Action Recorder file to export.
+
 # 1.7.0
 
 - Cross-reference the log against the live game: every buy, sell, use and pack pick now looks up the card Multiplayer named and plays it wherever it actually sits, instead of trusting the slot it sat in during the original run.

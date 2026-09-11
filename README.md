@@ -120,6 +120,6 @@ The bundled vanilla calculator does not model Multiplayer rulesets, so it explai
 
 ## Action history
 
-**Replayer** is available in Observer's config. Use **Load Log** to choose a Multiplayer log, then **Start Replayer** to create the recorded seeded deck and replay local actions into Action Recorder. See [Replayer setup and limitations](replayer/README.md).
+**Replayer** is available in Observer's config. Use **Load Log** to choose the Lovely log of a Multiplayer game, then **Start Replay** from the main menu. The game joins a copy of the recorded lobby, replays every logged input and received message, checks each one against the log, and Action Recorder records the result. See [Replayer use, checks and limits](replayer/README.md).
 
 Open **Mods > Balatro Observer > Config > Open Action Recorder** to export readable action logs with card positions, identities, and brief property changes. See [recorder documentation](action-recorder/README.md). Disable any older standalone recorder and restart Balatro after updating.

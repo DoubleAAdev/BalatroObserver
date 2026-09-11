@@ -1,260 +1,405 @@
--- Invoke the same game callbacks as the UI, so Action Recorder sees real actions.
-return function(parser,recorder,JSON)
-    local M={};local names={'shop_jokers','shop_booster','shop_vouchers','jokers','consumeables','hand','pack_cards'}
-    -- A removed CardArea stays referenced from G with its cards table set to
-    -- nil: closing the shop or a booster pack does exactly that, and the game's
-    -- own CardArea methods guard against it, so never index .cards directly.
-    local function cards_of(area) return type(area)=='table' and area.cards or nil end
-    local function card_at(area,index)
-        local list=cards_of(area)
-        if not list or not index then return nil end
-        return list[index]
+-- Performs one logged input the way the player's click did: the same
+-- highlight, the same can_* gate and the same G.FUNCS callback, so Action
+-- Recorder and Multiplayer's own log hooks both see a real action.
+--
+-- Every function returns 'done' when the input was issued, or 'wait' with a
+-- reason when the game is not ready for it yet. Anything that can never
+-- become right (a different card in the slot, a cost that differs, a
+-- selection the game refuses) raises an error, which ends the replay with
+-- that message.
+return function(log)
+    local M = {}
+    local areas = {'shop_jokers', 'shop_booster', 'shop_vouchers', 'jokers', 'consumeables', 'hand', 'pack_cards'}
+    M.areas = areas
+
+    local function state_name()
+        for name, id in pairs(G.STATES or {}) do
+            if G.STATE == id then return name end
+        end
+        return 'unknown state'
     end
-    local function select_cards(text)
-        local indices=text and parser.indices(text) or {}
-        local hand=G.hand
-        local list=cards_of(hand)
-        if #indices>0 and not list then return false end
-        if not hand then return true end
-        for _,i in ipairs(indices) do assert(list[i],'Selected card position is unavailable') end
+    M.state_name = state_name
+
+    local function in_pack()
+        for _, name in ipairs({'SMODS_BOOSTER_OPENED', 'TAROT_PACK', 'PLANET_PACK', 'SPECTRAL_PACK', 'STANDARD_PACK', 'BUFFOON_PACK'}) do
+            if G.STATES[name] and G.STATE == G.STATES[name] then return true end
+        end
+        return false
+    end
+    M.in_pack = in_pack
+
+    -- A removed CardArea keeps its table in G with cards set to nil.
+    local function cards_of(area)
+        return type(area) == 'table' and area.cards or nil
+    end
+
+    local function card_name(card)
+        return (card.ability or {}).name or ((card.config or {}).center or {}).key or '?'
+    end
+
+    local function describe(area_name, slot)
+        local list = cards_of(G[area_name])
+        if not list then return area_name .. ' is not open' end
+        local card = list[slot]
+        if not card then return area_name .. ' has ' .. #list .. ' card(s), no slot ' .. slot end
+        return area_name .. ' slot ' .. slot .. ' holds ' .. card_name(card)
+    end
+
+    -- The card the log points at, checked by name before anything is done.
+    local function card_at(area_name, slot, expected)
+        local list = cards_of(G[area_name])
+        local card = list and list[slot]
+        if not card then return nil, describe(area_name, slot) end
+        if expected and card_name(card) ~= expected then
+            return nil, describe(area_name, slot) .. ', log says ' .. expected
+        end
+        return card
+    end
+
+    -- Ask one of the game's can_* checks whether the button would be live.
+    local function probe(check, card, id)
+        local e = {config = {ref_table = card, id = id}, UIBox = {states = {visible = true}, alignment = {offset = {}}}}
+        assert(type(G.FUNCS[check]) == 'function', 'Missing game check ' .. check)
+        G.FUNCS[check](e)
+        return e, e.config.button
+    end
+
+    -- Select exactly the logged hand positions, keeping a boss blind's
+    -- forced card without adding it twice.
+    local function highlight(indices)
+        local hand = G.hand
+        local list = assert(cards_of(hand), 'the hand is not dealt')
+        for _, i in ipairs(indices) do
+            if not list[i] then error('the hand has ' .. #list .. ' card(s), the log selects slot ' .. i) end
+        end
         hand:unhighlight_all()
-        -- A boss blind can force a card to stay highlighted; adding it a second
-        -- time would double it and make the selection look rejected.
-        local highlighted={}
-        for _,c in ipairs(hand.highlighted or {}) do highlighted[c]=true end
-        for _,i in ipairs(indices) do
-            if not highlighted[list[i]] then highlighted[list[i]]=true;hand:add_to_highlighted(list[i],true) end
+        local chosen = {}
+        for _, card in ipairs(hand.highlighted or {}) do chosen[card] = true end
+        for _, i in ipairs(indices) do
+            if not chosen[list[i]] then
+                hand:add_to_highlighted(list[i], true)
+                chosen[list[i]] = true
+            end
         end
-        assert(#(hand.highlighted or {})==#indices,'Game rejected card selection')
-        return true
+        local wanted = {}
+        for _, i in ipairs(indices) do wanted[list[i]] = true end
+        local count = 0
+        for _, card in ipairs(hand.highlighted or {}) do
+            count = count + 1
+            if not wanted[card] then error('the game keeps a card selected that the log did not select') end
+        end
+        if count ~= #indices then error('the game accepted ' .. count .. ' of ' .. #indices .. ' selected cards') end
     end
-    -- A UIBox keeps its elements on UIRoot rather than in children, and embeds
-    -- other boxes as config.object, so walking children alone finds no buttons.
-    local function search(node,callback,accept,seen)
-        if type(node)~='table' or seen[node] then return end
-        seen[node]=true
-        local config=node.config
+    M.highlight = highlight
+
+    -- Mirror of G.FUNCS.check_for_buy_space without its on-screen alert.
+    local function has_buy_space(card)
+        local set = (card.ability or {}).set
+        if set == 'Voucher' or set == 'Enhanced' or set == 'Default' then return true end
+        local extra = 1 + ((card.ability or {}).extra_slots_used or 0)
+        local bonus = (card.ability or {}).card_limit or 0
+        if set == 'Joker' then return #G.jokers.cards + extra <= G.jokers.config.card_limit + bonus end
+        if (card.ability or {}).consumeable then
+            return #G.consumeables.cards + extra <= G.consumeables.config.card_limit + bonus
+        end
+        return false
+    end
+    M.has_buy_space = has_buy_space
+
+    -- Walk a UIBox the way the game builds it: elements hang off UIRoot and
+    -- nested boxes sit in config.object.
+    local function find_node(node, accept, seen)
+        if type(node) ~= 'table' or seen[node] then return nil end
+        seen[node] = true
+        local config = node.config
         if config then
-            if config.button==callback and (not accept or accept(node)) then return node end
-            local nested=config.object
-            if type(nested)=='table' and nested.UIRoot then
-                local found=search(nested.UIRoot,callback,accept,seen);if found then return found end
+            if accept(config) then return node end
+            local nested = config.object
+            if type(nested) == 'table' and nested.UIRoot then
+                local found = find_node(nested.UIRoot, accept, seen)
+                if found then return found end
             end
         end
-        if node.UIRoot then local found=search(node.UIRoot,callback,accept,seen);if found then return found end end
-        for _,child in pairs(node.children or {}) do
-            local found=search(child,callback,accept,seen);if found then return found end
+        if node.UIRoot then
+            local found = find_node(node.UIRoot, accept, seen)
+            if found then return found end
         end
-    end
-    -- Without a root every live UIBox is searched; pass one to stay inside a
-    -- single panel, because the three blind columns share button names.
-    local function button(callback,root,accept)
-        if root~=nil then return search(root,callback,accept,{}) end
-        for _,box in pairs((G.I or {}).UIBOX or {}) do
-            local found=search(box,callback,accept,{});if found then return found end
+        for _, child in pairs(node.children or {}) do
+            local found = find_node(child, accept, seen)
+            if found then return found end
         end
+        return nil
     end
-    M.button=button
-    local function call(name,e,check)
-        assert(type(G.FUNCS[name])=='function','Missing game callback '..name)
-        e=e or {config={}}
-        if check and G.FUNCS[check] then G.FUNCS[check](e);assert(e.config.button,'Game rejected '..name) end
-        assert(G.FUNCS[name](e)~=false,'Game rejected '..name)
+    M.find_node = find_node
+
+    local function blind_panel()
+        local slot = (G.GAME or {}).blind_on_deck
+        return slot and (G.blind_select_opts or {})[tostring(slot):lower()], slot
+    end
+
+    local function blind_button(name)
+        local panel, slot = blind_panel()
+        if not panel then return nil, 'the ' .. tostring(slot) .. ' blind panel is not built yet' end
+        local node = find_node(panel, function(config) return config.button == name end, {})
+        if not node then return nil, 'no ' .. name .. ' button on the ' .. tostring(slot) .. ' blind' end
+        return node
+    end
+
+    -- Transitions the log never records: Multiplayer logs neither the cash
+    -- out button nor the shop's next-round button.
+    local function leave_round_eval()
+        if G.round_eval then G.FUNCS.cash_out({config = {}}) end
+        return 'wait', 'cashing out'
+    end
+    local function leave_shop()
+        G.FUNCS.toggle_shop({config = {}})
+        return 'wait', 'leaving the shop'
+    end
+
+    local function state_is(name) return G.STATE == G.STATES[name] end
+
+    local function hand_action(entry, check, callback)
+        if state_is('ROUND_EVAL') then return leave_round_eval() end
+        if not state_is('SELECTING_HAND') then return 'wait', 'not selecting a hand (' .. state_name() .. ')' end
+        highlight(log.indices(entry.args[1]))
+        local e, button = probe(check, nil)
+        if button ~= callback then error('the game refuses to ' .. entry.op .. ' this selection') end
+        G.FUNCS[callback](e)
+        return 'done'
+    end
+
+    local function use_card(card, check, targets)
+        if targets then highlight(log.indices(targets))
+        elseif G.hand and cards_of(G.hand) and #(G.hand.highlighted or {}) > 0 then G.hand:unhighlight_all() end
+        local e, button = probe(check, card)
+        if button ~= 'use_card' then
+            return nil, 'the game refuses to use ' .. card_name(card) .. ' now (' .. check .. ')'
+        end
+        G.FUNCS.use_card(e)
         return true
     end
-    -- The blind on deck decides which of the Small/Big/Boss panels to press.
-    local function blind_panel()
-        local slot=(G.GAME or {}).blind_on_deck
-        if not slot then return nil end
-        return (G.blind_select_opts or {})[tostring(slot):lower()]
+
+    local function check_for(card)
+        local set = (card.ability or {}).set
+        if set == 'Booster' then return 'can_open' end
+        if set == 'Voucher' then return 'can_redeem' end
+        if (card.ability or {}).consumeable then return 'can_use_consumeable' end
+        return 'can_select_card'
     end
-    local function blind_definition()
-        local slot=(G.GAME or {}).blind_on_deck
-        local key=slot and (((G.GAME or {}).round_resets or {}).blind_choices or {})[slot]
-        return key and (G.P_BLINDS or {})[key]
+
+    local handlers = {}
+
+    handlers.play = function(entry) return hand_action(entry, 'can_play', 'play_cards_from_highlighted') end
+    handlers.discard = function(entry) return hand_action(entry, 'can_discard', 'discard_cards_from_highlighted') end
+
+    handlers.reroll = function(entry)
+        if state_is('ROUND_EVAL') then return leave_round_eval() end
+        if not state_is('SHOP') then return 'wait', 'the shop is not open (' .. state_name() .. ')' end
+        local expected = log.expectation(entry).cost
+        local cost = ((G.GAME or {}).current_round or {}).reroll_cost
+        if expected and cost ~= expected then error('the reroll costs $' .. tostring(cost) .. ', the log paid $' .. expected) end
+        local e, button = probe('can_reroll', nil)
+        if button ~= 'reroll_shop' then error('the game refuses the reroll (not enough money)') end
+        G.FUNCS.reroll_shop(e)
+        return 'done'
     end
-    -- Every refusal names what the driver is still waiting for, so a stall
-    -- reports the missing precondition instead of just a step number.
-    -- `transient` marks a hold-up the driver itself set in motion, where the
-    -- game is expected to move on by itself; everything else is a standing
-    -- refusal that another identical attempt cannot change.
-    local function pending(reason,transient) M.pending=reason;M.transient=transient==true;return false end
-    -- Multiplayer names a card by its display name, or by its centre key for
-    -- modded content whose ability.name is the key, so match either.
-    local function is_card(card,wanted)
-        if not wanted or type(card)~='table' then return false end
-        if (card.ability or {}).name==wanted then return true end
-        return (((card.config or {}).center or {}).key)==wanted
-    end
-    -- Find the logged card where it actually sits now. A run that drifted still
-    -- usually holds the card, one slot over; two copies means the slot decides.
-    local function locate(area,wanted)
-        local list=cards_of(area)
-        if not list or not wanted then return nil end
-        local found
-        for index,card in ipairs(list) do
-            if is_card(card,wanted) then
-                if found then return nil end
-                found=index
+
+    handlers.buy = function(entry)
+        if state_is('ROUND_EVAL') then return leave_round_eval() end
+        if not state_is('SHOP') then return 'wait', 'the shop is not open (' .. state_name() .. ')' end
+        local area_name = areas[tonumber(entry.args[1])]
+        if not area_name or not area_name:match('^shop_') then error('buy from ' .. tostring(area_name) .. ' is not a shop purchase') end
+        local want = log.expectation(entry)
+        local card, why = card_at(area_name, tonumber(entry.args[2]), want.name)
+        if not card then error(why) end
+        if want.cost and card.cost ~= want.cost then
+            error(card_name(card) .. ' costs $' .. tostring(card.cost) .. ', the log paid $' .. want.cost)
+        end
+        -- Multiplayer logs "Buy" and "Buy & Use" alike. A consumable bought
+        -- with no free slot can only have been bought and used at once.
+        local id, check = 'buy', 'can_buy'
+        if not has_buy_space(card) then
+            if (card.ability or {}).consumeable and card.can_use_consumeable and card:can_use_consumeable() then
+                id, check = 'buy_and_use', 'can_buy_and_use'
+            else
+                error('no room to buy ' .. card_name(card))
             end
         end
-        return found
+        local e, button = probe(check, card, id)
+        if button ~= 'buy_from_shop' then error('the game refuses to buy ' .. card_name(card) .. ' (not enough money)') end
+        if G.FUNCS.buy_from_shop(e) == false then error('the game rejected buying ' .. card_name(card)) end
+        return 'done'
     end
-    local function relocated(op,slot,index)
-        if not index or index==slot then return end
-        M.moved=(M.moved or 0)+1
-        M.movement=op..' found at slot '..index..', log said '..tostring(slot)
+
+    handlers.sell = function(entry)
+        local area_name = areas[tonumber(entry.args[1])]
+        if area_name ~= 'jokers' and area_name ~= 'consumeables' then error('sell from ' .. tostring(area_name) .. ' is not possible') end
+        local card, why = card_at(area_name, tonumber(entry.args[2]), log.expectation(entry).name)
+        if not card then error(why) end
+        if card.can_sell_card and not card:can_sell_card() then
+            return 'wait', 'the game does not allow selling ' .. card_name(card) .. ' yet'
+        end
+        G.FUNCS.sell_card({config = {ref_table = card}})
+        return 'done'
     end
-    -- The game's own gate for putting this card into play, matching the button
-    -- the real UI would show for it.
-    local function check_name(card,op)
-        local set=(card.ability or {}).set
-        if set=='Booster' then return 'can_open' end
-        if set=='Voucher' then return 'can_redeem' end
-        if op=='pack_pick' and not card.ability.consumeable then return 'can_select_card' end
-        return 'can_use_consumeable'
-    end
-    -- Ask the game whether it would accept this card right now, without acting.
-    local function accepts(card)
-        local check=check_name(card,'use')
-        if type(G.FUNCS[check])~='function' then return true end
-        local probe={config={ref_table=card}}
-        local ok=pcall(G.FUNCS[check],probe)
-        return ok and probe.config.button~=nil
-    end
-    -- `use` records a slot but not an area. Resolve what each one meant before
-    -- playback, from the action stream alone: a use carrying hand targets is a
-    -- consumable, and one whose next meaningful action opens a pack came from
-    -- the booster shelf. Actions that can happen with a pack already open do
-    -- not break that pairing.
-    local transparent={reorder=true,set_ante_key=true,net_asteroid=true,ready_blind=true,sell=true}
-    function M.resolve(actions)
-        for index,action in ipairs(actions) do
-            if action.op=='use' then
-                action.area=nil
-                if action.args[2] then action.area='consumeables'
-                else
-                    local following=index+1
-                    while actions[following] and transparent[actions[following].op] do following=following+1 end
-                    local next_action=actions[following]
-                    if next_action and (next_action.op=='pack_pick' or next_action.op=='pack_skip') then action.area='shop_booster' end
-                end
+
+    -- "use" names a slot but no area: consumables, shop packs and shop
+    -- vouchers all go through use_card. The mirrored card name settles it.
+    handlers.use = function(entry)
+        local slot = tonumber(entry.args[1])
+        local name = log.expectation(entry).name
+        if not name then error('the log does not name the card used at slot ' .. slot) end
+        local candidates = {'consumeables'}
+        if state_is('SHOP') then candidates = {'consumeables', 'shop_booster', 'shop_vouchers'} end
+        local card, area_name
+        for _, candidate in ipairs(candidates) do
+            local list = cards_of(G[candidate])
+            local found = list and list[slot]
+            if found and card_name(found) == name then
+                if card then error(name .. ' sits in both ' .. area_name .. ' and ' .. candidate .. ' slot ' .. slot) end
+                card, area_name = found, candidate
             end
         end
-        return actions
+        if not card then
+            if state_is('ROUND_EVAL') then return leave_round_eval() end
+            if not state_is('SHOP') and not state_is('SELECTING_HAND') and not in_pack() and not state_is('BLIND_SELECT') then
+                return 'wait', 'nothing to use in ' .. state_name()
+            end
+            local seen = {}
+            for _, candidate in ipairs(candidates) do seen[#seen + 1] = describe(candidate, slot) end
+            error('no ' .. name .. ' to use: ' .. table.concat(seen, '; '))
+        end
+        local ok, why = use_card(card, check_for(card), entry.args[2])
+        if not ok then
+            -- A shop pack stays closed while the player is marked ready.
+            if area_name == 'consumeables' or (MP and MP.GAME and MP.GAME.ready_blind) then error(why) end
+            return 'wait', why
+        end
+        return 'done'
     end
-    -- The opcodes M.step knows how to perform. Checked over the whole log before
-    -- playback starts, so no action can surprise the run half way through.
-    local handled={play=true,discard=true,buy=true,sell=true,reroll=true,use=true,pack_pick=true,
-        pack_skip=true,reorder=true,select_blind=true,skip_blind=true,open_pack=true,voucher=true,
-        ready_blind=true,set_ante_key=true,net_asteroid=true}
-    function M.supports(op) return handled[op]==true end
-    function M.step(action)
-        local op,a=action.op,action.args
-        M.pending=nil;M.transient=false;M.movement=nil
-        local function auxiliary()
-            local event=assert(recorder.capture(op),'Recorder unavailable');event.value=a[1];recorder.record(event);return true
-        end
-        if op=='set_ante_key' then M.ante_key=a[1];MP.GAME.ante_key=a[1];return auxiliary() end
-        if op=='net_asteroid' then assert(MP.UI and MP.UI.show_asteroid_hand_level_up,'Missing asteroid handler');MP.UI.show_asteroid_hand_level_up();return auxiliary() end
-        if G.STATE==G.STATES.ROUND_EVAL then
-            -- Cash-out is never logged; a synthetic event also bypasses keybind
-            -- helpers that suppress the real button after a skipped cash-out.
-            if G.round_eval then call('cash_out',{config={}}) end
-            return pending('cashing out before the next action',G.round_eval~=nil)
-        end
-        local blind_action=op=='select_blind' or op=='skip_blind' or op=='ready_blind'
-        if blind_action and G.STATE==G.STATES.SHOP then call('toggle_shop');return pending('leaving the shop',true) end
-        if blind_action then
-            if G.STATE~=G.STATES.BLIND_SELECT or not G.blind_select then return pending('blind select is not open') end
-            -- Readiness precedes a separate select_blind record; it must not select twice.
-            if op=='ready_blind' then MP.GAME.ready_blind=a[1]=='1';return auxiliary() end
-            local callback=op=='skip_blind' and 'skip_blind' or 'select_blind'
-            local definition=blind_definition()
-            local panel=blind_panel()
-            -- Prefer the on-deck column; without it, match the blind itself so a
-            -- global search cannot press a different column's identical button.
-            local e=panel and button(callback,panel) or nil
-            if not e and definition then e=button(callback,nil,function(node) return node.config.ref_table==definition end) end
-            if not e and not panel then e=button(callback) end
-            if not e and op=='select_blind' then e=button('mp_toggle_ready',panel) end
-            if not e then return pending('no '..callback..' button on the '..tostring((G.GAME or {}).blind_on_deck)..' blind') end
-            -- Ghost games select locally; never send ready messages to a live lobby.
-            if e.config.button=='mp_toggle_ready' then
-                e={config={ref_table=assert(definition,'Unknown blind')},UIBox=e.UIBox}
-            end
-            MP.GAME.ready_blind=false;call(callback,e);if M.ante_key then MP.GAME.ante_key=M.ante_key end;return true
-        end
-        if op=='play' or op=='discard' then
-            if G.STATE~=G.STATES.SELECTING_HAND then return pending('not selecting a hand yet') end
-            select_cards(a[1]);return call(op=='play' and 'play_cards_from_highlighted' or 'discard_cards_from_highlighted',nil,op=='play' and 'can_play' or 'can_discard')
-        end
-        if op=='reroll' then if G.STATE~=G.STATES.SHOP then return pending('the shop is not open') end;return call('reroll_shop',nil,'can_reroll') end
-        if op=='pack_skip' then local e=button('skip_booster');if not e then return pending('no booster skip button') end;return call('skip_booster',e) end
-        if op=='reorder' then
-            local area=G[names[tonumber(a[1])]];local list=cards_of(area)
-            if not list then return pending(tostring(names[tonumber(a[1])])..' does not exist yet') end
-            local order=parser.indices(a[2]);assert(#order==#list,'Reorder card count differs')
-            local before={};for i,c in ipairs(list) do before[i]=c end
-            for i,j in ipairs(order) do assert(before[j],'Invalid reorder position');list[i]=before[j] end
-            if area.align_cards then area:align_cards() end
-            local event=recorder.capture('reorder');assert(event,'Recorder unavailable');event.area=names[tonumber(a[1])];event.order=JSON.array(order);event.cards=recorder.area(area);recorder.record(event)
-            return true
-        end
-        local card
-        if op=='use' then
-            local slot=tonumber(a[1])
-            local candidates={}
-            for _,area in ipairs({'consumeables','shop_booster','shop_vouchers','shop_jokers'}) do
-                local open=(area=='consumeables' or G.STATE==G.STATES.SHOP) and (not a[2] or G.hand)
-                -- Prefer wherever the logged card actually is over the slot it
-                -- used to be in; the areas are searched in the same order either
-                -- way, so a named card settles the area as well as the index.
-                local index=open and locate(G[area],action.name)
-                local c=open and card_at(G[area],index or slot)
-                if c then
-                    if index then relocated(op,slot,index);card=c;break end
-                    candidates[#candidates+1]={area=area,card=c}
-                end
-            end
-            if card then candidates={} end
-            if #candidates==1 then card=candidates[1].card
-            elseif #candidates>1 then
-                -- The area worked out before playback wins; otherwise let the
-                -- game rule out what it would refuse, then take the commonest
-                -- meaning of a bare use slot.
-                for _,entry in ipairs(candidates) do if entry.area==action.area then card=entry.card;break end end
-                if not card then
-                    local allowed={}
-                    for _,entry in ipairs(candidates) do if accepts(entry.card) then allowed[#allowed+1]=entry end end
-                    if #allowed==0 then allowed=candidates end
-                    for _,area in ipairs({'consumeables','shop_vouchers','shop_booster','shop_jokers'}) do
-                        for _,entry in ipairs(allowed) do if entry.area==area then card=entry.card;break end end
-                        if card then break end
-                    end
-                end
-            end
-        elseif op=='pack_pick' then
-            local slot=tonumber(a[1])
-            local index=locate(G.pack_cards,action.name)
-            relocated(op,slot,index)
-            card=card_at(G.pack_cards,index or slot)
+    handlers.pack_pick = function(entry)
+        if not in_pack() or not cards_of(G.pack_cards) then return 'wait', 'no booster pack is open (' .. state_name() .. ')' end
+        local slot = tonumber(entry.args[1])
+        local list = cards_of(G.pack_cards)
+        if not list[slot] then return 'wait', 'the pack shows ' .. #list .. ' card(s), the log picks slot ' .. slot end
+        local card, why = card_at('pack_cards', slot, log.expectation(entry).name)
+        if not card then error(why) end
+        local ok, reason = use_card(card, check_for(card), entry.args[2])
+        if not ok then error(reason) end
+        return 'done'
+    end
+
+    handlers.pack_skip = function()
+        if not in_pack() or not cards_of(G.pack_cards) then return 'wait', 'no booster pack is open (' .. state_name() .. ')' end
+        local e, button = probe('can_skip_booster', nil)
+        if button ~= 'skip_booster' then return 'wait', 'the pack cannot be skipped yet' end
+        G.FUNCS.skip_booster(e)
+        return 'done'
+    end
+
+    -- Sorted copy of a list using the game's own comparator, so a logged
+    -- permutation that equals a sort result is treated as the sort button.
+    local function sorted_like(list, method)
+        local copy = {}
+        for i, card in ipairs(list) do copy[i] = card end
+        if method == 'suit desc' then
+            table.sort(copy, function(a, b) return a:get_nominal('suit') > b:get_nominal('suit') end)
         else
-            local area,slot=G[names[tonumber(a[1])]],tonumber(a[2])
-            local index=locate(area,action.name)
-            relocated(op,slot,index)
-            card=card_at(area,index or slot)
+            table.sort(copy, function(a, b) return a:get_nominal() > b:get_nominal() end)
         end
-        if not card then return pending('no card in '..(op=='pack_pick' and 'pack_cards' or op=='use' and 'any use area' or tostring(names[tonumber(a[1])]))..' slot '..tostring(op=='use' and a[1] or op=='pack_pick' and a[1] or a[2])) end
-        if op=='sell' then assert(not card.can_sell_card or card:can_sell_card(),'Game rejected sell');assert(card:sell_card()~=false,'Game rejected sell');return true end
-        local set=(card.ability or {}).set
-        -- Multiplayer gives shop packs and vouchers their own opcodes, but the
-        -- game itself redeems both through use_card, as the shop buttons do.
-        if op=='buy' or ((op=='open_pack' or op=='voucher') and set~='Booster' and set~='Voucher') then
-            return call('buy_from_shop',{config={ref_table=card,id='buy'}},'can_buy')
-        end
-        if not select_cards(a[2] and (op=='use' or op=='pack_pick') and a[2] or nil) then return pending('the hand is not dealt yet') end
-        return call('use_card',{config={ref_table=card}},check_name(card,op))
+        return copy
     end
+    local function same_order(a, b)
+        if #a ~= #b then return false end
+        for i = 1, #a do if a[i] ~= b[i] then return false end end
+        return true
+    end
+
+    handlers.reorder = function(entry)
+        local area_name = areas[tonumber(entry.args[1])]
+        local area = G[area_name]
+        local list = cards_of(area)
+        if not list then return 'wait', tostring(area_name) .. ' is not open' end
+        local order = log.indices(entry.args[2])
+        if #order ~= #list then
+            return 'wait', area_name .. ' holds ' .. #list .. ' card(s), the log reorders ' .. #order
+        end
+        local before, after = {}, {}
+        for i, card in ipairs(list) do before[i] = card end
+        for i, j in ipairs(order) do
+            if not before[j] then error('reorder names position ' .. j .. ' of ' .. #before) end
+            after[i] = before[j]
+        end
+        -- The hand's sort buttons leave the same permutation as a drag would,
+        -- but they also change how every later draw is sorted.
+        if area == G.hand and list[1] and list[1].get_nominal then
+            for _, method in ipairs({'suit desc', 'desc'}) do
+                if same_order(after, sorted_like(list, method)) then
+                    area:sort(method)
+                    return 'done'
+                end
+            end
+        end
+        for i, card in ipairs(after) do list[i] = card end
+        if area.set_ranks then area:set_ranks() end
+        if area.align_cards then area:align_cards() end
+        return 'done'
+    end
+
+    local function blind_action(entry, name, expected_key)
+        if state_is('ROUND_EVAL') then return leave_round_eval() end
+        if state_is('SHOP') then return leave_shop() end
+        if not state_is('BLIND_SELECT') or not G.blind_select then return 'wait', 'blind select is not open (' .. state_name() .. ')' end
+        local node, why = blind_button(name)
+        if not node then
+            if name == 'select_blind' and select(1, blind_button('mp_toggle_ready')) then
+                error('this blind needs Ready first, but the log selects it directly')
+            end
+            return 'wait', why
+        end
+        if expected_key then
+            local key = (node.config.ref_table or {}).key
+            if key ~= expected_key then error('the ' .. tostring(G.GAME.blind_on_deck) .. ' blind is ' .. tostring(key) .. ', the log chose ' .. expected_key) end
+        end
+        G.FUNCS[name](node)
+        return 'done'
+    end
+
+    handlers.select_blind = function(entry) return blind_action(entry, 'select_blind', log.expectation(entry).blind) end
+    handlers.skip_blind = function(entry) return blind_action(entry, 'skip_blind') end
+
+    handlers.ready_blind = function(entry)
+        if state_is('ROUND_EVAL') then return leave_round_eval() end
+        if state_is('SHOP') then return leave_shop() end
+        if not state_is('BLIND_SELECT') or not G.blind_select then return 'wait', 'blind select is not open (' .. state_name() .. ')' end
+        local node, why = blind_button('mp_toggle_ready')
+        if not node then return 'wait', why end
+        local ready = entry.args[1] == '1'
+        if (MP.GAME.ready_blind and true or false) == ready then
+            error('the player is already ' .. (ready and 'ready' or 'not ready'))
+        end
+        G.FUNCS.mp_toggle_ready(node)
+        return 'done'
+    end
+
+    -- Perform one input. Returns 'done' or 'wait', reason.
+    function M.perform(entry)
+        local handler = handlers[entry.op]
+        if not handler then error('the replay cannot perform ' .. tostring(entry.op)) end
+        return handler(entry)
+    end
+
+    -- A signature of everything an input could be waiting on. The session
+    -- acts only after it has held still for a moment.
+    function M.signature()
+        local parts = {tostring(G.STATE), tostring((G.GAME or {}).dollars), tostring(((G.GAME or {}).round_resets or {}).ante),
+            tostring((G.GAME or {}).blind_on_deck), tostring(MP and MP.GAME and MP.GAME.lives), tostring(G.blind_select ~= nil), tostring(G.round_eval ~= nil)}
+        for _, name in ipairs(areas) do
+            local list = cards_of(G[name])
+            parts[#parts + 1] = list and tostring(#list) or '-'
+        end
+        return table.concat(parts, '|')
+    end
+
     return M
 end

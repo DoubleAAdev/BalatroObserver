@@ -1,182 +1,231 @@
--- Button lookup must match how Balatro builds UI: a UIBox keeps its elements on
--- UIRoot (never in children) and embeds other boxes as config.object.
-local JSON=dofile('mod/json.lua')
-local parser=dofile('replayer/parser.lua')(function() return {} end)
-local files,now={},0
-love={timer={getTime=function()return now end},filesystem={createDirectory=function()return true end,
-    write=function(p,t)files[p]=t;return true end,append=function(p,t)files[p]=(files[p] or '')..t;return true end}}
+-- Run from the repository root: python scripts/run-lua-tests.py tests/test_replayer_driver.lua
+local log = dofile('replayer/log.lua')(function() return {} end)
+local driver = dofile('replayer/driver.lua')(log)
 
-local function element(config,children) return {config=config or {},children=children or {}} end
-local function uibox(root) local box={config={},children={},UIRoot=root};root.parent=box;return box end
-
-G={STAGES={RUN=1},STAGE=1,STATE_COMPLETE=true,SETTINGS={},FUNCS={},CONTROLLER={locks={}},
-    STATES={SELECTING_HAND=1,SHOP=2,ROUND_EVAL=3,BLIND_SELECT=4},STATE=4,
-    P_BLINDS={bl_small={key='bl_small'},bl_big={key='bl_big'},bl_boss={key='bl_boss'}},
-    GAME={current_round={},blind_on_deck='Small',round_resets={blind_choices={Small='bl_small',Big='bl_big',Boss='bl_boss'},blind_tags={}}},
-    I={UIBOX={}}}
-Card={}
-MP={GAME={}}
-
--- Every blind column carries its own select/skip button, so an unscoped search
--- can press the wrong blind; the boss column is listed first on purpose.
-local panels,selects={},{}
-for _,slot in ipairs({'Boss','Big','Small'}) do
-    local key=({Boss='bl_boss',Big='bl_big',Small='bl_small'})[slot]
-    local select_node=element({id='select_blind_button',button='select_blind',ref_table=G.P_BLINDS[key]})
-    local skip_node=element({button='skip_blind',ref_table={slot=slot}})
-    local box=uibox(element({},{element({},{select_node}),element({},{skip_node})}))
-    panels[slot:lower()]=box;selects[slot]=select_node
-    G.I.UIBOX[#G.I.UIBOX+1]=box
+local function card(name, set, extra)
+    local c = {ability = {name = name, set = set, consumeable = set == 'Tarot' or set == 'Planet' or set == 'Spectral' or nil,
+        card_limit = 0, extra_slots_used = 0}, config = {center = {key = name}}, cost = 3, states = {drag = {is = false}}}
+    for k, v in pairs(extra or {}) do c[k] = v end
+    return c
 end
-G.blind_select_opts=panels
--- The parent box reaches each column through config.object, like the real one.
-G.blind_select=uibox(element({},{element({object=panels.small}),element({object=panels.big}),element({object=panels.boss})}))
-G.I.UIBOX[#G.I.UIBOX+1]=G.blind_select
+local function playing(rank, suit)
+    local c = card('Default Base', 'Default')
+    c.base = {value = rank, suit = suit}
+    local ranks = {['2'] = 2, ['3'] = 3, ['7'] = 7, ['9'] = 9, Ace = 14}
+    local suits = {Spades = 4, Hearts = 3, Clubs = 2, Diamonds = 1}
+    c.get_nominal = function(self, kind)
+        if kind == 'suit' then return suits[suit] * 100 + ranks[rank] end
+        return ranks[rank] * 10 + suits[suit]
+    end
+    return c
+end
+local function area(cards, kind)
+    local a = {cards = cards, highlighted = {}, config = {type = kind or 'hand', card_limit = 5, highlighted_limit = 5, sort = 'desc'}}
+    function a:unhighlight_all()
+        for i = #self.highlighted, 1, -1 do
+            if not self.highlighted[i].ability.forced_selection then table.remove(self.highlighted, i) end
+        end
+    end
+    function a:add_to_highlighted(c) if #self.highlighted < self.config.highlighted_limit then self.highlighted[#self.highlighted + 1] = c end end
+    function a:set_ranks() self.ranked = true end
+    function a:align_cards() self.aligned = true end
+    function a:sort(method) self.config.sort = method; self.sorted = method end
+    return a
+end
+local calls = {}
+local function record(name) return function(e) calls[#calls + 1] = {name, e} end end
+G = {STATES = {SELECTING_HAND = 1, HAND_PLAYED = 2, SHOP = 5, BLIND_SELECT = 7, ROUND_EVAL = 8, SMODS_BOOSTER_OPENED = 999, GAME_OVER = 4},
+    STATE = 1, GAME = {dollars = 10, current_round = {reroll_cost = 5}, round_resets = {ante = 1}, blind_on_deck = 'Small'},
+    FUNCS = {}, CONTROLLER = {locks = {}}}
+MP = {GAME = {ready_blind = false}}
+local ace, king, seven, nine, two = playing('Ace', 'Spades'), playing('9', 'Hearts'), playing('7', 'Clubs'), playing('9', 'Spades'), playing('2', 'Diamonds')
+G.hand = area({ace, king, seven, nine, two})
+G.jokers = area({card('Blueprint', 'Joker'), card('Misprint', 'Joker')}, 'joker')
+G.consumeables = area({card('The Fool', 'Tarot'), card('Mars', 'Planet')}, 'joker')
+G.consumeables.config.card_limit = 2
+G.jokers.config.card_limit = 5
+for _, name in ipairs({'can_play', 'can_discard', 'can_reroll'}) do
+    G.FUNCS[name] = function(e) e.config.button = ({can_play = 'play_cards_from_highlighted', can_discard = 'discard_cards_from_highlighted', can_reroll = 'reroll_shop'})[name] end
+end
+G.FUNCS.can_buy = function(e) e.config.button = e.config.ref_table.cost <= G.GAME.dollars and 'buy_from_shop' or nil end
+G.FUNCS.can_buy_and_use = G.FUNCS.can_buy
+G.FUNCS.can_open = function(e) if MP.GAME.ready_blind then e.config.button = nil else e.config.button = 'use_card' end end
+G.FUNCS.can_redeem = function(e) e.config.button = 'use_card' end
+G.FUNCS.can_use_consumeable = function(e) e.config.button = 'use_card' end
+G.FUNCS.can_select_card = function(e) e.config.button = 'use_card' end
+G.FUNCS.can_skip_booster = function(e) e.config.button = G.pack_cards and 'skip_booster' or nil end
+for _, name in ipairs({'play_cards_from_highlighted', 'discard_cards_from_highlighted', 'buy_from_shop', 'use_card', 'reroll_shop',
+    'skip_booster', 'sell_card', 'cash_out', 'toggle_shop', 'select_blind', 'skip_blind', 'mp_toggle_ready'}) do
+    G.FUNCS[name] = record(name)
+end
+local function last() return calls[#calls] and calls[#calls][1], calls[#calls] and calls[#calls][2] end
+local function entry(op, args, human) return {kind = 'action', op = op, args = args, text = op, human = human} end
+local function fails(fn, pattern)
+    local ok, err = pcall(fn)
+    assert(not ok, 'expected a failure matching ' .. pattern)
+    assert(tostring(err):find(pattern), 'unexpected failure: ' .. tostring(err))
+end
 
-local rec=dofile('action-recorder/mod/recorder.lua')(JSON,'test')
-local hooks=dofile('action-recorder/mod/hooks.lua')(rec,JSON)
-local chosen,skipped,cashed,packs=nil,nil,0,0
-G.FUNCS.select_blind=function(e) chosen=e.config.ref_table.key end
-G.FUNCS.skip_blind=function(e) skipped=e.config.ref_table.slot end
-G.FUNCS.cash_out=function(e) cashed=cashed+1;e.config.button=nil end
-G.FUNCS.skip_booster=function() packs=packs+1 end
-local used,bought=nil,nil
-G.FUNCS.use_card=function(e) used=e.config.ref_table end
-G.FUNCS.buy_from_shop=function(e) bought=e.config.ref_table end
-hooks.install();rec.begin(false)
-local driver=dofile('replayer/driver.lua')(parser,rec,JSON)
+-- play / discard select exactly the logged slots, then press the real button.
+assert(driver.perform(entry('play', {'1.3.5'})) == 'done' and last() == 'play_cards_from_highlighted')
+assert(#G.hand.highlighted == 3 and G.hand.highlighted[1] == ace and G.hand.highlighted[3] == two)
+assert(driver.perform(entry('discard', {'2'})) == 'done' and last() == 'discard_cards_from_highlighted' and G.hand.highlighted[1] == king and #G.hand.highlighted == 1)
+fails(function() driver.perform(entry('play', {'9'})) end, 'log selects slot 9')
+ace.ability.forced_selection = true
+G.hand.highlighted = {ace}
+assert(driver.perform(entry('play', {'1.2'})) == 'done' and #G.hand.highlighted == 2, 'a forced card is kept, not doubled')
+fails(function() driver.perform(entry('play', {'2.3'})) end, 'keeps a card selected')
+ace.ability.forced_selection = nil
+G.hand.highlighted = {}
+G.FUNCS.can_play = function(e) e.config.button = nil end
+fails(function() driver.perform(entry('play', {'1'})) end, 'refuses to play')
+G.FUNCS.can_play = function(e) e.config.button = 'play_cards_from_highlighted' end
 
--- The whole tree is reachable only through UIRoot; children alone find nothing.
-assert(driver.button('select_blind'),'select_blind button must be reachable from a UIBox')
-assert(driver.button('select_blind',G.blind_select),'nested boxes must be reached through config.object')
-assert(driver.button('select_blind',panels.small)==selects.Small)
-assert(not driver.button('select_blind',element({})),'a bare element holds no buttons')
+-- Transitions the log never records.
+G.STATE = G.STATES.ROUND_EVAL
+G.round_eval = {}
+local status, why = driver.perform(entry('play', {'1'}))
+assert(status == 'wait' and why == 'cashing out' and last() == 'cash_out')
+G.round_eval = nil
+G.STATE = G.STATES.SHOP
+status, why = driver.perform(entry('play', {'1'}))
+assert(status == 'wait' and why:find('not selecting a hand') and last() ~= 'play_cards_from_highlighted')
 
-assert(driver.step({op='select_blind',args={'0'}}))
-assert(chosen=='bl_small','the on-deck blind decides which column is pressed, not UIBox order')
-assert(files[rec.path]:find('"key":"bl_small"'))
-assert(MP.GAME.ready_blind==false)
+-- buy: the slot must hold the named card at the logged price.
+G.shop_jokers = area({card('Square Joker', 'Joker', {cost = 4}), card('Mail-In Rebate', 'Joker', {cost = 4})}, 'shop')
+G.shop_booster = area({card('Buffoon Pack', 'Booster', {cost = 4})}, 'shop')
+G.shop_vouchers = area({card('Overstock', 'Voucher', {cost = 10})}, 'shop')
+fails(function() driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4')) end, 'slot 1 holds Square Joker, log says Mail%-In Rebate')
+fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:7')) end, 'costs %$4, the log paid %$7')
+fails(function() driver.perform(entry('buy', {'1', '3'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4')) end, 'has 2 card%(s%), no slot 3')
+assert(driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4')) == 'done')
+local name, e = last()
+assert(name == 'buy_from_shop' and e.config.ref_table == G.shop_jokers.cards[2] and e.config.id == 'buy')
+G.GAME.dollars = 1
+fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4')) end, 'not enough money')
+G.GAME.dollars = 10
+-- A consumable bought with no free slot must have been "Buy & Use".
+G.shop_jokers.cards[1] = card('Temperance', 'Tarot')
+G.shop_jokers.cards[1].can_use_consumeable = function() return true end
+assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:Temperance,cost:3')) == 'done')
+name, e = last()
+assert(name == 'buy_from_shop' and e.config.id == 'buy_and_use')
+G.consumeables.config.card_limit = 3
+assert(driver.perform(entry('buy', {'1', '1'}, 'boughtCardFromShop,card:Temperance,cost:3')) == 'done' and select(2, last()).config.id == 'buy')
+G.jokers.config.card_limit = 2
+fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4')) end, 'no room to buy')
+G.jokers.config.card_limit = 5
+G.FUNCS.buy_from_shop = function() return false end
+fails(function() driver.perform(entry('buy', {'1', '2'}, 'boughtCardFromShop,card:Mail-In Rebate,cost:4')) end, 'rejected buying')
+G.FUNCS.buy_from_shop = record('buy_from_shop')
 
-G.GAME.blind_on_deck='Boss'
-assert(driver.step({op='skip_blind',args={'0'}}) and skipped=='Boss')
+-- use: the mirrored name decides between consumables, shop packs and vouchers.
+assert(driver.perform(entry('use', {'1'}, 'usedCard,card:Buffoon Pack')) == 'done' and select(2, last()).config.ref_table == G.shop_booster.cards[1])
+assert(driver.perform(entry('use', {'1'}, 'usedCard,card:Overstock')) == 'done' and select(2, last()).config.ref_table == G.shop_vouchers.cards[1])
+assert(driver.perform(entry('use', {'2'}, 'usedCard,card:Mars')) == 'done' and select(2, last()).config.ref_table == G.consumeables.cards[2])
+fails(function() driver.perform(entry('use', {'1'}, 'usedCard,card:Mars')) end, 'no Mars to use: consumeables slot 1 holds The Fool; shop_booster slot 1 holds Buffoon Pack; shop_vouchers slot 1 holds Overstock')
+fails(function() driver.perform(entry('use', {'1'})) end, 'does not name the card')
+MP.GAME.ready_blind = true
+fails(function() driver.perform(entry('use', {'1'}, 'usedCard,card:Buffoon Pack')) end, 'refuses to use Buffoon Pack')
+MP.GAME.ready_blind = false
+G.STATE = G.STATES.SELECTING_HAND
+G.hand.highlighted = {king}
+assert(driver.perform(entry('use', {'1', '2.3'}, 'usedCard,card:The Fool')) == 'done')
+assert(#G.hand.highlighted == 2 and G.hand.highlighted[1] == king and G.hand.highlighted[2] == seven, 'targets are selected before the consumable is used')
+assert(driver.perform(entry('use', {'2'}, 'usedCard,card:Mars')) == 'done' and #G.hand.highlighted == 0, 'no targets means nothing selected')
+G.STATE = G.STATES.ROUND_EVAL
+G.round_eval = {}
+status, why = driver.perform(entry('use', {'1'}, 'usedCard,card:Buffoon Pack'))
+assert(status == 'wait' and why == 'cashing out', 'a shop item named during cash out means the shop comes next')
+assert(driver.perform(entry('use', {'1'}, 'usedCard,card:The Fool')) == 'done', 'a consumable can be used while cashing out')
+G.round_eval = nil
 
--- A missing column falls back to the blind the manifest is on.
-G.blind_select_opts=nil
-chosen=nil;G.GAME.blind_on_deck='Big'
-assert(driver.step({op='select_blind',args={'0'}}) and chosen=='bl_big')
+-- pack_pick waits for the pack, then checks the card.
+G.STATE = G.STATES.SHOP
+status, why = driver.perform(entry('pack_pick', {'1'}, 'usedCard,card:Splash'))
+assert(status == 'wait' and why:find('no booster pack is open'))
+G.STATE = G.STATES.SMODS_BOOSTER_OPENED
+G.pack_cards = area({card('Splash', 'Joker')}, 'shop')
+status, why = driver.perform(entry('pack_pick', {'2'}, 'usedCard,card:Runner'))
+assert(status == 'wait' and why:find('shows 1 card'))
+G.pack_cards.cards[2] = card('Runner', 'Joker')
+fails(function() driver.perform(entry('pack_pick', {'2'}, 'usedCard,card:Splash')) end, 'slot 2 holds Runner, log says Splash')
+assert(driver.perform(entry('pack_pick', {'2'}, 'usedCard,card:Runner')) == 'done' and select(2, last()).config.ref_table == G.pack_cards.cards[2])
+assert(driver.perform(entry('pack_skip', {'0'})) == 'done' and last() == 'skip_booster')
+G.pack_cards = nil
+status = driver.perform(entry('pack_skip', {'0'}))
+assert(status == 'wait')
 
--- Booster skip: the button sits inside a box nested two levels deep.
-local skip_pack=element({button='skip_booster'})
-local inner=uibox(element({},{skip_pack}))
-G.I.UIBOX={uibox(element({},{element({object=inner})}))}
-G.STATE=1
-assert(driver.step({op='pack_skip',args={'0'}}) and packs==1)
+-- sell checks the name and the game's own permission.
+G.STATE = G.STATES.SHOP
+local sold = card('Misprint', 'Joker')
+G.jokers.cards[2] = sold
+sold.can_sell_card = function() return false end
+status, why = driver.perform(entry('sell', {'4', '2'}, 'soldCard,card:Misprint'))
+assert(status == 'wait' and why:find('does not allow selling'))
+sold.can_sell_card = function() return true end
+assert(driver.perform(entry('sell', {'4', '2'}, 'soldCard,card:Misprint')) == 'done' and select(2, last()).config.ref_table == sold)
+fails(function() driver.perform(entry('sell', {'5', '1'}, 'soldCard,card:Mars')) end, 'holds The Fool, log says Mars')
+fails(function() driver.perform(entry('sell', {'1', '1'}, 'soldCard,card:Mars')) end, 'not possible')
 
--- Cash-out is inferred, never logged, and must not depend on a live button node.
-G.STATE=3;G.round_eval={};G.I.UIBOX={}
-assert(driver.step({op='play',args={'1'}})==false and cashed==1)
-G.round_eval=nil
-assert(driver.step({op='play',args={'1'}})==false and cashed==1)
+-- reroll must cost what the log paid.
+fails(function() driver.perform(entry('reroll', {}, 'rerollShop,cost:6')) end, 'costs %$5, the log paid %$6')
+assert(driver.perform(entry('reroll', {}, 'rerollShop,cost:5')) == 'done' and last() == 'reroll_shop')
 
--- A cycle through config.object must not trap the search.
-local loop=element({});loop.config.object={UIRoot=loop}
-assert(driver.button('nothing',loop)==nil)
+-- reorder: joker drags permute in place, hand sorts are detected.
+G.jokers.cards = {card('A', 'Joker'), card('B', 'Joker'), card('C', 'Joker')}
+local a, b, c = G.jokers.cards[1], G.jokers.cards[2], G.jokers.cards[3]
+assert(driver.perform(entry('reorder', {'4', '3.1.2'})) == 'done')
+assert(G.jokers.cards[1] == c and G.jokers.cards[2] == a and G.jokers.cards[3] == b and G.jokers.ranked and G.jokers.aligned)
+status, why = driver.perform(entry('reorder', {'4', '1.2'}))
+assert(status == 'wait' and why:find('holds 3 card%(s%), the log reorders 2'))
+G.STATE = G.STATES.SELECTING_HAND
+G.hand.cards = {ace, king, seven, nine, two}
+-- Sorted by suit: Spades (Ace, 9), Hearts 9, Clubs 7, Diamonds 2 -> 1.4.2.3.5
+assert(driver.perform(entry('reorder', {'6', '1.4.2.3.5'})) == 'done' and G.hand.sorted == 'suit desc', 'a suit sort is applied as the sort button')
+G.hand.cards = {ace, king, seven, nine, two}
+G.hand.sorted = nil
+assert(driver.perform(entry('reorder', {'6', '5.1.2.3.4'})) == 'done' and G.hand.sorted == nil and G.hand.cards[1] == two and G.hand.cards[2] == ace)
 
--- A refusal names the missing precondition, so a stall is self-explaining.
-G.STATE=4;G.blind_select=nil
-assert(driver.step({op='select_blind',args={'0'}})==false)
-assert(driver.pending=='blind select is not open',driver.pending)
-G.blind_select={};G.GAME.blind_on_deck='Small';G.I.UIBOX={}
-assert(driver.step({op='select_blind',args={'0'}})==false)
-assert(driver.pending:find('select_blind button on the Small blind'),driver.pending)
-G.STATE=2;G.shop_jokers={cards={}}
-assert(driver.step({op='buy',args={'1','2'}})==false)
-assert(driver.pending=='no card in shop_jokers slot 2',driver.pending)
--- A completed action clears the reason it was previously waiting on.
-G.STATE=4;G.blind_select={};G.blind_select_opts=panels;G.I.UIBOX={panels.small}
-assert(driver.step({op='select_blind',args={'0'}}) and driver.pending==nil)
+-- Blind panels: the on-deck column's own button, reached through nested boxes.
+local function element(config, children) return {config = config or {}, children = children or {}} end
+local function uibox(root) local box = {config = {}, children = {}, UIRoot = root}; return box end
+local panels, selects, skips = {}, {}, {}
+for _, slot in ipairs({'Boss', 'Big', 'Small'}) do
+    local key = ({Boss = 'bl_boss', Big = 'bl_big', Small = 'bl_small'})[slot]
+    selects[slot] = element({id = 'select_blind_button', button = 'select_blind', ref_table = {key = key}})
+    skips[slot] = element({button = 'skip_blind', ref_table = {slot = slot}})
+    local inner = uibox(element({}, {element({}, {selects[slot]}), element({}, {skips[slot]})}))
+    panels[slot:lower()] = uibox(element({}, {element({object = inner})}))
+end
+G.blind_select_opts = panels
+G.STATE = G.STATES.SHOP
+status, why = driver.perform(entry('select_blind', {'0'}, 'selectBlind,blind:bl_small'))
+assert(status == 'wait' and why == 'leaving the shop' and last() == 'toggle_shop')
+G.STATE = G.STATES.BLIND_SELECT
+status, why = driver.perform(entry('select_blind', {'0'}, 'selectBlind,blind:bl_small'))
+assert(status == 'wait' and why:find('blind select is not open'))
+G.blind_select = {}
+fails(function() driver.perform(entry('select_blind', {'0'}, 'selectBlind,blind:bl_big')) end, 'Small blind is bl_small, the log chose bl_big')
+assert(driver.perform(entry('select_blind', {'0'}, 'selectBlind,blind:bl_small')) == 'done' and select(2, last()) == selects.Small)
+G.GAME.blind_on_deck = 'Boss'
+assert(driver.perform(entry('skip_blind', {'0'})) == 'done' and select(2, last()) == skips.Boss)
+-- A PvP blind carries the Ready toggle instead of Select.
+selects.Boss.config.button = 'mp_toggle_ready'
+fails(function() driver.perform(entry('select_blind', {'0'}, 'selectBlind,blind:bl_mp_nemesis')) end, 'needs Ready first')
+assert(driver.perform(entry('ready_blind', {'1'})) == 'done' and select(2, last()) == selects.Boss)
+MP.GAME.ready_blind = true
+fails(function() driver.perform(entry('ready_blind', {'1'})) end, 'already ready')
+assert(driver.perform(entry('ready_blind', {'0'})) == 'done')
+G.GAME.blind_on_deck = 'Big'
+status, why = driver.perform(entry('ready_blind', {'1'}))
+assert(status == 'wait' and why:find('no mp_toggle_ready button on the Big blind'))
+fails(function() driver.perform(entry('open_pack', {'1', '1'})) end, 'cannot perform open_pack')
 
--- `use` logs a slot but no area. When the run's contents have drifted off the
--- log, the kind of card the log names still resolves the area.
-local function card(rank) return {facing='front',base={value=rank,suit='Spades'},config={center={key='c_base'}},ability={set='Default'},states={drag={is=false}}} end
-local function shop_card(name,set) return {facing='front',config={center={key='x'}},ability={name=name,set=set},base={},states={drag={is=false}}} end
-G.STATE=2
-G.consumeables={cards={shop_card('The Fool','Tarot')}}
-G.shop_booster={cards={shop_card('Arcana Pack','Booster')}}
-G.shop_vouchers={cards={shop_card('Overstock','Voucher')}}
-G.shop_jokers={cards={shop_card('Blueprint','Joker')}}
-
--- Resolution happens over the whole stream before playback: a use answered by a
--- pack action opened the booster shelf, and a use carrying hand targets is a
--- consumable. Actions that can happen with a pack open do not break the pairing.
-local resolved=driver.resolve({
-    {n=1,op='use',args={'1'}},{n=2,op='reorder',args={'4','2.1'}},{n=3,op='pack_skip',args={'0'}},
-    {n=4,op='use',args={'1','2.3'}},{n=5,op='use',args={'1'}},{n=6,op='reroll',args={}}})
-assert(resolved[1].area=='shop_booster','a pack action after a use means a booster was opened')
-assert(resolved[4].area=='consumeables','hand targets mean a consumable')
-assert(resolved[5].area==nil,'nothing in the stream settles this one')
-assert(driver.step(resolved[1]) and used==G.shop_booster.cards[1])
-
--- With nothing resolved, the game rules out what it would refuse right now.
-G.FUNCS.can_use_consumeable=function(e) e.config.button=nil end
-G.FUNCS.can_redeem=function(e) e.config.button='use_card' end
-G.FUNCS.can_open=function(e) e.config.button=nil end
-assert(driver.step(resolved[5]) and used==G.shop_vouchers.cards[1],'only the voucher was acceptable')
--- When the game would take either, a bare slot means the consumable.
-G.FUNCS.can_use_consumeable=function(e) e.config.button='use_card' end
-assert(driver.step({op='use',args={'1'}}) and used==G.consumeables.cards[1])
--- A slot only one area has is never ambiguous in the first place.
-G.consumeables={cards={}};G.shop_vouchers={cards={}};G.shop_jokers={cards={}}
-G.FUNCS.can_open=function(e) e.config.button='use_card' end
-assert(driver.step({op='use',args={'1'}}) and used==G.shop_booster.cards[1])
-
--- The point of the mirrored name: a drifted shop still holds the card the run
--- bought, one slot over, and the log's slot must not win over the card itself.
-G.STATE=2
-G.shop_jokers={cards={shop_card('Square Joker','Joker'),shop_card('Mail-In Rebate','Joker')}}
-G.consumeables={cards={}};G.shop_vouchers={cards={}};G.shop_booster={cards={}}
-driver.moved=0
-assert(driver.step({op='buy',args={'1','1'},name='Mail-In Rebate'}))
-assert(bought==G.shop_jokers.cards[2],'the named card wins over the logged slot')
-assert(driver.moved==1 and driver.movement=='buy found at slot 2, log said 1',tostring(driver.movement))
--- A card sitting where the log said is not reported as moved.
-assert(driver.step({op='buy',args={'1','1'},name='Square Joker'}) and bought==G.shop_jokers.cards[1])
-assert(driver.moved==1)
--- Modded cards are logged by centre key, and match on that too.
-G.shop_jokers={cards={shop_card('Blueprint','Joker'),shop_card('Hanging Chad','Joker')}}
-G.shop_jokers.cards[2].config.center.key='j_mp_hanging_chad'
-assert(driver.step({op='buy',args={'1','1'},name='j_mp_hanging_chad'}) and bought==G.shop_jokers.cards[2])
--- A name the run no longer holds falls back to the logged slot rather than
--- skipping the purchase entirely.
-assert(driver.step({op='buy',args={'1','2'},name='Gone Forever'}) and bought==G.shop_jokers.cards[2])
--- Two copies are ambiguous, so the slot decides.
-G.shop_jokers={cards={shop_card('Splash','Joker'),shop_card('Splash','Joker')}}
-assert(driver.step({op='buy',args={'1','1'},name='Splash'}) and bought==G.shop_jokers.cards[1])
--- A use finds its card in whichever area now holds it.
-G.shop_booster={cards={shop_card('Arcana Pack','Booster'),shop_card('Buffoon Pack','Booster')}}
-G.consumeables={cards={shop_card('The Fool','Tarot')}}
-G.FUNCS.can_open=function(e) e.config.button='use_card' end
-assert(driver.step({op='use',args={'1'},name='Buffoon Pack'}) and used==G.shop_booster.cards[2])
-
--- Closing the shop or a pack leaves the CardArea in G with cards set to nil,
--- exactly as CardArea:remove does; scanning it must not crash.
-G.consumeables={cards={shop_card('The Fool','Tarot')}}
-G.shop_booster.cards=nil;G.shop_vouchers={cards=nil};G.shop_jokers.cards=nil;G.pack_cards={cards=nil}
-G.STATE=1
-assert(driver.step({op='use',args={'1'}}) and used==G.consumeables.cards[1])
-assert(driver.step({op='pack_pick',args={'1'}})==false and driver.pending=='no card in pack_cards slot 1')
-assert(driver.step({op='buy',args={'1','1'}})==false)
-G.jokers={cards=nil}
-assert(driver.step({op='reorder',args={'4','2.1'}})==false and driver.pending=='jokers does not exist yet')
-
--- A boss blind keeps a forced card highlighted through unhighlight_all; the
--- driver must not add it twice and read that back as a rejected selection.
-local forced=card('Ace')
-G.hand={cards={forced,card('King'),card('Queen')},highlighted={}}
-function G.hand:unhighlight_all() self.highlighted={forced} end
-function G.hand:add_to_highlighted(c) table.insert(self.highlighted,c) end
-G.STATE=1;G.FUNCS.play_cards_from_highlighted=function() end
-assert(driver.step({op='play',args={'1.2'}}))
-assert(#G.hand.highlighted==2,'a forced card is kept, not duplicated')
-
-print('PASS: UIRoot traversal, nested boxes, on-deck blind scoping, booster skip, inferred cash-out, cycle safety, named waiting reasons, positional use resolution, locating logged cards in the live game, removed card areas and forced selections')
+-- The settle signature changes with anything an input could wait on.
+local before = driver.signature()
+G.GAME.dollars = 11
+assert(driver.signature() ~= before)
+G.shop_jokers.cards = nil
+assert(driver.signature():find('%-'), 'a removed area reads as absent, not as an error')
+print('PASS: selections, transitions, named-card checks, buy and use resolution, packs, sells, rerolls, reorders, blind buttons and readiness')
