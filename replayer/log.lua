@@ -1,17 +1,28 @@
 -- Reads a Lovely log into replayable runs.
 --
--- A Multiplayer game leaves three kinds of lines that matter here:
---   * "MP_RLOG: <seq> <op> <args>"           the player's own inputs, positional
---   * "Client sent message: action:<...>"     the card, cost or blind that input touched
---   * "Client got <action> message: (k: v)"   what the opponent and server sent
--- The first stream is what the replay performs, the second is what every
--- performed input is checked against, and the third is delivered to the game
--- again in the recorded order so that opponent scores, PvP results, asteroids
--- and lives come out exactly as they did in the original game.
+-- The actions are filtered out of the log the way the player's own filter
+-- script does it: every "MP_RLOG:" line that is not a "Client" line, except
+-- set_ante_key. Those actions, in log order, are what a replay executes and
+-- all it executes. set_ante_key is left out because it is not something the
+-- player did: Multiplayer rolls a throwaway key when a blind is selected so
+-- the ante cannot be raised twice at once, and its value changes no card.
+--
+-- Two other kinds of line are kept, neither of them executed:
+--   * "Client sent message: action:<...>"     names the card, cost or blind an
+--     action touched. In the shop "use 1" can mean a consumable, a pack or a
+--     voucher, and Buy and Buy & Use are logged alike; this line and the
+--     money after an action are the only record of which one it was.
+--   * "Client got <action> message: (k: v)"   what the opponent and server
+--     sent. A PvP blind cannot start or end without them, so they are handed
+--     back to Multiplayer where the log has them.
+--
+-- A run ends at its END line. The player's script stops at the first
+-- "LONG DT", but Balatro prints that for any slow frame, before a game as
+-- well as in the middle of one.
 return function(decode)
     local M = {}
 
-    -- Inputs with a positional argument list, and how many tokens each takes.
+    -- Actions with a positional argument list, and how many tokens each takes.
     local arity = {
         play = {1, 1}, discard = {1, 1}, buy = {2, 2}, sell = {2, 2}, reroll = {0, 0},
         use = {1, 2}, pack_pick = {1, 2}, pack_skip = {1, 1}, reorder = {2, 2},
@@ -21,7 +32,7 @@ return function(decode)
         net_phantom_add = {1, 1}, net_phantom_remove = {1, 1},
     }
     M.arity = arity
-    -- Inputs that Multiplayer mirrors with a human-readable line.
+    -- Actions that Multiplayer mirrors with a human-readable line.
     local mirrored = {
         play = true, discard = true, buy = true, sell = true, reroll = true, use = true,
         pack_pick = true, pack_skip = true, reorder = true, select_blind = true, skip_blind = true,
@@ -36,18 +47,6 @@ return function(decode)
         joinedLobby = true, rejoinedLobby = true, lobbyInfo = true, lobbyOptions = true,
         enemyDisconnected = true, enemyReconnected = true, startGame = true, stopGame = true,
     }
-    -- Outbound messages whose payload is a pure function of the run's state.
-    -- They are the only checkpoints a log carries for what the replay cannot
-    -- otherwise see, so each one is compared against what the game sends.
-    -- spentLastShop is deliberately not here. It reports Multiplayer's own
-    -- MP.GAME.spent_total, which does not survive the emulated lobby: every
-    -- shop of a replay reports 0 while the run itself is faithful. Nothing
-    -- reads the value back, so comparing it only buries the real differences.
-    local checkpoints = {
-        playHand = {'score', 'handsLeft'}, setAnte = {'ante'},
-        setFurthestBlind = {'furthestBlind'},
-    }
-    M.checkpoints = checkpoints
     -- Multiplayer prints every value with %s, so types are recovered from the
     -- key: these are numbers in the wire format, everything else stays text
     -- ("score" is a string the mod parses digit by digit, and a username or
@@ -124,26 +123,23 @@ return function(decode)
     end
 
     -- Returns the runs found in the text. Each run holds the manifest, the
-    -- entries to replay in log order (inputs and delivered messages) and the
+    -- entries to replay in log order (actions and delivered messages) and the
     -- lobby names seen before the game started.
     function M.parse(text)
         assert(type(text) == 'string' and #text <= 16 * 1024 * 1024, 'Log exceeds 16 MB')
         local runs, run, lobby, pending, paying, number = {}, nil, nil, nil, nil, 0
-        -- A replay writes its own MP_RLOG stream into the Lovely log, so the
-        -- newest logs in the folder are replays, not games. The session marks
-        -- its own run; the marker can land either side of the manifest.
-        local replayed = false
         for line in (text .. '\n'):gmatch('(.-)\r?\n') do
             number = number + 1
+            -- The filter: an MP_RLOG line that is not a Client line. Matching the
+            -- tag right after the channel name is what keeps Client lines out -
+            -- they carry copies of MP_RLOG text inside their JSON - without
+            -- dropping a manifest whose player happens to be named "Client".
             local payload = line:match('^MP_RLOG: (.*)$') or line:match(':: MULTIPLAYER :: MP_RLOG: (.*)$')
             if payload then
-                if payload == 'REPLAY' then
-                    if run then run.replayed = true else replayed = true end
-                elseif payload:match('^MANIFEST ') then
-                    run = {manifest = parse_manifest(payload:sub(10)), entries = {}, checks = {}, actions = 0, complete = false, lobby = lobby, line = number,
-                        replayed = replayed or nil}
+                if payload:match('^MANIFEST ') then
+                    run = {manifest = parse_manifest(payload:sub(10)), manifest_text = payload:sub(10), entries = {}, actions = 0, seq = 0,
+                        complete = false, lobby = lobby, line = number}
                     runs[#runs + 1] = run
-                    replayed = false
                     pending, paying = nil, nil
                 elseif payload:match('^END ') then
                     assert(run, 'END without a manifest')
@@ -156,25 +152,26 @@ return function(decode)
                     assert(run, 'Action outside a run at line ' .. number)
                     local seq, op, args = payload:match('^(%d+) ([%w_]+)%s*(.-)%s*$')
                     assert(seq, 'Unreadable action at line ' .. number)
-                    assert(tonumber(seq) == run.actions + 1, 'Missing or duplicate action sequence at line ' .. number)
+                    assert(tonumber(seq) == run.seq + 1, 'Missing or duplicate action sequence at line ' .. number)
+                    run.seq = run.seq + 1
                     local tokens = {}
                     for token in args:gmatch('%S+') do tokens[#tokens + 1] = token end
                     validate_action(op, tokens)
-                    run.actions = run.actions + 1
-                    pending = {kind = 'action', seq = tonumber(seq), op = op, args = tokens, money = {},
-                        text = op .. (#tokens > 0 and (' ' .. table.concat(tokens, ' ')) or ''), line = number,
-                        position = #run.entries + 1}
-                    run.entries[#run.entries + 1] = pending
-                    paying = pending
+                    if op ~= 'set_ante_key' then
+                        run.actions = run.actions + 1
+                        pending = {kind = 'action', seq = tonumber(seq), op = op, args = tokens, money = {},
+                            text = op .. (#tokens > 0 and (' ' .. table.concat(tokens, ' ')) or ''), line = number,
+                            position = #run.entries + 1}
+                        run.entries[#run.entries + 1] = pending
+                        paying = pending
+                    end
                 end
             else
                 local human = line:match(':: MULTIPLAYER :: Client sent message: action:(.*)$')
                 if human then
                     -- ease_dollars traces every money change with the same
-                    -- prefix. Those belong to the last input until the next
+                    -- prefix. Those belong to the last action until the next
                     -- one; the mirrored line is the first other line after it.
-                    -- Every dollar the run gained or lost, in the game's own
-                    -- wording, kept with the input that produced it.
                     local amount = human:match('^moneyMoved,amount:(%S+)')
                     if amount then
                         if paying then paying.money[#paying.money + 1] = amount end
@@ -183,14 +180,6 @@ return function(decode)
                         pending = nil
                     end
                 else
-                    local sent = run and line:match(':: MULTIPLAYER :: Client sent message: ({.*})%s*$')
-                    local kind = sent and sent:match('"action":"(%w+)"')
-                    if kind and checkpoints[kind] then
-                        local ok, fields = pcall(decode, sent)
-                        if ok and type(fields) == 'table' then
-                            run.checks[#run.checks + 1] = {action = kind, fields = fields, line = number, after = #run.entries}
-                        end
-                    end
                     local action, rest = line:match(':: MULTIPLAYER :: Client got (%w+) message:%s*(.*)$')
                     if action == 'lobbyInfo' then
                         local fields = M.message_fields(action, rest)
@@ -199,14 +188,14 @@ return function(decode)
                         run.entries[#run.entries + 1] = {kind = 'message', action = action,
                             fields = M.message_fields(action, rest), line = number, position = #run.entries + 1}
                         -- The one opponent effect that moves money must not
-                        -- be read as the effect of the player's last input.
+                        -- be read as the effect of the player's last action.
                         if action == 'letsGoGamblingNemesis' then paying = nil end
                     end
                 end
             end
         end
         assert(#runs > 0, 'No MP_RLOG manifest found in this log')
-        -- An abandoned lobby leaves a manifest without a single input.
+        -- An abandoned lobby leaves a manifest without a single action.
         local playable = {}
         for _, candidate in ipairs(runs) do
             if candidate.actions > 0 then playable[#playable + 1] = candidate end
@@ -215,8 +204,27 @@ return function(decode)
         return playable
     end
 
-    -- The card, blind or cost named by a mirrored line, for checks before an
-    -- input is performed. The exact line is still compared afterwards.
+    -- The run's actions laid out the way the player's filter script prints
+    -- them: the manifest, then one row per action.
+    function M.table(run)
+        local rows, wide_num, wide_op = {}, 0, 0
+        for _, entry in ipairs(run.entries) do
+            if entry.kind == 'action' then
+                local num, op = 'OP_NUM: ' .. entry.seq, 'OP: ' .. entry.op
+                rows[#rows + 1] = {num, op, #entry.args > 0 and ('ON_WHAT: ' .. table.concat(entry.args, ', ')) or ''}
+                wide_num, wide_op = math.max(wide_num, #num), math.max(wide_op, #op)
+            end
+        end
+        local out = {'MANIFEST ' .. run.manifest_text}
+        for _, row in ipairs(rows) do
+            out[#out + 1] = row[1] .. string.rep(' ', wide_num - #row[1]) .. ' || ' .. row[2] .. string.rep(' ', wide_op - #row[2]) ..
+                (row[3] ~= '' and (' || ' .. row[3]) or ' ||')
+        end
+        return table.concat(out, '\n') .. '\n'
+    end
+
+    -- The card, blind or cost named by a mirrored line, checked before an
+    -- action is executed so it touches what the player's action touched.
     function M.expectation(entry)
         local human = entry.human
         if not human then return {} end

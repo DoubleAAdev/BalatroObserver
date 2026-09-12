@@ -35,10 +35,6 @@ return function(mod, JSON)
     G.FUNCS.bobs_replayer_next = function() protect(session.next_run) end
     G.FUNCS.bobs_replayer_start = function() protect(session.start) end
     G.FUNCS.bobs_replayer_stop = function() protect(session.stop) end
-    G.FUNCS.bobs_replayer_strict = function()
-        session.strict = not session.strict
-        session.strict_label = session.strict and 'On a difference: stop' or 'On a difference: skip it'
-    end
 
     local previous_drop = love.filedropped
     love.filedropped = function(file)
@@ -90,9 +86,6 @@ return function(mod, JSON)
                 nodes = {{n = G.UIT.T, config = {text = item[1], scale = 0.28, colour = G.C.WHITE}}}}
         end
         tab.nodes[#tab.nodes + 1] = {n = G.UIT.R, config = {align = 'cm', padding = 0.08}, nodes = buttons}
-        tab.nodes[#tab.nodes + 1] = {n = G.UIT.R, config = {align = 'cm', padding = 0.08}, nodes = {
-            {n = G.UIT.C, config = {align = 'cm', button = 'bobs_replayer_strict', colour = G.C.BLUE, padding = 0.12, r = 0.1, hover = true, shadow = true},
-                nodes = {{n = G.UIT.T, config = {ref_table = session, ref_value = 'strict_label', scale = 0.28, colour = G.C.WHITE}}}}}}
         return tab
     end
     return session

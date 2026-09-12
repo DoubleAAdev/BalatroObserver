@@ -202,21 +202,16 @@ return function(log)
         return node
     end
 
-    -- Transitions the log never records: Multiplayer logs neither the cash
-    -- out button nor the shop's next-round button. Money they move is flagged
-    -- so it is not mistaken for the effect of a logged input.
-    local function transition(fn)
-        M.transition = true
-        local ok, err = pcall(fn)
-        M.transition = false
-        if not ok then error(err, 0) end
-    end
+    -- Multiplayer logs neither the cash out button nor the shop's next-round
+    -- button, so the replay presses them when the next action needs the
+    -- screen behind them. They are how a player gets to an action, not
+    -- actions of their own.
     local function leave_round_eval()
-        if G.round_eval then transition(function() G.FUNCS.cash_out({config = {}}) end) end
+        if G.round_eval then G.FUNCS.cash_out({config = {}}) end
         return 'wait', 'cashing out'
     end
     local function leave_shop()
-        transition(function() G.FUNCS.toggle_shop({config = {}}) end)
+        G.FUNCS.toggle_shop({config = {}})
         return 'wait', 'leaving the shop'
     end
 

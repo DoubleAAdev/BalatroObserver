@@ -74,15 +74,16 @@ local lines = {
 local runs = log.parse(table.concat(lines, '\r\n') .. '\r\n')
 assert(#runs == 2, 'an action-less manifest is dropped, the others stay')
 local run = runs[1]
-assert(run.actions == 11 and run.complete and run.result == 'win' and run.manifest.stake == 1)
+-- 11 MP_RLOG actions, of which the two set_ante_key lines are filtered out.
+assert(run.actions == 9 and run.complete and run.result == 'win' and run.manifest.stake == 1)
 assert(run.lobby and run.lobby.host == 'Me~7' and run.lobby.guest == 'Them~1' and run.lobby.is_host == true)
 assert(runs[2].actions == 1 and not runs[2].complete and runs[2].manifest.stake == 2)
 
 -- Entries keep the log order: inputs and delivered messages interleave.
 local kinds = {}
 for _, entry in ipairs(run.entries) do kinds[#kinds + 1] = entry.kind == 'action' and entry.text or ('msg:' .. entry.action) end
-local expected = {'msg:playerInfo', 'pack_pick 3 4.5', 'set_ante_key 0.16979563507933', 'select_blind 0', 'msg:enemyInfo', 'discard 1.2.3.8',
-    'buy 1 2', 'msg:enemyLocation', 'msg:letsGoGamblingNemesis', 'reroll', 'ready_blind 1', 'msg:startBlind', 'set_ante_key 0.5', 'select_blind 0',
+local expected = {'msg:playerInfo', 'pack_pick 3 4.5', 'select_blind 0', 'msg:enemyInfo', 'discard 1.2.3.8',
+    'buy 1 2', 'msg:enemyLocation', 'msg:letsGoGamblingNemesis', 'reroll', 'ready_blind 1', 'msg:startBlind', 'select_blind 0',
     'msg:enemyInfo', 'msg:asteroid', 'net_asteroid', 'msg:endPvP', 'reorder 6 3.1.2', 'msg:winGame'}
 assert(#kinds == #expected, 'got ' .. #kinds .. ' entries: ' .. table.concat(kinds, ', '))
 for i, text in ipairs(expected) do assert(kinds[i] == text, i .. ': ' .. kinds[i] .. ' vs ' .. text) end
@@ -91,7 +92,7 @@ for i, text in ipairs(expected) do assert(kinds[i] == text, i .. ': ' .. kinds[i
 -- of MP_RLOG text inside JSON never do.
 local by_seq = {}
 for _, entry in ipairs(run.entries) do if entry.kind == 'action' then by_seq[entry.seq] = entry end end
-assert(by_seq[1].human == 'usedCard,card:Trance' and by_seq[2].human == nil and by_seq[3].human == 'selectBlind,blind:bl_small')
+assert(by_seq[1].human == 'usedCard,card:Trance' and by_seq[2] == nil and by_seq[8] == nil and by_seq[3].human == 'selectBlind,blind:bl_small')
 assert(by_seq[4].human == 'discard,cards:1.2.3.8' and by_seq[5].human == 'boughtCardFromShop,card:Mail-In Rebate,cost:4')
 assert(by_seq[6].human == 'rerollShop,cost:5' and by_seq[7].human == nil and by_seq[9].human == 'selectBlind,blind:bl_mp_nemesis')
 assert(by_seq[10].human == 'netAsteroid' and by_seq[11].human == 'reorder,area:6')
@@ -103,18 +104,18 @@ assert(#by_seq[5].money == 2 and by_seq[5].money[1] == '-4' and by_seq[5].money[
 assert(#by_seq[6].money == 0 and #by_seq[1].money == 0)
 for i, entry in ipairs(run.entries) do assert(entry.position == i) end
 
--- The game's own progress reports are kept as checkpoints, in log order.
-local kinds_of = {}
-for _, check in ipairs(run.checks) do kinds_of[#kinds_of + 1] = check.action end
--- spentLastShop is not one: it reports Multiplayer's own shop counter, which
--- a replay does not reproduce, and nothing reads the value back.
-assert(table.concat(kinds_of, ',') == 'playHand,playHand,setAnte', table.concat(kinds_of, ','))
-assert(not log.checkpoints.spentLastShop)
-assert(run.checks[1].fields.score == '0' and run.checks[1].fields.handsLeft == 4)
-assert(run.checks[2].fields.score == '2984' and run.checks[2].fields.handsLeft == 3)
-assert(run.checks[3].fields.ante == 2)
-assert(run.checks[2].after == 6, 'a checkpoint remembers where in the run it happened')
-assert(log.checkpoints.playHand[1] == 'score' and log.checkpoints.setFurthestBlind[1] == 'furthestBlind')
+-- The filtered actions, laid out the way the player's filter script prints
+-- them: the manifest first, then one padded row per action.
+local listed = log.table(run)
+local rows = {}
+for row in listed:gmatch('([^\n]*)\n') do rows[#rows + 1] = row end
+assert(#rows == 10 and rows[1] == 'MANIFEST {"seed":"TESTSEED"}', rows[1])
+assert(rows[2] == 'OP_NUM: 1  || OP: pack_pick    || ON_WHAT: 3, 4.5', rows[2])
+assert(rows[3] == 'OP_NUM: 3  || OP: select_blind || ON_WHAT: 0', rows[3])
+assert(rows[6] == 'OP_NUM: 6  || OP: reroll       ||', rows[6])
+assert(rows[9] == 'OP_NUM: 10 || OP: net_asteroid ||', rows[9])
+assert(rows[10] == 'OP_NUM: 11 || OP: reorder      || ON_WHAT: 6, 3.1.2', rows[10])
+assert(not listed:find('set_ante_key') and not listed:find('Client'), 'only the filtered actions are listed')
 
 -- Message values get the types the wire format had.
 local messages = {}
@@ -131,7 +132,7 @@ assert(fields.location == 'loc_shop-bl_big' and fields.action == 'enemyLocation'
 -- What each mirrored line promises.
 assert(log.expectation(by_seq[5]).name == 'Mail-In Rebate' and log.expectation(by_seq[5]).cost == 4)
 assert(log.expectation(by_seq[1]).name == 'Trance' and log.expectation(by_seq[6]).cost == 5)
-assert(log.expectation(by_seq[3]).blind == 'bl_small' and log.expectation(by_seq[2]).name == nil)
+assert(log.expectation(by_seq[3]).blind == 'bl_small' and log.expectation(by_seq[7]).name == nil)
 
 -- Broken streams are refused before anything is replayed.
 local head = P .. 'MP_RLOG: MANIFEST {"seed":"TESTSEED"}\n' .. P
@@ -141,19 +142,19 @@ for _, bad in ipairs({'MP_RLOG: 2 play 1', 'MP_RLOG: 1 play 1.1', 'MP_RLOG: 1 pl
 end
 assert(not pcall(log.parse, P .. 'MP_RLOG: 1 reroll'), 'an action before any manifest is rejected')
 assert(not pcall(log.parse, head .. 'MP_RLOG: END {}'), 'a log without inputs is rejected')
-for _, key in ipairs({'0', '1e-05', '0.16979563507933'}) do
-    assert(log.parse(head .. 'MP_RLOG: 1 set_ante_key ' .. key)[1].entries[1].args[1] == key)
-end
-
--- A run a replay wrote says so, whichever side of the manifest the mark lands.
+-- set_ante_key is still read in sequence, but is not an action to execute.
 local NL = string.char(10)
-local mark = P .. 'MP_RLOG: REPLAY' .. NL
-assert(log.parse(head .. 'MP_RLOG: 1 reroll')[1].replayed == nil)
-assert(log.parse(mark .. head .. 'MP_RLOG: 1 reroll')[1].replayed == true)
-assert(log.parse(head .. 'MP_RLOG: 1 reroll' .. NL .. mark)[1].replayed == true)
-local mixed = log.parse(head .. 'MP_RLOG: 1 reroll' .. NL .. 'MP_RLOG: END {}' .. NL .. mark ..
-    P .. 'MP_RLOG: MANIFEST {"seed":"SECOND"}' .. NL .. P .. 'MP_RLOG: 1 reroll')
-assert(#mixed == 2 and mixed[1].replayed == nil and mixed[2].replayed == true, 'the mark does not leak between runs')
+for _, key in ipairs({'0', '1e-05', '0.16979563507933'}) do
+    local only = log.parse(head .. 'MP_RLOG: 1 set_ante_key ' .. key .. NL .. P .. 'MP_RLOG: 2 reroll')[1]
+    assert(only.actions == 1 and #only.entries == 1 and only.entries[1].text == 'reroll' and only.entries[1].seq == 2)
+end
+assert(not pcall(log.parse, head .. 'MP_RLOG: 1 set_ante_key 0.5'), 'a run of nothing but ante keys has no actions')
+-- Balatro's slow-frame warning does not end a run, before or during a game.
+local slow = 'INFO - [G] LONG DT @ 12: 0.07' .. NL
+local timed = log.parse(slow .. head .. 'MP_RLOG: 1 reroll' .. NL .. slow .. P .. 'MP_RLOG: 2 reroll')
+assert(#timed == 1 and timed[1].actions == 2)
+-- A player named "Client" still has a manifest.
+assert(log.parse(P .. 'MP_RLOG: MANIFEST {"seed":"TESTSEED","player":"Client"}' .. NL .. P .. 'MP_RLOG: 1 reroll')[1].actions == 1)
 
 -- The real log this feature was written against, when it is on this machine.
 local real = io.open('C:/Users/amite/AppData/Roaming/Balatro/Mods/lovely/log/lovely-2026.09.09-18.09.55.log', 'rb')
@@ -162,7 +163,8 @@ if real then
     real:close()
     package.loaded.json = package.loaded.json or dofile('C:/Users/amite/AppData/Roaming/Balatro/Mods/smods/libs/json/json.lua')
     local parsed = dofile('replayer/log.lua')(package.loaded.json.decode).parse(text)
-    assert(#parsed == 1 and parsed[1].actions == 641 and parsed[1].complete and parsed[1].result == 'win')
+    -- 641 MP_RLOG actions, 24 of them set_ante_key.
+    assert(#parsed == 1 and parsed[1].actions == 617 and parsed[1].complete and parsed[1].result == 'win')
     assert(parsed[1].manifest.seed == '3TSESKHM' and parsed[1].manifest.deck == 'b_mp_cocktail' and parsed[1].manifest.stake == 1)
     assert(parsed[1].lobby.host == 'Taher Lover~7' and parsed[1].lobby.guest == 'Guest~1')
     local counts, unmirrored = {}, 0
@@ -181,11 +183,8 @@ if real then
     -- The $3 a Gold Card pays for being held at the end of a round is the
     -- only trace the log leaves of which cards stayed in hand.
     assert(#held.money == 1 and held.money[1] == '3', 'action 115 is paid $3 by a card held in hand')
-    local playHands = 0
-    for _, check in ipairs(parsed[1].checks) do if check.action == 'playHand' then playHands = playHands + 1 end end
-    assert(playHands > 30 and #parsed[1].checks > 80, 'the real log carries ' .. #parsed[1].checks .. ' checkpoints')
     assert(counts.startBlind == 7 and counts.endPvP == 8 and counts.winGame == 1 and counts.asteroid == 2 and counts.stopGame == nil)
     assert(counts.enemyInfo == 114 and counts.playerInfo == 4 and counts.spentLastShop == 20, 'enemyInfo ' .. tostring(counts.enemyInfo))
-    print('PASS: real log parsed - 641 inputs, ' .. #parsed[1].entries .. ' entries')
+    print('PASS: real log parsed - 617 actions, ' .. #parsed[1].entries .. ' entries')
 end
-print('PASS: run framing, interleaved messages, mirrored lines, wire types, expectations and rejection of broken streams')
+print('PASS: the action filter, run framing, interleaved messages, mirrored lines, the action table, wire types, expectations and rejection of broken streams')

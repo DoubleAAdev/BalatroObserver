@@ -24,20 +24,12 @@ assert(BalatroReplayer == session and session.phase == 'idle')
 
 -- The observer's own rows stay; a status row and four buttons follow.
 local tab = mod.config_tab()
-assert(tab.nodes[1].original and #tab.nodes == 4)
+assert(tab.nodes[1].original and #tab.nodes == 3)
 assert(tab.nodes[2].nodes[1].config.ref_table == session and tab.nodes[2].nodes[1].config.ref_value == 'text')
 local buttons = {}
 for _, node in ipairs(tab.nodes[3].nodes) do buttons[#buttons + 1] = node.config.button end
 assert(table.concat(buttons, ',') == 'bobs_replayer_load,bobs_replayer_next,bobs_replayer_start,bobs_replayer_stop')
 for _, name in ipairs(buttons) do assert(type(G.FUNCS[name]) == 'function') end
--- The last row toggles what happens when the game and the log disagree.
-local toggle = tab.nodes[4].nodes[1]
-assert(toggle.config.button == 'bobs_replayer_strict' and toggle.nodes[1].config.ref_value == 'strict_label')
-assert(session.strict == false and session.strict_label:find('skip'))
-G.FUNCS.bobs_replayer_strict()
-assert(session.strict == true and session.strict_label:find('stop'))
-G.FUNCS.bobs_replayer_strict()
-assert(session.strict == false)
 
 -- Loading through the picker, cancelling, and dropping a file.
 G.FUNCS.bobs_replayer_load()
@@ -47,12 +39,12 @@ local loaded = session.runs
 G.FUNCS.bobs_replayer_load()
 assert(session.runs == loaded)
 local dropped = {getFilename = function() return 'C:/x/lovely-2.LOG' end, getSize = function() return #text end,
-    open = function() end, read = function() return text .. ':: MULTIPLAYER :: MP_RLOG: 2 reroll\n:: MULTIPLAYER :: MP_RLOG: REPLAY\n' end, close = function() end}
+    open = function() end, read = function() return text .. ':: MULTIPLAYER :: MP_RLOG: 2 reroll\n' end, close = function() end}
 love.filedropped(dropped)
 assert(session.runs ~= loaded and session.runs[1].actions == 2, session.text)
--- A log a replay wrote is named as one: the newest logs in the folder are
--- replays, not games, and they all start the same way.
-assert(session.text:find('recorded by a replay'), session.text)
+-- The filtered actions are written out for the player to read.
+assert(writes['balatro_replayer/actions.txt'] == 'MANIFEST {}\nOP_NUM: 1 || OP: reroll ||\nOP_NUM: 2 || OP: reroll ||\n', writes['balatro_replayer/actions.txt'])
+assert(session.text:find('2 actions') and session.text:find('actions.txt'), session.text)
 local other = {getFilename = function() return 'notes.txt' end}
 love.filedropped(other)
 assert(session.runs[1].actions == 2, 'other files are not logs')

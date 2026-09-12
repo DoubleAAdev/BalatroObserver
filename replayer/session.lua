@@ -1,40 +1,39 @@
 -- One replay session: the game is put into the lobby the log was played in,
--- the log's inputs are performed and the opponent's messages are delivered
--- again in the recorded order, and every MP_RLOG line the game writes while
--- doing so is compared with the line the original game wrote.
+-- the log's actions are executed in order, and the opponent's messages are
+-- handed back to Multiplayer where the log has them.
+--
+-- Only the log's actions are executed, each exactly once and in log order.
+-- Nothing is skipped, repeated, reordered or added, and nothing is decided
+-- by comparing scores or money: an action the game cannot perform, or a line
+-- the game writes that is not the action just performed, stops the replay
+-- at that action and says why. The recording is then the log up to there.
 --
 -- Multiplayer only draws from its own card pools, applies its rulesets and
 -- resolves PvP rounds while MP.LOBBY.code is set, so the session emulates the
 -- lobby instead of using practice mode. Nothing reaches the server: Client
 -- messages are dropped for the whole session.
+--
+-- A replay writes nothing into the Lovely log. Progress is shown in the
+-- config tab and in balatro_replayer/status.json, and the actions it performs
+-- are kept out of Multiplayer's own replay log, so a replay never leaves
+-- behind a log that reads like another game.
 return function(log, driver, JSON, deps)
-    local S = {phase = 'idle', text = 'Replayer: choose Load Log to pick a Multiplayer log', index = 1,
-        strict = false, strict_label = 'On a difference: skip it'}
+    local S = {phase = 'idle', text = 'Replayer: choose Load Log to pick a Multiplayer log', index = 1}
     local directory = 'balatro_replayer'
     local clock = deps.clock
     local session, saved
-    local auto_ops = {set_ante_key = true, net_asteroid = true, net_pizza = true, net_magnet = true, net_phantom_add = true, net_phantom_remove = true}
+    -- Actions the game writes by itself when a delivered message arrives.
+    local auto_ops = {net_asteroid = true, net_pizza = true, net_magnet = true, net_phantom_add = true, net_phantom_remove = true}
     -- Messages a replay may still send: none change a game.
     local allowed_sends = {username = true, version = true, keepAliveAck = true, connect = true}
     local SETTLE, STALL, RECORD, BLOCKED = 0.4, 45, 20, 10
-    -- Dollars are reconciled over this many inputs: see S.money.
-    local WINDOW = 3
-
-    local function debug(text)
-        if sendDebugMessage then sendDebugMessage(text, 'BalatroObserver') end
-    end
 
     local function recorder() return BalatroActionRecorder end
 
     local function write_status()
         local state = {phase = S.phase, status = S.text, step = session and session.done or 0,
-            total = session and session.run.actions or 0, recording = recorder() and recorder().path or nil,
-            strict = S.strict}
+            total = session and session.run.actions or 0, recording = recorder() and recorder().path or nil}
         if session and session.failure then state.failure = session.failure end
-        if session and session.differences and #session.differences > 0 then
-            state.differences = JSON.array()
-            for _, item in ipairs(session.differences) do state.differences[#state.differences + 1] = item end
-        end
         pcall(function()
             love.filesystem.createDirectory(directory)
             love.filesystem.write(directory .. '/status.json', JSON.encode(state))
@@ -43,19 +42,11 @@ return function(log, driver, JSON, deps)
 
     function S.status(text)
         S.text = text
-        debug(text)
         write_status()
     end
 
     local function progress()
         return (session.done or 0) .. '/' .. session.run.actions
-    end
-
-    local function list(items)
-        local parts = {}
-        for _, item in ipairs(items) do parts[#parts + 1] = '$' .. tostring(item) end
-        if #parts == 0 then return 'nothing' end
-        return table.concat(parts, ', ')
     end
 
     local function clean(message)
@@ -68,31 +59,9 @@ return function(log, driver, JSON, deps)
         local where = entry and entry.kind == 'action' and (' at action ' .. entry.seq .. ' (' .. entry.text .. ')') or ''
         session.failure = {step = session.done, message = clean(message), action = entry and entry.text or nil, line = entry and entry.line or nil}
         S.phase = 'failed'
-        S.status('Replay stopped' .. where .. ': ' .. clean(message) .. ' - ' .. progress() .. ' inputs done, the run is left open')
+        S.status('Replay stopped' .. where .. ': ' .. clean(message) .. ' - ' .. progress() .. ' actions done, the run is left open')
     end
     S.fail = fail
-
-    -- A difference between the log and what the game did. Strict stops at it;
-    -- otherwise it is counted and reported and the replay carries on, so the
-    -- recording still covers the rest of the log.
-    local function difference(message, entry, skip)
-        if not session or session.failure then return end
-        if S.strict then return fail(message) end
-        local text = clean(message)
-        session.differences[#session.differences + 1] = {step = session.done, message = text,
-            action = entry and entry.text or nil, line = entry and entry.line or nil}
-        debug('Replay difference' .. (entry and entry.seq and (' at action ' .. entry.seq) or '') .. ': ' .. text)
-        if skip and entry and entry.kind == 'action' then
-            session.cursor = session.cursor + 1
-            session.done = session.done + 1
-            session.skipped = (session.skipped or 0) + 1
-            session.previous = nil
-            session.owed, session.seen = {}, {}
-            session.issued, session.waiting_since, session.wait_reason = nil, nil, nil
-            session.consumed = clock()
-        end
-        S.status('Replay ' .. progress() .. ' - ' .. #session.differences .. ' difference(s), latest: ' .. text)
-    end
 
     -- Multiplayer's positional argument formatting, token for token.
     local function format_args(args)
@@ -112,159 +81,31 @@ return function(log, driver, JSON, deps)
     end
     S.format_args = format_args
 
-    -- Every dollar the game moves. The log records the same stream, so the
-    -- two together catch a run that has drifted in ways the log cannot
-    -- otherwise show: a card held at the end of a round, a joker that did not
-    -- pay. The game credits a joker's dollars a second or two after the input
-    -- that earned them, and the log, written by a player who paused between
-    -- clicks, files them with that input - so the two are reconciled over a
-    -- window of a few inputs instead of demanded of the input they sit under.
-    function S.money(amount)
-        if not session or S.phase ~= 'running' or session.failure then return end
-        session.seen[#session.seen + 1] = {amount = tostring(amount), at = session.done,
-            -- The cash out and the shop exit are not inputs, so the log files
-            -- their money with whichever input the player made around them.
-            soft = driver.transition and true or nil,
-            entry = session.previous or session.entries[session.cursor]}
-    end
-
-    -- What the log says this input moved, to be matched as the money arrives.
-    local function owe_money(entry)
-        if not entry or entry.kind ~= 'action' or not entry.money or #entry.money == 0 then return end
-        local want = {}
-        for _, amount in ipairs(entry.money) do want[#want + 1] = amount end
-        session.owed[#session.owed + 1] = {entry = entry, at = session.done, want = want}
-    end
-
-    -- Cancel what matches, then report whatever has outlived the window.
-    local function settle_money(force)
-        for index = #session.seen, 1, -1 do
-            local amount = session.seen[index].amount
-            for _, item in ipairs(session.owed) do
-                local hit
-                for slot, want in ipairs(item.want) do
-                    if want == amount then table.remove(item.want, slot); hit = true; break end
-                end
-                if hit then table.remove(session.seen, index); break end
-            end
-        end
-        for index = #session.owed, 1, -1 do
-            local item = session.owed[index]
-            if #item.want == 0 or force or session.done - item.at > WINDOW then
-                if #item.want > 0 then
-                    difference('the log moves ' .. list(item.want) .. ' for "' .. item.entry.text .. '" and the game never did', item.entry, false)
-                end
-                table.remove(session.owed, index)
-            end
-        end
-        for index = #session.seen, 1, -1 do
-            local item = session.seen[index]
-            if force or session.done - item.at > WINDOW then
-                local where = item.entry and item.entry.text
-                if not item.soft then
-                    difference('the game moved $' .. item.amount .. ' the log does not record' ..
-                        (where and (' around "' .. where .. '"') or ''), item.entry, false)
-                end
-                table.remove(session.seen, index)
-            end
-        end
-    end
-
-    -- Installed over MP.RLOG.record for the session. The game reports what
-    -- it just did in the same words the original game used; the next
-    -- expected line must match, otherwise the replay has diverged.
+    -- Installed over MP.RLOG.record for the session. The game reports every
+    -- action it performs here, and it must be the log's next action. The
+    -- report is not passed on to Multiplayer's replay log while the replay
+    -- runs; once it stops, the player's own moves are logged as usual.
+    -- set_ante_key is the game's bookkeeping, not an action.
     function S.record(op, args, human)
         local original = saved and saved.record
         if not session or (S.phase ~= 'running' and S.phase ~= 'starting') or session.failure then
             return original(op, args, human)
         end
+        if op == 'set_ante_key' then return end
         local entry = session.entries[session.cursor]
         local argstr = format_args(args)
         local actual = op .. (argstr ~= '' and (' ' .. argstr) or '')
-        if not entry or entry.kind ~= 'action' then
-            difference('the game recorded "' .. actual .. '" while the log expects ' .. (entry and ('the message ' .. entry.action) or 'nothing more'), entry, false)
-            return original(op, args, human)
-        end
-        local matched
-        if op == 'set_ante_key' and entry.op == 'set_ante_key' then
-            -- The key is rolled with math.random when a blind starts; the
-            -- logged one is put back so the run reads exactly like the log.
-            matched = true
-            args = entry.args[1]
-            if MP and MP.GAME then MP.GAME.ante_key = entry.args[1] end
-        else
-            matched = actual == entry.text
-        end
-        -- Multiplayer passes the mirrored payload with its "action:" prefix.
-        local mirrored = human and tostring(human):gsub('^action:', '') or nil
-        if matched and (entry.human or mirrored) and entry.human ~= mirrored then matched = false end
-        if matched then
-            session.previous = entry
+        if entry and entry.kind == 'action' and actual == entry.text then
             session.cursor = session.cursor + 1
             session.done = session.done + 1
-            owe_money(entry)
-            settle_money()
-            if session.failure then return original(op, args, human) end
-            session.issued, session.waiting_since, session.wait_reason = nil, nil, nil
+            session.issued, session.waiting_since = nil, nil
             session.consumed = clock()
+            -- Multiplayer passes the mirrored payload with its "action:" prefix.
+            local mirrored = human and tostring(human):gsub('^action:', '') or nil
             S.status('Replay ' .. progress() .. ' - ' .. actual .. (mirrored and (' - ' .. mirrored) or ''))
         else
-            -- The log may simply be a few inputs ahead of what the game just
-            -- did; look for it before calling the run drifted.
-            local found
-            for i = session.cursor + 1, math.min(session.cursor + 10, #session.entries) do
-                local later = session.entries[i]
-                if later.kind == 'action' and later.text == actual and later.human == mirrored then found = i break end
-            end
-            if found and not S.strict then
-                local missed = 0
-                for i = session.cursor, found - 1 do
-                    if session.entries[i].kind == 'action' then missed = missed + 1 end
-                end
-                session.differences[#session.differences + 1] = {step = session.done,
-                    message = missed .. ' input(s) the game never performed, up to "' .. actual .. '"', line = entry.line}
-                session.skipped = (session.skipped or 0) + missed
-                session.done = session.done + missed + 1
-                session.cursor = found + 1
-                session.previous = session.entries[found]
-                session.owed, session.seen = {}, {}
-                session.issued, session.waiting_since, session.wait_reason = nil, nil, nil
-                session.consumed = clock()
-                S.status('Replay ' .. progress() .. ' - resumed at "' .. actual .. '" after ' .. missed .. ' skipped')
-            else
-                local expected = entry.text .. (entry.human and (' | ' .. entry.human) or '')
-                difference('the game did "' .. actual .. (mirrored and (' | ' .. mirrored) or '') .. '", the log says "' .. expected .. '"', entry, true)
-            end
-        end
-        return original(op, args, human)
-    end
-
-    -- The game reports its own progress to the server as it plays: the score
-    -- of every hand of a PvP round, the ante, what was spent in each shop,
-    -- how far the run has come. Each is a pure function of the run's state,
-    -- so each is compared with the next one of its kind in the log.
-    function S.checkpoint(message)
-        if not session or S.phase ~= 'running' or session.failure then return end
-        local fields = log.checkpoints[message.action]
-        if not fields then return end
-        local from = session.checked[message.action] or 1
-        local expected
-        for i = from, #session.checks do
-            if session.checks[i].action == message.action then
-                expected = session.checks[i]
-                session.checked[message.action] = i + 1
-                break
-            end
-        end
-        if not expected then
-            return difference('the game reported ' .. message.action .. ' more often than the log did', nil, false)
-        end
-        for _, key in ipairs(fields) do
-            local got, want = message[key], expected.fields[key]
-            if tostring(got) ~= tostring(want) then
-                local what = message.action == 'playHand' and key == 'score' and 'the hand scored ' or ('the game reported ' .. message.action .. ' ' .. key .. ' ')
-                return difference(what .. tostring(got) .. ', the log says ' .. tostring(want) .. ' (log line ' .. expected.line .. ')', nil, false)
-            end
+            fail('the game did "' .. actual .. '", which is not the log\'s next action' ..
+                (entry and entry.kind == 'action' and (' "' .. entry.text .. '"') or ''))
         end
     end
 
@@ -283,23 +124,29 @@ return function(log, driver, JSON, deps)
         return name or text, tonumber(col) or 1
     end
 
-    local function describe_run()
+    -- Lists the chosen run's actions where the player can read them, in the
+    -- layout of their filter script, and names the run in the status.
+    local function show_run()
         local run = S.runs[S.index]
-        return 'Replayer: run ' .. S.index .. '/' .. #S.runs .. ' - ' .. run.actions .. ' inputs, seed ' ..
-            run.manifest.seed .. (run.replayed and ' (recorded by a replay, not a game)' or '')
+        pcall(function()
+            love.filesystem.createDirectory(directory)
+            love.filesystem.write(directory .. '/actions.txt', log.table(run))
+        end)
+        S.status('Replayer: run ' .. S.index .. '/' .. #S.runs .. ' - ' .. run.actions .. ' actions, seed ' .. run.manifest.seed ..
+            ' - listed in balatro_replayer/actions.txt')
     end
 
     function S.load(text)
         assert(S.phase == 'idle', 'Finish the current replay before loading another log')
         S.runs = log.parse(text)
         S.index = 1
-        S.status(describe_run())
+        show_run()
     end
 
     function S.next_run()
         if not S.runs or S.phase ~= 'idle' then return end
         S.index = S.index % #S.runs + 1
-        S.status(describe_run())
+        show_run()
     end
 
     local function validate(run)
@@ -325,18 +172,14 @@ return function(log, driver, JSON, deps)
         return key, name
     end
 
-    -- Consequences the game produces by itself: the ante key of every blind,
-    -- the PvP blind that the server starts after Ready, and opponent effects.
+    -- Actions the game writes by itself: the PvP blind the server starts
+    -- after Ready, and the effects of the opponent's cards.
     local function classify(entries)
         local previous
         for _, entry in ipairs(entries) do
             if entry.kind == 'action' then
-                if auto_ops[entry.op] then
-                    entry.auto = true
-                elseif entry.op == 'select_blind' then
-                    entry.auto = previous ~= nil and previous.op == 'ready_blind' and previous.args[1] == '1'
-                end
-                if entry.op ~= 'set_ante_key' then previous = entry end
+                entry.auto = auto_ops[entry.op] or (entry.op == 'select_blind' and previous ~= nil and previous.op == 'ready_blind' and previous.args[1] == '1') or nil
+                previous = entry
             end
         end
     end
@@ -382,37 +225,24 @@ return function(log, driver, JSON, deps)
         if MP.SP then MP.SP.practice = false end
         if MP.GHOST and MP.GHOST.clear then MP.GHOST.clear() end
         Client.send = function(msg)
-            if type(msg) ~= 'table' or not msg.action then return end
-            S.checkpoint(msg)
-            if allowed_sends[msg.action] then return saved.send(msg) end
-            -- Keep the trace line the real client writes, so a replay's log
-            -- reads like the log it came from and the two can be compared.
-            local ok, text = pcall(deps.encode, msg)
-            if ok and sendTraceMessage then sendTraceMessage('Client sent message: ' .. text, 'MULTIPLAYER') end
-        end
-        saved.ease_dollars = ease_dollars
-        ease_dollars = function(amount, instant)
-            S.money(amount)
-            return saved.ease_dollars(amount, instant)
+            if type(msg) == 'table' and allowed_sends[msg.action] then return saved.send(msg) end
         end
         MP.RLOG.record = S.record
         if MP.STATS then MP.STATS.record_match = function() end end
-        session = {run = run, entries = run.entries, checks = run.checks or {}, checked = {}, cursor = 1, done = 0,
-            key = key, began = clock(), tick = 0, owed = {}, seen = {}, previous = nil, differences = {}, skipped = 0}
+        session = {run = run, entries = run.entries, cursor = 1, done = 0, key = key, began = clock(), tick = 0}
         session.code = m.lobby_code or 'REPLAY'
         -- Setting the code is what joining a lobby does; Multiplayer notices
         -- on its next update and re-enters the menu as a lobby member.
         MP.LOBBY.code = session.code
         if G.FUNCS.exit_overlay_menu then G.FUNCS.exit_overlay_menu() end
         S.phase = 'joining'
-        S.status('Replay joining lobby ' .. session.code .. ' - ' .. run.actions .. ' inputs, ' .. #run.entries .. ' entries')
+        S.status('Replay joining lobby ' .. session.code .. ' - ' .. run.actions .. ' actions')
     end
 
     local function cleanup()
         if not saved then return end
         Client.send = saved.send
         MP.RLOG.record = saved.record
-        if saved.ease_dollars then ease_dollars = saved.ease_dollars end
         if MP.STATS then MP.STATS.record_match = saved.record_match end
         for field, value in pairs(saved.lobby) do MP.LOBBY[field] = value end
         MP.LOBBY.code = saved.lobby.code
@@ -423,16 +253,11 @@ return function(log, driver, JSON, deps)
     end
 
     local function finish()
-        settle_money(true)
-        if session.failure then return end
         S.phase = 'finished'
         local rec = recorder()
-        local text = session.run.complete and ('Replay complete - ' .. progress() .. ' inputs') or ('Replay reached the end of a partial log - ' .. progress() .. ' inputs')
-        local tally = ''
-        if #session.differences > 0 then
-            tally = ', ' .. #session.differences .. ' difference(s) and ' .. (session.skipped or 0) .. ' skipped input(s)'
-        end
-        S.status(text .. tally .. ', ' .. tostring(rec and rec.action_count or 0) .. ' recorded actions in ' .. tostring(rec and rec.path or 'no recording'))
+        local text = session.run.complete and ('Replay complete - all ' .. session.run.actions .. ' actions')
+            or ('Replay reached the end of a partial log - ' .. progress() .. ' actions')
+        S.status(text .. ', ' .. tostring(rec and rec.action_count or 0) .. ' recorded actions in ' .. tostring(rec and rec.path or 'no recording'))
     end
 
     function S.stop()
@@ -458,7 +283,7 @@ return function(log, driver, JSON, deps)
         elseif S.phase == 'running' or S.phase == 'finished' or S.phase == 'failed' or S.phase == 'stopped' then
             cleanup()
             S.phase = 'idle'
-            S.status('Replayer: returned to the menu (' .. progress() .. ' inputs)')
+            S.status('Replayer: returned to the menu (' .. progress() .. ' actions)')
             session = nil
         end
     end
@@ -476,12 +301,8 @@ return function(log, driver, JSON, deps)
         local rec = recorder()
         if not (rec and rec.ok and rec.path) then return fail('Action Recorder did not start a recording') end
         S.phase = 'running'
-        session.run_started = clock()
         session.signature, session.signature_at = nil, nil
-        -- Stamp the log this replay is writing, so loading it back says so
-        -- instead of looking like another game of the same seed.
-        if sendTraceMessage then sendTraceMessage('MP_RLOG: REPLAY', 'MULTIPLAYER') end
-        S.status('Replay running - ' .. progress() .. ' inputs')
+        S.status('Replay running - ' .. progress() .. ' actions')
     end
 
     -- The player may pause or open a menu without ending the replay.
@@ -509,42 +330,26 @@ return function(log, driver, JSON, deps)
     local function deliver(entry)
         deps.channel('networkToUi'):push(deps.encode(entry.fields))
         session.delivered = clock()
-        debug('Replay delivers ' .. entry.action .. ' (log line ' .. entry.line .. ')')
     end
 
-    local function next_action(from)
-        for i = from, #session.entries do
-            if session.entries[i].kind == 'action' then return session.entries[i] end
-        end
-        return nil
-    end
-
-    -- The log's round and the game's did not end together: the log is buying
-    -- in a shop the game has not reached, or playing a hand in a round the
-    -- game has already won. Nothing after this point can be replayed - every
-    -- later input belongs to a round that no longer lines up - so the replay
-    -- stops here and says how far the recording is good for. Carrying on
-    -- would perform the next round's hands inside this one.
-    local function desync(entry)
-        local playing = driver.state_name() == 'SELECTING_HAND'
-        local why = playing
-            and 'the log left this round after the hands it played and the game has not - the blind was not beaten here'
-            or 'the game left this round before the log did - the blind was beaten sooner here'
-        fail(why .. '. Nothing past this input lines up, so the replay stops; the recording is faithful up to input ' .. session.done)
-    end
-
-    local function waiting(reason, limit)
+    -- Waiting is fine while the game can still get to the action. The screen
+    -- tells when it cannot: a hand to play while the game sits in the shop
+    -- means the two did not finish a round together.
+    local function waiting(reason)
         local now = clock()
         session.waiting_since = session.waiting_since or now
-        if reason ~= session.wait_reason then
-            session.wait_reason = reason
-            debug('Replay ' .. progress() .. ' waiting: ' .. reason)
-        end
         local entry = session.entries[session.cursor]
-        local blocked = not driver.reachable(entry)
-        if now - session.waiting_since > (limit or (blocked and BLOCKED or STALL)) then
-            if blocked then return desync(entry) end
-            difference('waited ' .. math.floor(now - session.waiting_since) .. ' s for ' .. reason, entry, true)
+        if driver.reachable(entry) then
+            if now - session.waiting_since > STALL then fail('waited ' .. math.floor(now - session.waiting_since) .. ' s for ' .. reason) end
+        elseif now - session.waiting_since > BLOCKED then
+            local state = driver.state_name()
+            local hint = ''
+            if state == 'SELECTING_HAND' then
+                hint = ' - the log had finished this round with the hands before it and the game has not, so the blind was not beaten here'
+            elseif entry.op == 'play' or entry.op == 'discard' then
+                hint = ' - the game finished this round sooner than the log did'
+            end
+            fail('the game cannot do "' .. entry.text .. '" from ' .. state .. hint)
         end
     end
 
@@ -576,7 +381,7 @@ return function(log, driver, JSON, deps)
         if MP.LOBBY.code ~= session.code then MP.LOBBY.code = session.code end
         if G.STAGE ~= G.STAGES.RUN then
             S.phase = 'stopped'
-            S.status('Replay stopped: the run ended - ' .. progress() .. ' inputs')
+            S.status('Replay stopped: the run ended - ' .. progress() .. ' actions')
             return
         end
         local rec = recorder()
@@ -592,23 +397,15 @@ return function(log, driver, JSON, deps)
             return
         end
         if session.issued then
-            if now - session.issued > RECORD then
-                difference('the game did not record "' .. entry.text .. '" after it was performed', entry, true)
-            end
+            if now - session.issued > RECORD then fail('the game did not record "' .. entry.text .. '" after it was performed') end
             return
-        end
-        local target = entry
-        if entry.op == 'set_ante_key' then
-            local following = next_action(session.cursor + 1)
-            if following and following.op == 'select_blind' and not following.auto then target = following end
         end
         local halted = paused()
         if halted then
             session.waiting_since = nil
-            if halted ~= session.wait_reason then session.wait_reason = halted; debug('Replay paused: ' .. halted) end
             return
         end
-        if target.auto then return waiting('the game to produce "' .. target.text .. '"') end
+        if entry.auto then return waiting('the game to produce "' .. entry.text .. '"') end
         local reason = busy()
         if reason then return waiting(reason) end
         local signature = driver.signature()
@@ -622,12 +419,11 @@ return function(log, driver, JSON, deps)
         -- Most callbacks write their MP_RLOG line before returning, so the
         -- cursor may already have moved on by the time perform comes back.
         local cursor = session.cursor
-        local ok, result, detail = pcall(driver.perform, target, session.entries)
-        if driver.note then debug('Replay ' .. progress() .. ' ' .. driver.note) end
-        if not ok then return difference(result, target, true) end
+        local ok, result, detail = pcall(driver.perform, entry, session.entries)
+        if not ok then return fail(result) end
         if result == 'done' then
             if session.cursor == cursor and not session.failure then session.issued = now end
-            session.waiting_since, session.wait_reason = nil, nil
+            session.waiting_since = nil
         else
             waiting(detail or 'the game')
         end

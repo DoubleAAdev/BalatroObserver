@@ -1,3 +1,11 @@
+# 1.10.0
+
+- Execute the log's actions and nothing else. The actions are filtered out of the log the way the player's filter script does it - every MP_RLOG line that is not a Client line, except set_ante_key - and executed in order, each once. Nothing is skipped, repeated, reordered or added any more, and nothing is decided by comparing money or scores: the replay stops at the first action it cannot execute and says why. The "On a difference" button, the money and score checks and the skipping and resuming are gone.
+- List what will be executed. Loading a log writes the chosen run's actions to balatro_replayer/actions.txt in the filter script's layout.
+- End a run at its END line. The filter script stops at the first "LONG DT", but Balatro prints that for any slow frame: in lovely-2026.09.12-14.24.31.log one comes before the first game starts, which leaves nothing, and another in the middle of the second.
+- Leave set_ante_key alone. Multiplayer rolls it as a throwaway key so the ante cannot be raised twice at once; its value changes no card, so the game's own is kept.
+- Write nothing into the Lovely log. The replayer's status lines, delivery notes and copied Client lines are gone, and the actions a replay executes are kept out of Multiplayer's replay log, so a replay no longer leaves behind a log that reads like another game. Progress is in the config tab and status.json.
+
 # 1.9.3
 
 - Stop the replay where a round stops lining up, instead of skipping through it. When a round ends in the log but not in the game (the blind was not beaten here) or the other way round, every later input belongs to a round that no longer matches: the shop the log buys in is never opened, and the hands it plays next belong to a round the game has not started. The replay now says which way round it went and how far the recording is faithful, rather than skipping the shop and then playing the following round's hands inside the unfinished one.

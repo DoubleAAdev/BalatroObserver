@@ -85,12 +85,11 @@ G.FUNCS.can_play = function(e) e.config.button = nil end
 fails(function() driver.perform(entry('play', {'1'})) end, 'refuses to play')
 G.FUNCS.can_play = function(e) e.config.button = 'play_cards_from_highlighted' end
 
--- Transitions the log never records.
+-- The screens the log never records are pressed through to reach an action.
 G.STATE = G.STATES.ROUND_EVAL
 G.round_eval = {}
 local status, why = driver.perform(entry('play', {'1'}))
 assert(status == 'wait' and why == 'cashing out' and last() == 'cash_out')
-assert(driver.transition == false, 'the flag that marks unlogged money is cleared again')
 G.round_eval = nil
 G.STATE = G.STATES.SHOP
 status, why = driver.perform(entry('play', {'1'}))
