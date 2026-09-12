@@ -76,6 +76,7 @@ end
 local replay_log = dofile('replayer/log.lua')(decode)
 session = dofile('replayer/session.lua')(replay_log, driver, JSON,
     {clock = function() return now end, channel = function() return channel end, encode = encode})
+session.strict = true
 session.load(text)
 assert(session.runs and session.runs[1].actions == 8 and session.text:find('8 inputs, seed TESTSEED'))
 
@@ -348,4 +349,27 @@ assert(session.phase == 'failed' and session.text:find('"play 1.2" moved nothing
 session.stop()
 session.on_main_menu()
 
-print('PASS: lobby emulation, refused starts, run start checks, delivery order, settling, ante key substitution, PvP blinds, pauses, money and score checks, mismatch reports, stalls, stop and cleanup')
+-- With differences skipped instead of fatal, the replay carries on and the
+-- run still reaches the end of the log, with every difference counted.
+session.strict = false
+restart()
+through_the_play()
+ease_dollars(7)
+MP.RLOG.record('ready_blind', 1)
+assert(session.phase == 'running' and session.progress() == '4/8', session.text)
+assert(writes['balatro_replayer/status.json']:find('moved %$7'), 'the difference is written out')
+-- An input the game never performs is skipped, and the replay resumes at the
+-- next line of the log it recognises.
+restart()
+through_the_play()
+MP.RLOG.record('reroll', nil, 'action:rerollShop,cost:5')
+assert(session.phase == 'running' and session.progress() == '8/8', session.text)
+assert(session.text:find('resumed at "reroll"') and session.text:find('4 skipped'), session.text)
+now = now + 1
+session.update(0.1)
+assert(session.phase == 'finished' and session.text:find('difference'), session.text)
+session.on_main_menu()
+assert(session.phase == 'idle')
+session.strict = true
+
+print('PASS: lobby emulation, refused starts, run start checks, delivery order, settling, ante key substitution, PvP blinds, pauses, money and score checks, skipping and resuming, stalls, stop and cleanup')

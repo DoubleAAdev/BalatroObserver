@@ -8,7 +8,8 @@
 -- lobby instead of using practice mode. Nothing reaches the server: Client
 -- messages are dropped for the whole session.
 return function(log, driver, JSON, deps)
-    local S = {phase = 'idle', text = 'Replayer: choose Load Log to pick a Multiplayer log', index = 1}
+    local S = {phase = 'idle', text = 'Replayer: choose Load Log to pick a Multiplayer log', index = 1,
+        strict = false, strict_label = 'On a difference: skip it'}
     local directory = 'balatro_replayer'
     local clock = deps.clock
     local session, saved
@@ -25,8 +26,13 @@ return function(log, driver, JSON, deps)
 
     local function write_status()
         local state = {phase = S.phase, status = S.text, step = session and session.done or 0,
-            total = session and session.run.actions or 0, recording = recorder() and recorder().path or nil}
+            total = session and session.run.actions or 0, recording = recorder() and recorder().path or nil,
+            strict = S.strict}
         if session and session.failure then state.failure = session.failure end
+        if session and session.differences and #session.differences > 0 then
+            state.differences = JSON.array()
+            for _, item in ipairs(session.differences) do state.differences[#state.differences + 1] = item end
+        end
         pcall(function()
             love.filesystem.createDirectory(directory)
             love.filesystem.write(directory .. '/status.json', JSON.encode(state))
@@ -63,6 +69,29 @@ return function(log, driver, JSON, deps)
         S.status('Replay stopped' .. where .. ': ' .. clean(message) .. ' - ' .. progress() .. ' inputs done, the run is left open')
     end
     S.fail = fail
+
+    -- A difference between the log and what the game did. Strict stops at it;
+    -- otherwise it is counted and reported and the replay carries on, so the
+    -- recording still covers the rest of the log.
+    local function difference(message, entry, skip)
+        if not session or session.failure then return end
+        if S.strict then return fail(message) end
+        local text = clean(message)
+        session.differences[#session.differences + 1] = {step = session.done, message = text,
+            action = entry and entry.text or nil, line = entry and entry.line or nil}
+        debug('Replay difference' .. (entry and entry.seq and (' at action ' .. entry.seq) or '') .. ': ' .. text)
+        if skip and entry and entry.kind == 'action' then
+            session.cursor = session.cursor + 1
+            session.done = session.done + 1
+            session.skipped = (session.skipped or 0) + 1
+            session.previous = nil
+            session.paid = {}
+            session.carried = {}
+            session.issued, session.waiting_since, session.wait_reason = nil, nil, nil
+            session.consumed = clock()
+        end
+        S.status('Replay ' .. progress() .. ' - ' .. #session.differences .. ' difference(s), latest: ' .. text)
+    end
 
     -- Multiplayer's positional argument formatting, token for token.
     local function format_args(args)
@@ -109,6 +138,7 @@ return function(log, driver, JSON, deps)
     -- Compare the money one input moved with what the log recorded for it.
     local function verify_money(entry)
         if not entry or entry.kind ~= 'action' then session.paid = {}; return end
+        if session.verified == entry then return end
         local expected = {}
         for _, amount in ipairs(entry.money or {}) do expected[#expected + 1] = amount end
         -- Money from an inferred transition counts wherever the log put it.
@@ -124,9 +154,9 @@ return function(log, driver, JSON, deps)
         local got, want = sorted(session.paid), sorted(expected)
         local same = #got == #want
         if same then for i = 1, #got do if got[i] ~= want[i] then same = false end end end
+        session.verified = entry
         if not same then
-            fail('"' .. entry.text .. '" moved ' .. list(session.paid) .. ', the log moved ' .. list(entry.money or {}))
-            return
+            difference('"' .. entry.text .. '" moved ' .. list(session.paid) .. ', the log moved ' .. list(entry.money or {}), entry, false)
         end
         session.paid = {}
     end
@@ -143,7 +173,7 @@ return function(log, driver, JSON, deps)
         local argstr = format_args(args)
         local actual = op .. (argstr ~= '' and (' ' .. argstr) or '')
         if not entry or entry.kind ~= 'action' then
-            fail('the game recorded "' .. actual .. '" while the log expects ' .. (entry and ('the message ' .. entry.action) or 'nothing more'))
+            difference('the game recorded "' .. actual .. '" while the log expects ' .. (entry and ('the message ' .. entry.action) or 'nothing more'), entry, false)
             return original(op, args, human)
         end
         local matched
@@ -169,8 +199,32 @@ return function(log, driver, JSON, deps)
             session.consumed = clock()
             S.status('Replay ' .. progress() .. ' - ' .. actual .. (mirrored and (' - ' .. mirrored) or ''))
         else
-            local expected = entry.text .. (entry.human and (' | ' .. entry.human) or '')
-            fail('the game did "' .. actual .. (mirrored and (' | ' .. mirrored) or '') .. '", the log says "' .. expected .. '"')
+            -- The log may simply be a few inputs ahead of what the game just
+            -- did; look for it before calling the run drifted.
+            local found
+            for i = session.cursor + 1, math.min(session.cursor + 10, #session.entries) do
+                local later = session.entries[i]
+                if later.kind == 'action' and later.text == actual and later.human == mirrored then found = i break end
+            end
+            if found and not S.strict then
+                local missed = 0
+                for i = session.cursor, found - 1 do
+                    if session.entries[i].kind == 'action' then missed = missed + 1 end
+                end
+                session.differences[#session.differences + 1] = {step = session.done,
+                    message = missed .. ' input(s) the game never performed, up to "' .. actual .. '"', line = entry.line}
+                session.skipped = (session.skipped or 0) + missed
+                session.done = session.done + missed + 1
+                session.cursor = found + 1
+                session.previous = session.entries[found]
+                session.paid, session.carried = {}, {}
+                session.issued, session.waiting_since, session.wait_reason = nil, nil, nil
+                session.consumed = clock()
+                S.status('Replay ' .. progress() .. ' - resumed at "' .. actual .. '" after ' .. missed .. ' skipped')
+            else
+                local expected = entry.text .. (entry.human and (' | ' .. entry.human) or '')
+                difference('the game did "' .. actual .. (mirrored and (' | ' .. mirrored) or '') .. '", the log says "' .. expected .. '"', entry, true)
+            end
         end
         return original(op, args, human)
     end
@@ -193,13 +247,13 @@ return function(log, driver, JSON, deps)
             end
         end
         if not expected then
-            return fail('the game reported ' .. message.action .. ' more often than the log did')
+            return difference('the game reported ' .. message.action .. ' more often than the log did', nil, false)
         end
         for _, key in ipairs(fields) do
             local got, want = message[key], expected.fields[key]
             if tostring(got) ~= tostring(want) then
                 local what = message.action == 'playHand' and key == 'score' and 'the hand scored ' or ('the game reported ' .. message.action .. ' ' .. key .. ' ')
-                return fail(what .. tostring(got) .. ', the log says ' .. tostring(want) .. ' (log line ' .. expected.line .. ')')
+                return difference(what .. tostring(got) .. ', the log says ' .. tostring(want) .. ' (log line ' .. expected.line .. ')', nil, false)
             end
         end
     end
@@ -328,7 +382,7 @@ return function(log, driver, JSON, deps)
         MP.RLOG.record = S.record
         if MP.STATS then MP.STATS.record_match = function() end end
         session = {run = run, entries = run.entries, checks = run.checks or {}, checked = {}, cursor = 1, done = 0,
-            key = key, began = clock(), tick = 0, paid = {}, carried = {}, previous = nil}
+            key = key, began = clock(), tick = 0, paid = {}, carried = {}, previous = nil, differences = {}, skipped = 0}
         session.code = m.lobby_code or 'REPLAY'
         -- Setting the code is what joining a lobby does; Multiplayer notices
         -- on its next update and re-enters the menu as a lobby member.
@@ -358,7 +412,11 @@ return function(log, driver, JSON, deps)
         S.phase = 'finished'
         local rec = recorder()
         local text = session.run.complete and ('Replay complete - ' .. progress() .. ' inputs') or ('Replay reached the end of a partial log - ' .. progress() .. ' inputs')
-        S.status(text .. ', ' .. tostring(rec and rec.action_count or 0) .. ' recorded actions in ' .. tostring(rec and rec.path or 'no recording'))
+        local tally = ''
+        if #session.differences > 0 then
+            tally = ', ' .. #session.differences .. ' difference(s) and ' .. (session.skipped or 0) .. ' skipped input(s)'
+        end
+        S.status(text .. tally .. ', ' .. tostring(rec and rec.action_count or 0) .. ' recorded actions in ' .. tostring(rec and rec.path or 'no recording'))
     end
 
     function S.stop()
@@ -450,7 +508,7 @@ return function(log, driver, JSON, deps)
             debug('Replay ' .. progress() .. ' waiting: ' .. reason)
         end
         if now - session.waiting_since > (limit or STALL) then
-            fail('waited ' .. math.floor(now - session.waiting_since) .. ' s for ' .. reason)
+            difference('waited ' .. math.floor(now - session.waiting_since) .. ' s for ' .. reason, session.entries[session.cursor], true)
         end
     end
 
@@ -498,7 +556,9 @@ return function(log, driver, JSON, deps)
             return
         end
         if session.issued then
-            if now - session.issued > RECORD then fail('the game did not record "' .. entry.text .. '" after it was performed') end
+            if now - session.issued > RECORD then
+                difference('the game did not record "' .. entry.text .. '" after it was performed', entry, true)
+            end
             return
         end
         local target = entry
@@ -526,9 +586,17 @@ return function(log, driver, JSON, deps)
         -- Most callbacks write their MP_RLOG line before returning, so the
         -- cursor may already have moved on by the time perform comes back.
         local cursor = session.cursor
+        -- The cash out and the shop exit move money the log attributes to
+        -- whichever input the player made around them, so hold the check
+        -- until neither is pending.
+        local blind_op = target.op == 'select_blind' or target.op == 'skip_blind' or target.op == 'ready_blind'
+        if G.STATE ~= G.STATES.ROUND_EVAL and not (G.STATE == G.STATES.SHOP and blind_op) then
+            verify_money(session.previous)
+            if session.failure then return end
+        end
         local ok, result, detail = pcall(driver.perform, target, session.entries)
         if driver.note then debug('Replay ' .. progress() .. ' ' .. driver.note) end
-        if not ok then return fail(result) end
+        if not ok then return difference(result, target, true) end
         if result == 'done' then
             if session.cursor == cursor and not session.failure then session.issued = now end
             session.waiting_since, session.wait_reason = nil, nil

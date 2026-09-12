@@ -1,3 +1,9 @@
+# 1.9.0
+
+- Play the whole log through. A difference between the log and what the game does no longer ends the replay by default: it is counted, written to the Balatro log and to the status file, and the replay carries on, so Action Recorder still gets a recording of the entire run. A new config button switches back to stopping at the first difference.
+- Resume at the right place. When the game performs an input the log has further down, the replay jumps there and counts what was missed instead of fighting the log line by line.
+- Check the money before an input as well as after, once no cash out or shop exit is pending, so a round whose last hand paid differently is reported on that hand.
+
 # 1.8.2
 
 - Check the money. Every dollar the game moves is now compared against the dollars the log recorded for the same input, so a run that has drifted in a way the positional log cannot show stops at the input where it happened instead of several actions later. Money moved by the cash out and the shop exit, which no log records, is held aside so it is not blamed on the wrong input.

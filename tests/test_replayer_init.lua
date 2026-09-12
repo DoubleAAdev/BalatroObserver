@@ -24,12 +24,20 @@ assert(BalatroReplayer == session and session.phase == 'idle')
 
 -- The observer's own rows stay; a status row and four buttons follow.
 local tab = mod.config_tab()
-assert(tab.nodes[1].original and #tab.nodes == 3)
+assert(tab.nodes[1].original and #tab.nodes == 4)
 assert(tab.nodes[2].nodes[1].config.ref_table == session and tab.nodes[2].nodes[1].config.ref_value == 'text')
 local buttons = {}
 for _, node in ipairs(tab.nodes[3].nodes) do buttons[#buttons + 1] = node.config.button end
 assert(table.concat(buttons, ',') == 'bobs_replayer_load,bobs_replayer_next,bobs_replayer_start,bobs_replayer_stop')
 for _, name in ipairs(buttons) do assert(type(G.FUNCS[name]) == 'function') end
+-- The last row toggles what happens when the game and the log disagree.
+local toggle = tab.nodes[4].nodes[1]
+assert(toggle.config.button == 'bobs_replayer_strict' and toggle.nodes[1].config.ref_value == 'strict_label')
+assert(session.strict == false and session.strict_label:find('skip'))
+G.FUNCS.bobs_replayer_strict()
+assert(session.strict == true and session.strict_label:find('stop'))
+G.FUNCS.bobs_replayer_strict()
+assert(session.strict == false)
 
 -- Loading through the picker, cancelling, and dropping a file.
 G.FUNCS.bobs_replayer_load()

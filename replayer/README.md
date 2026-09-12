@@ -5,9 +5,10 @@ Replays a Multiplayer game from its Lovely log so Action Recorder can record eve
 ## Use
 
 1. Open **Mods > Balatro Observer > Config**. Choose **Load Log** and pick the Lovely log of the game (`%APPDATA%\Balatro\Mods\lovely\log`). Dropping a `.log` onto Balatro also works. A log holding several games shows one run at a time; **Next Run** cycles through them.
-2. From the main menu, choose **Start Replay**. The game joins a copy of the recorded lobby, starts the recorded seed, deck, stake, ruleset and options, and plays the log through. Watch the status line in the config tab, or the Balatro log, or `%APPDATA%\Balatro\balatro_replayer\status.json`.
-3. When the status says the replay is complete, open **Open Action Recorder** and export the run named in the status.
-4. Return to the main menu. The lobby copy is dismantled and Multiplayer is left as it was.
+2. **On a difference** switches between carrying on past a difference between the log and the game (the default, so the recording covers the whole run) and stopping at the first one (for working out where a run went wrong).
+3. From the main menu, choose **Start Replay**. The game joins a copy of the recorded lobby, starts the recorded seed, deck, stake, ruleset and options, and plays the log through. Watch the status line in the config tab, or the Balatro log, or `%APPDATA%\Balatro\balatro_replayer\status.json`.
+4. When the status says the replay is complete, open **Open Action Recorder** and export the run named in the status.
+5. Return to the main menu. The lobby copy is dismantled and Multiplayer is left as it was.
 
 **Stop Replay** ends playback and returns to the menu. Pausing or opening a menu only pauses the replay.
 
@@ -19,7 +20,7 @@ The replay performs the inputs through the same game callbacks the buttons use a
 
 ## Checks
 
-Before an input is performed, the card in the logged slot must carry the name the log mirrored, a purchase or reroll must cost what the log paid, and the blind must be the one the log chose. After it is performed, Multiplayer writes its own `MP_RLOG:` line for what actually happened; the replay compares that line and its mirrored line with the log, word for word, before moving on. It also compares the dollars that input moved with the dollars the log recorded for it, and the game's own progress reports: the score of every PvP hand, the ante, what each shop cost, how far the run has come. The same check covers what the game does by itself: the ante key of every blind (put back to the logged value), the PvP blind the server starts after Ready, and received asteroids. Any difference stops the replay with both lines in the status, and the run is left open so it can be inspected. Only a complete, unbroken replay is reported as complete.
+Before an input is performed, the card in the logged slot must carry the name the log mirrored, a purchase or reroll must cost what the log paid, and the blind must be the one the log chose. After it is performed, Multiplayer writes its own `MP_RLOG:` line for what actually happened; the replay compares that line and its mirrored line with the log, word for word, before moving on. It also compares the dollars that input moved with the dollars the log recorded for it, and the game's own progress reports: the score of every PvP hand, the ante, what each shop cost, how far the run has come. The same check covers what the game does by itself: the ante key of every blind (put back to the logged value), the PvP blind the server starts after Ready, and received asteroids. Every difference is written to the Balatro log and to `balatro_replayer/status.json` with the action and the log line it came from, and the closing status counts them along with the inputs that had to be skipped. With **On a difference: stop** the replay halts at the first one instead and leaves the run open to inspect. A replay that reports no differences reproduced the log exactly.
 
 Transitions Multiplayer does not log are inferred: cashing out when the next input needs the shop or blind select, and leaving the shop when the next input is on the blind select screen.
 
