@@ -283,17 +283,23 @@ return function(log, driver, JSON, deps)
         return name or text, tonumber(col) or 1
     end
 
+    local function describe_run()
+        local run = S.runs[S.index]
+        return 'Replayer: run ' .. S.index .. '/' .. #S.runs .. ' - ' .. run.actions .. ' inputs, seed ' ..
+            run.manifest.seed .. (run.replayed and ' (recorded by a replay, not a game)' or '')
+    end
+
     function S.load(text)
         assert(S.phase == 'idle', 'Finish the current replay before loading another log')
         S.runs = log.parse(text)
         S.index = 1
-        S.status('Replayer: run 1/' .. #S.runs .. ' - ' .. S.runs[1].actions .. ' inputs, seed ' .. S.runs[1].manifest.seed)
+        S.status(describe_run())
     end
 
     function S.next_run()
         if not S.runs or S.phase ~= 'idle' then return end
         S.index = S.index % #S.runs + 1
-        S.status('Replayer: run ' .. S.index .. '/' .. #S.runs .. ' - ' .. S.runs[S.index].actions .. ' inputs, seed ' .. S.runs[S.index].manifest.seed)
+        S.status(describe_run())
     end
 
     local function validate(run)
@@ -472,6 +478,9 @@ return function(log, driver, JSON, deps)
         S.phase = 'running'
         session.run_started = clock()
         session.signature, session.signature_at = nil, nil
+        -- Stamp the log this replay is writing, so loading it back says so
+        -- instead of looking like another game of the same seed.
+        if sendTraceMessage then sendTraceMessage('MP_RLOG: REPLAY', 'MULTIPLAYER') end
         S.status('Replay running - ' .. progress() .. ' inputs')
     end
 
@@ -510,31 +519,18 @@ return function(log, driver, JSON, deps)
         return nil
     end
 
-    -- The game is on a screen the next inputs will never be answered from,
-    -- because a round ran shorter or longer here than it did in the log. Mark
-    -- everything up to the first input this screen can serve as skipped; the
-    -- messages in between are still delivered as they come.
-    local function skip_to_reachable()
-        if S.strict then return false end
-        local found
-        for index = session.cursor, #session.entries do
-            local later = session.entries[index]
-            if later.kind == 'action' and driver.reachable(later) then found = index break end
-        end
-        if not found or found == session.cursor then return false end
-        local missed = 0
-        for index = session.cursor, found - 1 do
-            if session.entries[index].kind == 'action' then missed = missed + 1 end
-        end
-        local entry = session.entries[session.cursor]
-        session.differences[#session.differences + 1] = {step = session.done, line = entry.line, action = entry.text,
-            message = missed .. ' input(s) ' .. driver.state_name() .. ' cannot serve, skipped to "' .. session.entries[found].text .. '"'}
-        session.skip_before = found
-        session.owed, session.seen = {}, {}
-        session.previous = nil
-        session.issued, session.waiting_since, session.wait_reason = nil, nil, nil
-        debug('Replay ' .. progress() .. ': skipping ' .. missed .. ' input(s) ' .. driver.state_name() .. ' cannot serve')
-        return true
+    -- The log's round and the game's did not end together: the log is buying
+    -- in a shop the game has not reached, or playing a hand in a round the
+    -- game has already won. Nothing after this point can be replayed - every
+    -- later input belongs to a round that no longer lines up - so the replay
+    -- stops here and says how far the recording is good for. Carrying on
+    -- would perform the next round's hands inside this one.
+    local function desync(entry)
+        local playing = driver.state_name() == 'SELECTING_HAND'
+        local why = playing
+            and 'the log left this round after the hands it played and the game has not - the blind was not beaten here'
+            or 'the game left this round before the log did - the blind was beaten sooner here'
+        fail(why .. '. Nothing past this input lines up, so the replay stops; the recording is faithful up to input ' .. session.done)
     end
 
     local function waiting(reason, limit)
@@ -547,7 +543,7 @@ return function(log, driver, JSON, deps)
         local entry = session.entries[session.cursor]
         local blocked = not driver.reachable(entry)
         if now - session.waiting_since > (limit or (blocked and BLOCKED or STALL)) then
-            if blocked and skip_to_reachable() then return end
+            if blocked then return desync(entry) end
             difference('waited ' .. math.floor(now - session.waiting_since) .. ' s for ' .. reason, entry, true)
         end
     end
@@ -594,17 +590,6 @@ return function(log, driver, JSON, deps)
                 entry = session.entries[session.cursor]
             end
             return
-        end
-        if session.skip_before then
-            if session.cursor < session.skip_before then
-                session.cursor = session.cursor + 1
-                session.done = session.done + 1
-                session.skipped = (session.skipped or 0) + 1
-                session.consumed = now
-                S.status('Replay ' .. progress() .. ' - skipping past a round the log and the game disagree on')
-                return
-            end
-            session.skip_before = nil
         end
         if session.issued then
             if now - session.issued > RECORD then

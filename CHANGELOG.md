@@ -1,3 +1,9 @@
+# 1.9.3
+
+- Stop the replay where a round stops lining up, instead of skipping through it. When a round ends in the log but not in the game (the blind was not beaten here) or the other way round, every later input belongs to a round that no longer matches: the shop the log buys in is never opened, and the hands it plays next belong to a round the game has not started. The replay now says which way round it went and how far the recording is faithful, rather than skipping the shop and then playing the following round's hands inside the unfinished one.
+- Stop comparing spentLastShop. It reports Multiplayer's own shop counter, which does not survive the emulated lobby - every shop of a replay reports 0 - and nothing reads the value back. It was producing a difference at every shop and burying the real ones. The ante, the furthest blind and every PvP hand score are still compared.
+- Name a log that a replay wrote. A replay writes its own inputs into the current Lovely log, so the newest logs in the folder are replays rather than games, and being the same seed and deck they all open the same way. Loading one now reads "run 1/1 - 355 inputs, seed 3TSESKHM (recorded by a replay, not a game)".
+
 # 1.9.2
 
 - Stop the Observer and Action Recorder background servers when the Balatro process that launched them exits, including crashes and forced closes.

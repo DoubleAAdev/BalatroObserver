@@ -39,9 +39,13 @@ return function(decode)
     -- Outbound messages whose payload is a pure function of the run's state.
     -- They are the only checkpoints a log carries for what the replay cannot
     -- otherwise see, so each one is compared against what the game sends.
+    -- spentLastShop is deliberately not here. It reports Multiplayer's own
+    -- MP.GAME.spent_total, which does not survive the emulated lobby: every
+    -- shop of a replay reports 0 while the run itself is faithful. Nothing
+    -- reads the value back, so comparing it only buries the real differences.
     local checkpoints = {
         playHand = {'score', 'handsLeft'}, setAnte = {'ante'},
-        spentLastShop = {'amount'}, setFurthestBlind = {'furthestBlind'},
+        setFurthestBlind = {'furthestBlind'},
     }
     M.checkpoints = checkpoints
     -- Multiplayer prints every value with %s, so types are recovered from the
@@ -125,13 +129,21 @@ return function(decode)
     function M.parse(text)
         assert(type(text) == 'string' and #text <= 16 * 1024 * 1024, 'Log exceeds 16 MB')
         local runs, run, lobby, pending, paying, number = {}, nil, nil, nil, nil, 0
+        -- A replay writes its own MP_RLOG stream into the Lovely log, so the
+        -- newest logs in the folder are replays, not games. The session marks
+        -- its own run; the marker can land either side of the manifest.
+        local replayed = false
         for line in (text .. '\n'):gmatch('(.-)\r?\n') do
             number = number + 1
             local payload = line:match('^MP_RLOG: (.*)$') or line:match(':: MULTIPLAYER :: MP_RLOG: (.*)$')
             if payload then
-                if payload:match('^MANIFEST ') then
-                    run = {manifest = parse_manifest(payload:sub(10)), entries = {}, checks = {}, actions = 0, complete = false, lobby = lobby, line = number}
+                if payload == 'REPLAY' then
+                    if run then run.replayed = true else replayed = true end
+                elseif payload:match('^MANIFEST ') then
+                    run = {manifest = parse_manifest(payload:sub(10)), entries = {}, checks = {}, actions = 0, complete = false, lobby = lobby, line = number,
+                        replayed = replayed or nil}
                     runs[#runs + 1] = run
+                    replayed = false
                     pending, paying = nil, nil
                 elseif payload:match('^END ') then
                     assert(run, 'END without a manifest')

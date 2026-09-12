@@ -106,10 +106,13 @@ for i, entry in ipairs(run.entries) do assert(entry.position == i) end
 -- The game's own progress reports are kept as checkpoints, in log order.
 local kinds_of = {}
 for _, check in ipairs(run.checks) do kinds_of[#kinds_of + 1] = check.action end
-assert(table.concat(kinds_of, ',') == 'playHand,playHand,spentLastShop,setAnte', table.concat(kinds_of, ','))
+-- spentLastShop is not one: it reports Multiplayer's own shop counter, which
+-- a replay does not reproduce, and nothing reads the value back.
+assert(table.concat(kinds_of, ',') == 'playHand,playHand,setAnte', table.concat(kinds_of, ','))
+assert(not log.checkpoints.spentLastShop)
 assert(run.checks[1].fields.score == '0' and run.checks[1].fields.handsLeft == 4)
 assert(run.checks[2].fields.score == '2984' and run.checks[2].fields.handsLeft == 3)
-assert(run.checks[3].fields.amount == 13 and run.checks[4].fields.ante == 2)
+assert(run.checks[3].fields.ante == 2)
 assert(run.checks[2].after == 6, 'a checkpoint remembers where in the run it happened')
 assert(log.checkpoints.playHand[1] == 'score' and log.checkpoints.setFurthestBlind[1] == 'furthestBlind')
 
@@ -141,6 +144,16 @@ assert(not pcall(log.parse, head .. 'MP_RLOG: END {}'), 'a log without inputs is
 for _, key in ipairs({'0', '1e-05', '0.16979563507933'}) do
     assert(log.parse(head .. 'MP_RLOG: 1 set_ante_key ' .. key)[1].entries[1].args[1] == key)
 end
+
+-- A run a replay wrote says so, whichever side of the manifest the mark lands.
+local NL = string.char(10)
+local mark = P .. 'MP_RLOG: REPLAY' .. NL
+assert(log.parse(head .. 'MP_RLOG: 1 reroll')[1].replayed == nil)
+assert(log.parse(mark .. head .. 'MP_RLOG: 1 reroll')[1].replayed == true)
+assert(log.parse(head .. 'MP_RLOG: 1 reroll' .. NL .. mark)[1].replayed == true)
+local mixed = log.parse(head .. 'MP_RLOG: 1 reroll' .. NL .. 'MP_RLOG: END {}' .. NL .. mark ..
+    P .. 'MP_RLOG: MANIFEST {"seed":"SECOND"}' .. NL .. P .. 'MP_RLOG: 1 reroll')
+assert(#mixed == 2 and mixed[1].replayed == nil and mixed[2].replayed == true, 'the mark does not leak between runs')
 
 -- The real log this feature was written against, when it is on this machine.
 local real = io.open('C:/Users/amite/AppData/Roaming/Balatro/Mods/lovely/log/lovely-2026.09.09-18.09.55.log', 'rb')

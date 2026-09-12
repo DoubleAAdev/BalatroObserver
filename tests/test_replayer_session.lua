@@ -380,15 +380,23 @@ assert(session.phase == 'running' and session.progress() == '7/8', session.text)
 local written = writes['balatro_replayer/status.json']
 assert(written:find('the log moves %$3 for'), 'the missing dollar is written out')
 assert(written:find('the game moved %$7 the log does not record'), 'the extra dollar is written out')
--- A screen the log's next inputs will never be answered from is skipped past
--- in one go rather than waited out one input at a time.
+-- A round the log and the game did not end together ends the replay: every
+-- later input belongs to a round that no longer lines up.
 restart()
 through_the_play()
 driver.perform = function(entry) performed[#performed + 1] = entry.text; return 'wait', 'the shop is open' end
-reachable = function(entry) return entry.op == 'buy' end
-for _ = 1, 30 do now = now + 1; session.update(0.1); channel.items = {} end
-assert(session.progress() == '6/8' and session.text:find('skipping past a round'), session.text)
-assert(writes['balatro_replayer/status.json']:find('3 input%(s%) STATE cannot serve'), 'the skipped round is written out')
+driver.state_name = function() return 'SELECTING_HAND' end
+reachable = function() return false end
+for _ = 1, 20 do now = now + 1; session.update(0.1); channel.items = {} end
+assert(session.phase == 'failed', session.text)
+assert(session.text:find('the log left this round') and session.text:find('faithful up to input 3'), session.text)
+driver.state_name = function() return 'SHOP' end
+restart()
+through_the_play()
+driver.perform = function(entry) performed[#performed + 1] = entry.text; return 'wait', 'the hand is not dealt' end
+for _ = 1, 20 do now = now + 1; session.update(0.1); channel.items = {} end
+assert(session.phase == 'failed' and session.text:find('the game left this round before the log did'), session.text)
+driver.state_name = function() return 'STATE' end
 reachable = function() return true end
 -- An input the game never performs is skipped, and the replay resumes at the
 -- next line of the log it recognises.

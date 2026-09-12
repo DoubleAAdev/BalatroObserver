@@ -47,9 +47,12 @@ local loaded = session.runs
 G.FUNCS.bobs_replayer_load()
 assert(session.runs == loaded)
 local dropped = {getFilename = function() return 'C:/x/lovely-2.LOG' end, getSize = function() return #text end,
-    open = function() end, read = function() return text .. ':: MULTIPLAYER :: MP_RLOG: 2 reroll\n' end, close = function() end}
+    open = function() end, read = function() return text .. ':: MULTIPLAYER :: MP_RLOG: 2 reroll\n:: MULTIPLAYER :: MP_RLOG: REPLAY\n' end, close = function() end}
 love.filedropped(dropped)
 assert(session.runs ~= loaded and session.runs[1].actions == 2, session.text)
+-- A log a replay wrote is named as one: the newest logs in the folder are
+-- replays, not games, and they all start the same way.
+assert(session.text:find('recorded by a replay'), session.text)
 local other = {getFilename = function() return 'notes.txt' end}
 love.filedropped(other)
 assert(session.runs[1].actions == 2, 'other files are not logs')
