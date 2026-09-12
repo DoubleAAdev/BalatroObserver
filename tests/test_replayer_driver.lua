@@ -276,6 +276,28 @@ status, why = driver.perform(entry('ready_blind', {'1'}))
 assert(status == 'wait' and why:find('no mp_toggle_ready button on the Big blind'))
 fails(function() driver.perform(entry('open_pack', {'1', '1'})) end, 'cannot perform open_pack')
 
+-- Which screen can still answer which input. A round that ran shorter here
+-- than in the log leaves the game in the shop while the log still plays.
+G.STATE = G.STATES.SHOP
+assert(not driver.reachable(entry('play', {'1.2'})), 'the shop never plays a hand')
+assert(not driver.reachable(entry('discard', {'1.2'})))
+assert(not driver.reachable(entry('reorder', {'6', '2.1'})), 'the hand is not in the shop')
+assert(driver.reachable(entry('reorder', {'4', '2.1'})), 'jokers reorder wherever they are shown')
+assert(driver.reachable(entry('buy', {'1', '1'})) and driver.reachable(entry('reroll', {})))
+assert(driver.reachable(entry('select_blind', {'0'})), 'the shop is left for the blind select')
+assert(driver.reachable(entry('use', {'1'})) and driver.reachable(entry('sell', {'4', '1'})))
+assert(not driver.reachable(entry('pack_pick', {'1'})), 'no pack is open')
+G.STATE = G.STATES.SELECTING_HAND
+assert(driver.reachable(entry('play', {'1.2'})) and not driver.reachable(entry('buy', {'1', '1'})))
+G.STATE = G.STATES.ROUND_EVAL
+assert(driver.reachable(entry('buy', {'1', '1'})), 'the cash out leads to the shop')
+assert(not driver.reachable(entry('play', {'1.2'})), 'the round is over')
+G.STATE = G.STATES.SMODS_BOOSTER_OPENED
+assert(driver.reachable(entry('pack_pick', {'1'})) and not driver.reachable(entry('buy', {'1', '1'})))
+G.STATE = G.STATES.HAND_PLAYED
+assert(driver.reachable(entry('play', {'1.2'})), 'a screen in motion is waited out, not skipped')
+G.STATE = G.STATES.SHOP
+
 -- The settle signature changes with anything an input could wait on.
 local before = driver.signature()
 G.GAME.dollars = 11

@@ -12,8 +12,10 @@ function channel:pop() return table.remove(self.items, 1) end
 
 local log = dofile('replayer/log.lua')(function() return {} end)
 local performed, outcome = {}, 'done'
+local reachable = function() return true end
 local driver = {perform = function(entry) performed[#performed + 1] = entry.text; return outcome, 'not yet' end,
-    signature = function() return 'stable' end, state_name = function() return 'STATE' end}
+    signature = function() return 'stable' end, state_name = function() return 'STATE' end,
+    reachable = function(entry) return reachable(entry) end}
 local encoded, pushed = {}, {}
 local function encode(t) encoded[#encoded + 1] = t; return 'json' .. #encoded end
 function channel:push(v) self.items[#self.items + 1] = v; pushed[#pushed + 1] = encoded[tonumber(v:match('%d+'))] end
@@ -337,15 +339,33 @@ restart()
 through_the_play()
 Client.send({action = 'playHand', score = '999', handsLeft = 2})
 assert(session.phase == 'failed' and session.text:find('the hand scored 999, the log says 4210'), session.text)
+-- Dollars are matched over a window of inputs, so the log's $3 is still
+-- accounted for when the game credits it an input later than the log did.
+local function past_the_window()
+    MP.RLOG.record('ready_blind', 1)
+    now = now + 1
+    session.update(0.1)
+    channel.items = {}
+    MP.RLOG.record('set_ante_key', '0.222')
+    MP.RLOG.record('select_blind', 0, 'action:selectBlind,blind:bl_mp_nemesis')
+    MP.RLOG.record('buy', {1, 1}, 'action:boughtCardFromShop,card:Misprint,cost:4')
+end
 restart()
 through_the_play()
-ease_dollars(7)
 MP.RLOG.record('ready_blind', 1)
-assert(session.phase == 'failed' and session.text:find('"play 1.2" moved %$7, the log moved %$3'), session.text)
+ease_dollars(3)
+now = now + 1
+session.update(0.1)
+channel.items = {}
+MP.RLOG.record('set_ante_key', '0.222')
+MP.RLOG.record('select_blind', 0, 'action:selectBlind,blind:bl_mp_nemesis')
+MP.RLOG.record('buy', {1, 1}, 'action:boughtCardFromShop,card:Misprint,cost:4')
+assert(session.phase == 'running' and session.progress() == '7/8', session.text)
+-- A dollar the log records that the game never moves is named with its input.
 restart()
 through_the_play()
-MP.RLOG.record('ready_blind', 1)
-assert(session.phase == 'failed' and session.text:find('"play 1.2" moved nothing, the log moved %$3'), session.text)
+past_the_window()
+assert(session.phase == 'failed' and session.text:find('the log moves %$3 for "play 1%.2" and the game never did'), session.text)
 session.stop()
 session.on_main_menu()
 
@@ -355,9 +375,21 @@ session.strict = false
 restart()
 through_the_play()
 ease_dollars(7)
-MP.RLOG.record('ready_blind', 1)
-assert(session.phase == 'running' and session.progress() == '4/8', session.text)
-assert(writes['balatro_replayer/status.json']:find('moved %$7'), 'the difference is written out')
+past_the_window()
+assert(session.phase == 'running' and session.progress() == '7/8', session.text)
+local written = writes['balatro_replayer/status.json']
+assert(written:find('the log moves %$3 for'), 'the missing dollar is written out')
+assert(written:find('the game moved %$7 the log does not record'), 'the extra dollar is written out')
+-- A screen the log's next inputs will never be answered from is skipped past
+-- in one go rather than waited out one input at a time.
+restart()
+through_the_play()
+driver.perform = function(entry) performed[#performed + 1] = entry.text; return 'wait', 'the shop is open' end
+reachable = function(entry) return entry.op == 'buy' end
+for _ = 1, 30 do now = now + 1; session.update(0.1); channel.items = {} end
+assert(session.progress() == '6/8' and session.text:find('skipping past a round'), session.text)
+assert(writes['balatro_replayer/status.json']:find('3 input%(s%) STATE cannot serve'), 'the skipped round is written out')
+reachable = function() return true end
 -- An input the game never performs is skipped, and the replay resumes at the
 -- next line of the log it recognises.
 restart()

@@ -1,3 +1,8 @@
+# 1.9.1
+
+- Skip a round the log and the game disagree on in one step. When a round ends earlier or later in the replay than it did in the log, the game sits on a screen the log's next inputs can never be answered from; the replay now recognises that within ten seconds and skips straight to the first input that screen can serve, instead of waiting forty-five seconds for each one in turn and looking frozen.
+- Reconcile dollars over a window of inputs instead of demanding them of the input they sit under. The game credits a joker's dollars a second or two after the input that earned them, and the log, written by a player who paused between clicks, files them with that input; the replay was reporting the same dollars twice, as missing from one input and unexpected on the next. Money that never arrives, or that the log never records, is still reported, named with the input and log line it belongs to.
+
 # 1.9.0
 
 - Play the whole log through. A difference between the log and what the game does no longer ends the replay by default: it is counted, written to the Balatro log and to the status file, and the replay carries on, so Action Recorder still gets a recording of the entire run. A new config button switches back to stopping at the first difference.

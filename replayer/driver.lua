@@ -456,6 +456,27 @@ return function(log)
         return 'done'
     end
 
+    -- Whether the game as it stands could still answer this input. A round
+    -- that ran shorter or longer here than it did in the log leaves the game
+    -- on a screen the log's next inputs will never be answered from; saying
+    -- so lets the session skip them at once instead of waiting each one out.
+    local settled = {SELECTING_HAND = true, SHOP = true, BLIND_SELECT = true, ROUND_EVAL = true}
+    local screen = {play = 'hand', discard = 'hand', reroll = 'shop', buy = 'shop',
+        select_blind = 'blind', skip_blind = 'blind', ready_blind = 'blind',
+        pack_pick = 'pack', pack_skip = 'pack'}
+    function M.reachable(entry)
+        if not entry or entry.kind ~= 'action' then return true end
+        local want = screen[entry.op]
+        if entry.op == 'reorder' and tonumber(entry.args[1]) == 6 then want = 'hand' end
+        if not want then return true end
+        if in_pack() then return want == 'pack' end
+        if want == 'pack' then return false end
+        if not settled[state_name()] then return true end
+        if want == 'hand' then return state_is('SELECTING_HAND') end
+        if want == 'shop' then return state_is('SHOP') or state_is('ROUND_EVAL') end
+        return state_is('BLIND_SELECT') or state_is('SHOP') or state_is('ROUND_EVAL')
+    end
+
     -- Perform one input. Returns 'done' or 'wait', reason. `entries` is the
     -- whole log, for inputs whose meaning depends on what follows.
     function M.perform(entry, entries)
