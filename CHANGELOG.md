@@ -1,3 +1,7 @@
+# 1.11.0
+
+- Move the Replayer to its own mod, [Balatro Replayer](https://github.com/DoubleAAdev/BalatroReplayer). It is unchanged from 1.10.0 and still records through Observer's Action Recorder, so keep Observer installed; its buttons are now in **Mods > Balatro Replayer > Config**. Installing this version removes the replayer files from Observer's mod folder.
+
 # 1.10.0
 
 - Execute the log's actions and nothing else. The actions are filtered out of the log the way the player's filter script does it - every MP_RLOG line that is not a Client line, except set_ante_key - and executed in order, each once. Nothing is skipped, repeated, reordered or added any more, and nothing is decided by comparing money or scores: the replay stops at the first action it cannot execute and says why. The "On a difference" button, the money and score checks and the skipping and resuming are gone.

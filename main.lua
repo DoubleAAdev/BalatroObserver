@@ -39,4 +39,3 @@ end
 
 -- Install action history after the observer so both settings shortcuts and update hooks coexist.
 load('action-recorder/init.lua')(mod, JSON)
-load('replayer/init.lua')(mod, JSON)
