@@ -10,6 +10,7 @@ using System.Web.Script.Serialization;
 // Independent read-only localhost export server; never opens arbitrary client-supplied paths.
 public static class ActionRecorderServer {
     static string root, directory;
+    static int gamePid;
     static readonly HashSet<string> tokens=new HashSet<string>{"play","discard","buy","sell","reroll","use","pack_pick","pack_skip","reorder","select_blind","skip_blind","set_ante_key","ready_blind","net_asteroid"};
     static JavaScriptSerializer Json(){return new JavaScriptSerializer{MaxJsonLength=134217728,RecursionLimit=64};}
     static bool ValidName(string name){return System.Text.RegularExpressions.Regex.IsMatch(name,@"\Arun-[0-9]+-[0-9]+-[0-9]+\.jsonl\z");}
@@ -123,7 +124,14 @@ public static class ActionRecorderServer {
         try{status=Json().DeserializeObject(File.ReadAllText(Path.Combine(directory,"status.json")));}catch{}
         return Json().Serialize(new{recordings=list,status=status});
     }
-    public static void Run(string releaseRoot,string stateDirectory,int port){
+    public static void Run(string releaseRoot,string stateDirectory,int port,int ownerPid=0){
+        gamePid=ownerPid;
+        if(gamePid>0){
+            System.Diagnostics.Process game;
+            try { game=System.Diagnostics.Process.GetProcessById(gamePid); var handle=game.Handle; }
+            catch(ArgumentException) { return; }
+            ThreadPool.QueueUserWorkItem(delegate { using(game) { game.WaitForExit(); Environment.Exit(0); } });
+        }
         root=releaseRoot;directory=stateDirectory;
         var listener=new TcpListener(IPAddress.Loopback,port);listener.Start();
         try{while(true){var client=listener.AcceptTcpClient();ThreadPool.QueueUserWorkItem(_=>Serve(client));}}
@@ -155,7 +163,7 @@ public static class ActionRecorderServer {
                     else if(first.Length!=3 || first[0]!="GET"){code=405;body=Encoding.UTF8.GetBytes("{\"error\":\"GET required\"}");}
                     else{
                         var uri=new Uri("http://127.0.0.1"+first[1]);string route=uri.AbsolutePath;
-                        if(route=="/health")body=Encoding.UTF8.GetBytes("{\"app\":\"BalatroActionRecorder\",\"version\":\"0.4.0\"}");
+                        if(route=="/health")body=Encoding.UTF8.GetBytes(Json().Serialize(new{app="BalatroActionRecorder",version="0.4.1",gamePid=gamePid}));
                         else if(route=="/recordings")body=Encoding.UTF8.GetBytes(ListRecordings());
                         else if(route=="/export"){
                             var query=System.Web.HttpUtility.ParseQueryString(uri.Query);string file=query["file"]??"";

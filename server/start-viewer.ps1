@@ -5,6 +5,7 @@ param(
     [switch]$NoOpen,
     [string]$Request,
     [string]$StatusFile,
+    [ValidateRange(0,2147483647)][int]$GamePid = 0,
     [string]$StateDirectory = (Join-Path $env:APPDATA 'Balatro\balatro_observer'),
     [ValidateRange(1,65535)][int]$Port = 8765
 )
@@ -13,7 +14,7 @@ $root = Split-Path -Parent $PSScriptRoot   # the mod folder: manifest, viewer/, 
 
 if ($Server) {
     Add-Type -Path (Join-Path $PSScriptRoot 'viewer-server.cs') -ReferencedAssemblies 'System.Web.Extensions'
-    [ObserverServer]::Run($root, [IO.Path]::GetFullPath($StateDirectory), $Port)
+    [ObserverServer]::Run($root, [IO.Path]::GetFullPath($StateDirectory), $Port, $GamePid)
     exit
 }
 
@@ -64,7 +65,7 @@ function Get-ViewerStatus([string]$ExpectedVersion) {
             $health = $reader.ReadToEnd() | ConvertFrom-Json
             if ($health.app -ne 'BalatroObserver') { return 'occupied' }
             # Only a viewer of this exact release is reused; an older one is replaced below.
-            if ($health.version -eq $ExpectedVersion) { return 'ready' }
+            if ($health.version -eq $ExpectedVersion -and (-not $GamePid -or $health.gamePid -eq $GamePid)) { return 'ready' }
             return 'outdated'
         } finally { $response.Close() }
     } catch {
@@ -96,6 +97,7 @@ function Stop-OutdatedViewer([string]$ExpectedVersion) {
 }
 
 try {
+    if (-not $GamePid) { $GamePid = (Get-Process -Name Balatro -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Id) }
     $release = Get-Content -LiteralPath (Join-Path $root 'BalatroObserver.json') -Raw | ConvertFrom-Json
     $status = Get-ViewerStatus $release.version
     if ($status -eq 'occupied') { throw "Port $Port is occupied by $(Describe-PortOwners (Get-PortOwners)), which is not a Balatro Observer viewer. Close it and retry." }
@@ -103,6 +105,7 @@ try {
     if ($status -eq 'stopped') {
         foreach ($argument in @($PSCommandPath, $StateDirectory)) { if ($argument.Contains('"')) { throw 'Invalid launcher path' } }
         $arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $PSCommandPath + '" -Server -Port ' + $Port + ' -StateDirectory "' + $StateDirectory.TrimEnd('\') + '"'
+        $arguments += ' -GamePid ' + $GamePid
         Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList $arguments -WindowStyle Hidden `
             -RedirectStandardOutput (Join-Path $root 'viewer-server.log') -RedirectStandardError (Join-Path $root 'viewer-server-error.log') | Out-Null
         $deadline = [DateTime]::UtcNow.AddSeconds(10)

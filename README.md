@@ -120,6 +120,8 @@ The bundled vanilla calculator does not model Multiplayer rulesets, so it explai
 
 ## Action history
 
+On Windows, servers opened from the mod's config stop automatically when Balatro closes. Recorded runs remain on disk. Desktop launchers also attach to Balatro if it is running; launches without a game remain available for offline viewing.
+
 **Replayer** is available in Observer's config. Use **Load Log** to choose the Lovely log of a Multiplayer game, then **Start Replay** from the main menu. The game joins a copy of the recorded lobby, replays every logged input and received message, checks each one against the log, and Action Recorder records the result. See [Replayer use, checks and limits](replayer/README.md).
 
 Open **Mods > Balatro Observer > Config > Open Action Recorder** to export readable action logs with card positions, identities, and brief property changes. See [recorder documentation](action-recorder/README.md). Disable any older standalone recorder and restart Balatro after updating.

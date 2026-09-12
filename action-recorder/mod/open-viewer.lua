@@ -6,6 +6,7 @@ return function(mod_path, request, status_file)
     local ok, result = pcall(function()
         local ffi = require('ffi')
         ffi.cdef[[
+            unsigned long GetCurrentProcessId(void);
             int MultiByteToWideChar(unsigned int, unsigned long, const char*, int, wchar_t*, int);
             void* ShellExecuteW(void*, const wchar_t*, const wchar_t*, const wchar_t*, const wchar_t*, int);
         ]]
@@ -27,6 +28,7 @@ return function(mod_path, request, status_file)
         assert(type(request)=='string' and request:match('^[%w%-]+$'), 'Invalid launch request')
         assert(type(status_file)=='string' and not status_file:find('["\r\n]'), 'Invalid status path')
         local arguments='-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'..script..'" -NoOpen -Request '..request..' -StatusFile "'..status_file..'"'
+        arguments=arguments..' -GamePid '..tonumber(kernel.GetCurrentProcessId())
         local powershell = (os.getenv('SystemRoot') or 'C:/Windows')..'/System32/WindowsPowerShell/v1.0/powershell.exe'
         local handle = shell.ShellExecuteW(nil,wide('open'),wide(powershell),wide(arguments),wide(mod_path),0)
         local code = tonumber(ffi.cast('intptr_t',handle))

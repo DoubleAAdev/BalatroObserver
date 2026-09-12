@@ -1,3 +1,8 @@
+# 1.9.2
+
+- Stop the Observer and Action Recorder background servers when the Balatro process that launched them exits, including crashes and forced closes.
+- Replace an existing server with one tied to the current game when needed; recordings are retained.
+
 # 1.9.1
 
 - Skip a round the log and the game disagree on in one step. When a round ends earlier or later in the replay than it did in the log, the game sits on a screen the log's next inputs can never be answered from; the replay now recognises that within ten seconds and skips straight to the first input that screen can serve, instead of waiting forty-five seconds for each one in turn and looking frozen.
