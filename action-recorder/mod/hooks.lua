@@ -13,6 +13,7 @@ return function(rec,JSON)
         if token=='play' or token=='discard' then
             if token=='play' and #((G.play or {}).cards or {})>0 then return end
             event.area='hand';event.cards=rec.area(G.hand,true)
+            event.hand_before=rec.area(G.hand)
             if token=='discard' then
                 local limit=((G.discard or {}).config or {}).card_limit
                 if type(limit)=='number' then

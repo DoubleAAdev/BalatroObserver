@@ -1,11 +1,7 @@
-# v1.2.0 — Multiplayer observation support
+# Balatro Observer v1.12.0
 
-- Keep the existing folder layout and add a small, optional mod/multiplayer.lua adapter.
-- Add 21 attributed Multiplayer wiki images for seven decks, nine jokers, consumables, the Giga Standard Pack, Nemesis blind and Planet stake.
-- Display current localized deck/joker descriptions, reviewed dynamic values, standard rework portraits, Phantom labels and revealed Cocktail components.
-- Show public match HUD data while preserving hidden-score rules and excluding opponent cards, seeds, lobby codes and network state.
-- Explain unsupported Multiplayer scoring and callback-derived tooltip values instead of guessing. Vanilla scoring and retained previews remain available outside Multiplayer.
+The Action Recorder now saves run setup (including seed, deck, stake, loaded mod versions and available Multiplayer settings) and full visible hands before and after each play/discard. Outcomes are tied to their actions, with pending outcomes explicitly marked unavailable. Face-down identities stay hidden.
 
-Validated with Lua collector/privacy tests, Node server and score tests, browser rendering and artwork decoding, and Windows server route parity. Compatibility definitions checked against Multiplayer 0.5.5; the wiki currently documents 0.5.2. A live two-player match has not been exercised by the automated tests.
+The recorder page and text exports explain compatibility: Balatro Replayer currently consumes original Multiplayer Lovely logs, including opponent messages. This annotated export is not yet directly importable. Earlier recordings cannot recover missing setup or hands; resumed recordings remain partial.
 
-Restart Balatro to load the new collector and refresh the website.
+Extract the ZIP's BalatroObserver folder into your Balatro Mods directory and restart Balatro. Bundled viewer assets and third-party notices are included.

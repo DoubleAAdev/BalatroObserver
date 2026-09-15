@@ -80,6 +80,9 @@ public static class ActionRecorderServer {
         var metadata=header["recording"] as Dictionary<string,object>;
         if(metadata==null)throw new InvalidDataException("Invalid recording metadata.");
         output.AppendLine("Balatro action log | "+Field(metadata,"id")+(Field(metadata,"partial")=="True"?" | resumed/partial run":""));
+        output.AppendLine("Run setup: "+Json().Serialize(metadata));
+        output.AppendLine("Replay compatibility: this annotated log is not MP_RLOG input; Balatro Replayer currently requires the original Multiplayer Lovely log, including opponent messages.");
+        var pendingHands=new HashSet<int>();
         for(int i=1;i<lines.Length;i++){
             if(String.IsNullOrWhiteSpace(lines[i]))continue;
             var record=Json().DeserializeObject(lines[i]) as Dictionary<string,object>;
@@ -102,14 +105,26 @@ public static class ActionRecorderServer {
                 if(action.ContainsKey("use_after_buy"))output.Append(" | used immediately");
                 if(action.ContainsKey("order"))output.Append(" | previous slots="+Json().Serialize(action["order"]));
                 output.AppendLine();
+                if(action.ContainsKey("hand_before")){
+                    string hand=history.List(action["hand_before"],false);
+                    output.AppendLine("   before action "+count+" | hand: "+(hand==""?"[]":hand));
+                    pendingHands.Add(count);
+                }
             }else if(record.ContainsKey("observation")){
                 var observation=record["observation"] as Dictionary<string,object>;
                 if(observation==null || !observation.ContainsKey("areas"))throw new InvalidDataException("Invalid observation.");
                 var areas=observation["areas"] as Dictionary<string,object>;
                 if(areas==null)throw new InvalidDataException("Invalid observed areas.");
+                if(observation.ContainsKey("hand_after")){
+                    int after=Convert.ToInt32(observation["after_action"]);
+                    if(!pendingHands.Remove(after))throw new InvalidDataException("Unexpected hand outcome.");
+                    string hand=history.List(observation["hand_after"],false);
+                    output.AppendLine("   after action "+after+" | hand: "+(hand==""?"[]":hand)+" | "+Field(observation,"hand_boundary"));
+                }
                 foreach(var area in areas){string changes=history.List(area.Value,true);if(changes!="")output.AppendLine("   after action "+Field(observation,"after_action")+" | changed ["+Clean(area.Key)+"]: "+changes);}
             }else throw new InvalidDataException("Unknown journal record.");
         }
+        foreach(int action in pendingHands)output.AppendLine("   after action "+action+" | hand: unavailable (outcome not recorded yet)");
         if(last!=text.Length-1)output.AppendLine("Note: incomplete final journal entry ignored.");
         return output.ToString();
     }

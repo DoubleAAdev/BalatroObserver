@@ -9,6 +9,7 @@ return function(JSON, version)
     local descriptions=setmetatable({},{__mode='k'})
     local pending_observation=false
     local observe_after=0
+    local pending_hand
     local function scalar(v)
         if type(v)=='string' or type(v)=='boolean' then return v end
         if type(v)=='number' and v==v and math.abs(v)~=math.huge then return v end
@@ -62,6 +63,7 @@ return function(JSON, version)
     end
     function M.capture(token)
         if not running() or (G.SETTINGS or {}).paused or G.OVERLAY_MENU then return end
+        M.finish_hand('before_next_action')
         return {type=token,context=context()}
     end
     local function append(record)
@@ -76,7 +78,7 @@ return function(JSON, version)
         game=G.GAME;started=love.timer.getTime();sequence=0
         catalog={};identities=setmetatable({},{__mode='k'});next_card=0;next_identity=0
         descriptions=setmetatable({},{__mode='k'})
-        pending_observation=false
+        pending_observation=false;pending_hand=nil
         assert(love.filesystem.createDirectory(directory))
         local id=tostring(os.time())..'-'..tostring(math.floor(started*1000000))..'-'..counter
         path=directory..'/run-'..id..'.jsonl'
@@ -88,6 +90,31 @@ return function(JSON, version)
         local metadata={schema_version=1,recording={id=id,version=version,started_at=os.time(),partial=resumed==true,
             deck=scalar((((game.selected_back or {}).effect or {}).center or {}).key),stake=scalar(game.stake)},
             index_base=1}
+        local setup=metadata.recording
+        setup.seed=scalar((game.pseudorandom or {}).seed)
+        setup.seeded=scalar(game.seeded)
+        setup.challenge=scalar(game.challenge)
+        setup.mod_version=version
+        setup.game_version=scalar(VERSION)
+        setup.mods=JSON.array()
+        for id,mod in pairs((SMODS or {}).Mods or {}) do
+            if type(mod)=='table' and not mod.disabled then
+                setup.mods[#setup.mods+1]={id=scalar(id),version=scalar(mod.version)}
+            end
+        end
+        table.sort(setup.mods,function(a,b) return tostring(a.id)<tostring(b.id) end)
+        local lobby=(MP or {}).LOBBY or {}
+        if lobby.code then
+            local config=lobby.config or {}
+            setup.multiplayer=fields(config,{'ruleset','gamemode','back','sleeve','challenge','modifier_layers','different_seeds'})
+            setup.multiplayer.lobby_config={}
+            for key,value in pairs(config) do
+                if type(key)=='string' then setup.multiplayer.lobby_config[key]=scalar(value) end
+            end
+            setup.multiplayer.mod_version=scalar((((SMODS or {}).Mods or {}).Multiplayer or {}).version)
+            setup.multiplayer.mod_hash=scalar((MP or {}).MOD_STRING)
+            setup.multiplayer.smods_version=scalar((MP or {}).SMODS_VERSION)
+        end
         assert(love.filesystem.write(path,JSON.encode(metadata)..'\n'))
         M.path=path;M.ok=true;M.action_count=0
         love.filesystem.write(directory..'/status.json',JSON.encode({ok=true,recording=id}))
@@ -110,14 +137,24 @@ return function(JSON, version)
         end
         return out
     end
+    -- Snapshot the whole visible hand once the action settles, or immediately
+    -- before another input. Never let a later action replace a pending hand.
+    function M.finish_hand(reason)
+        if not pending_hand or game~=(G or {}).GAME or not path then return end
+        local definitions={}
+        local hand=refs(M.area(G.hand),definitions)
+        append({cards=definitions,observation={after_action=pending_hand,areas={},hand_after=hand,hand_boundary=reason,context=context()}})
+        pending_hand=nil
+    end
     function M.record(event)
         if not event then return end
         if game~=G.GAME or not path then M.begin(true) end
         local definitions={}
-        for _,key in ipairs({'cards','targets'}) do if event[key] then event[key]=refs(event[key],definitions) end end
+        for _,key in ipairs({'cards','targets','hand_before'}) do if event[key] then event[key]=refs(event[key],definitions) end end
         sequence=sequence+1;event.n=sequence;event.ms=math.floor((love.timer.getTime()-started)*1000+.5)
         append({cards=definitions,action=event})
         M.action_count=sequence
+        if event.hand_before then pending_hand=sequence end
         pending_observation=true
         observe_after=love.timer.getTime()+0.3
     end
@@ -130,6 +167,7 @@ return function(JSON, version)
         end
         local locks=((G.CONTROLLER or {}).locks or {})
         if not stable or locks.shop_reroll or locks.selling_card or locks.use or (G.SETTINGS or {}).paused then return end
+        M.finish_hand('settled')
         local definitions,visible={},{}
         local pack_phase=false
         for _,name in ipairs({'SMODS_BOOSTER_OPENED','TAROT_PACK','PLANET_PACK','SPECTRAL_PACK','STANDARD_PACK','BUFFOON_PACK'}) do

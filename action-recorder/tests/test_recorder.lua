@@ -11,13 +11,27 @@ G.FUNCS.discard_cards_from_highlighted=function() call_count=call_count+1 end
 G.FUNCS.buy_from_shop=function(e) if e.reject then return false,'full' end;return true end
 G.FUNCS.use_card=function(e) if Card.check_use(e.config.ref_table) then return end end
 for _,name in ipairs({'reroll_shop','skip_booster','select_blind','skip_blind'}) do G.FUNCS[name]=function() end end
+G.GAME.pseudorandom={seed='REPLAY42',secret='SECRET_RANDOM'}
+G.GAME.selected_back={effect={center={key='b_red'}}};G.GAME.stake=2
+SMODS={Mods={Multiplayer={version='0.5.5'},BalatroObserver={version='1.12.0'}}}
+MP={LOBBY={code='SECRET_LOBBY',config={ruleset='ruleset_mp_standard',gamemode='gamemode_mp_attrition',cocktail='111H',stake=2}},MOD_STRING='Multiplayer-0.5.5'}
 local rec=dofile('mod/recorder.lua')(JSON,'0.1.0')
 local hooks=dofile('mod/hooks.lua')(rec,JSON);hooks.install();rec.begin(false)
 local path=rec.path
+assert(files[path]:find('"seed":"REPLAY42"') and files[path]:find('"deck":"b_red"'))
+assert(files[path]:find('"stake":2') and files[path]:find('"cocktail":"111H"'))
+assert(files[path]:find('"mod_version":"0.1.0"'))
 local function actions() local n=0;for _ in files[path]:gmatch('"action":') do n=n+1 end;return n end
 local function packed(...)return{n=select('#',...),...}end
 local returns=packed(G.FUNCS.play_cards_from_highlighted('unchanged'))
 assert(returns.n==3 and returns[1]==nil and returns[2]=='played' and returns[3]==nil and call_count==1)
+assert(files[path]:find('"hand_before":'))
+local pending=files[path];now=now+.1;rec.observe();assert(files[path]==pending)
+G.hand.cards={ace};now=now+1;G.STATE_COMPLETE=false;rec.observe();assert(files[path]==pending)
+G.STATE_COMPLETE=true;rec.observe()
+assert(files[path]:find('"hand_after":%[{"card":"%d+","index":1,"instance":%d+}%]'))
+assert(files[path]:find('"hand_boundary":"settled"'))
+G.hand.cards={ace,copy,king}
 local failed,message=pcall(G.FUNCS.play_cards_from_highlighted,'fail');assert(not failed and message:find('original%-error') and actions()==1)
 assert(actions()==1 and files[path]:find('"index":2') and files[path]:find('"rank":"King"'))
 G.FUNCS.discard_cards_from_highlighted({},true);assert(actions()==1)
@@ -49,6 +63,11 @@ ace.seal='Red';now=now+1;rec.observe();assert(files[path]:find('"observation":')
 assert(not files[path]:find('SECRET_PACK'))
 assert(not files[path]:match('"areas":{[^\n]*"shop_jokers"'))
 local before=files[path];rec.observe();assert(before==files[path])
+assert(before:find('"hand_boundary":"before_next_action"'))
+local beforeHands,afterHands=0,0
+for _ in before:gmatch('"hand_before":') do beforeHands=beforeHands+1 end
+for _ in before:gmatch('"hand_after":') do afterHands=afterHands+1 end
+assert(beforeHands==4 and afterHands==4)
 G.GAME={dollars=7,current_round={},round_resets={ante=2},seed='SECRET'};rec.record(rec.capture('reroll'))
 assert(rec.path~=path and files[rec.path]:find('"partial":true') and files[path]==before)
 local writes=0;love.filesystem.append=function() writes=writes+1;return false end

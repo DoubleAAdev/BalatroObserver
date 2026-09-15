@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Balatro Action Recorder</title><link rel="stylesheet" href="/recorder.css"></head>
-<body><main><header><div class="eyebrow">LOCAL GAME HISTORY</div><h1>Balatro Action Recorder</h1><p>One line per action, with the cards involved and brief notes when they change.</p></header>
+<body><main><header><div class="eyebrow">LOCAL GAME HISTORY</div><h1>Balatro Action Recorder</h1><p>Run setup, actions, and the full visible hand before and after each play or discard.</p></header>
 <section class="toolbar"><button id="export-latest" disabled>Export latest game</button><button id="refresh" class="secondary">Refresh</button><span id="status" role="status">Loading recordings…</span></section>
 <section id="empty" hidden><h2>No recordings yet</h2><p>Enable Balatro Observer, restart Balatro, and take an action in a run. Recordings stay on this computer.</p></section>
 <section id="recordings" aria-label="Game recordings"></section>
-<footer><p>Download a readable text log. Actions name the affected cards and their slots. Unchanged card details and unrelated hand or Joker inventories are omitted.</p><p>Face-down identities stay hidden. Resumed runs start a separate segment.</p></footer>
+<footer><p>Download a readable text log. Actions name the affected cards and their slots. Play and discard entries include complete visible hands, including unchanged cards.</p><p>Face-down identities stay hidden. Resumed runs start a separate segment. Run setup includes the seed and deck. Balatro Replayer currently requires the original Multiplayer Lovely log; this annotated text is not directly importable.</p></footer>
 </main><script src="/recorder.js"></script></body></html>

@@ -1,3 +1,10 @@
+# 1.12.0
+
+- Record seed, deck, stake, challenge, loaded versions and Multiplayer setup at run start.
+- Export complete visible hands before and after plays/discards, tied to each action; keep face-down identities hidden and mark pending outcomes unavailable.
+- Explain the current Balatro Replayer Lovely-log requirement in the recorder page and exports; older journals remain readable.
+- Keep recorder fixtures and browser artifacts ignored.
+
 # 1.11.0
 
 - Move the Replayer to its own mod, [Balatro Replayer](https://github.com/DoubleAAdev/BalatroReplayer). It is unchanged from 1.10.0 and still records through Observer's Action Recorder, so keep Observer installed; its buttons are now in **Mods > Balatro Replayer > Config**. Installing this version removes the replayer files from Observer's mod folder.
