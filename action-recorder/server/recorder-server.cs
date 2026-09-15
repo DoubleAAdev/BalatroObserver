@@ -76,12 +76,12 @@ public static class ActionRecorderServer {
         int last=text.LastIndexOf('\n');if(last<0)throw new InvalidDataException("Recording header is incomplete.");
         string[] lines=text.Substring(0,last).Split('\n');
         var header=Json().DeserializeObject(lines[0].TrimStart('\uFEFF')) as Dictionary<string,object>;
-        if(header==null || !header.ContainsKey("schema_version") || Convert.ToInt32(header["schema_version"])!=1 || !header.ContainsKey("recording"))throw new InvalidDataException("Unsupported recording header.");
+        if(header==null || !header.ContainsKey("schema_version") || (Convert.ToInt32(header["schema_version"])!=1 && Convert.ToInt32(header["schema_version"])!=2) || !header.ContainsKey("recording"))throw new InvalidDataException("Unsupported recording header.");
         var metadata=header["recording"] as Dictionary<string,object>;
         if(metadata==null)throw new InvalidDataException("Invalid recording metadata.");
         output.AppendLine("Balatro action log | "+Field(metadata,"id")+(Field(metadata,"partial")=="True"?" | resumed/partial run":""));
         output.AppendLine("Run setup: "+Json().Serialize(metadata));
-        output.AppendLine("Replay compatibility: this annotated log is not MP_RLOG input; Balatro Replayer currently requires the original Multiplayer Lovely log, including opponent messages.");
+        output.AppendLine("Replay header: "+Json().Serialize(header));
         var pendingHands=new HashSet<int>();
         for(int i=1;i<lines.Length;i++){
             if(String.IsNullOrWhiteSpace(lines[i]))continue;
@@ -92,6 +92,7 @@ public static class ActionRecorderServer {
                 if(definitions==null)throw new InvalidDataException("Invalid card dictionary.");
                 foreach(var item in definitions){if(history.Cards.ContainsKey(item.Key))throw new InvalidDataException("Repeated card definition.");history.Cards.Add(item.Key,item.Value);}
             }
+            output.AppendLine("Replay record: "+Json().Serialize(record));
             if(record.ContainsKey("action")){
                 var action=record["action"] as Dictionary<string,object>;
                 if(action==null || !tokens.Contains(Field(action,"type")) || !action.ContainsKey("n") || Convert.ToInt32(action["n"])!=++count)throw new InvalidDataException("Invalid action sequence.");
@@ -122,6 +123,10 @@ public static class ActionRecorderServer {
                     output.AppendLine("   after action "+after+" | hand: "+(hand==""?"[]":hand)+" | "+Field(observation,"hand_boundary"));
                 }
                 foreach(var area in areas){string changes=history.List(area.Value,true);if(changes!="")output.AppendLine("   after action "+Field(observation,"after_action")+" | changed ["+Clean(area.Key)+"]: "+changes);}
+            }else if(record.ContainsKey("opponent")){
+                output.AppendLine("   Multiplayer after action "+Field(record,"after_action")+": "+Json().Serialize(record["opponent"]));
+            }else if(record.ContainsKey("network")){
+                output.AppendLine("   Multiplayer event: "+Json().Serialize(record["network"]));
             }else throw new InvalidDataException("Unknown journal record.");
         }
         foreach(int action in pendingHands)output.AppendLine("   after action "+action+" | hand: unavailable (outcome not recorded yet)");
@@ -178,7 +183,7 @@ public static class ActionRecorderServer {
                     else if(first.Length!=3 || first[0]!="GET"){code=405;body=Encoding.UTF8.GetBytes("{\"error\":\"GET required\"}");}
                     else{
                         var uri=new Uri("http://127.0.0.1"+first[1]);string route=uri.AbsolutePath;
-                        if(route=="/health")body=Encoding.UTF8.GetBytes(Json().Serialize(new{app="BalatroActionRecorder",version="0.4.1",gamePid=gamePid}));
+                        if(route=="/health")body=Encoding.UTF8.GetBytes(Json().Serialize(new{app="BalatroActionRecorder",version="2.0.0",gamePid=gamePid}));
                         else if(route=="/recordings")body=Encoding.UTF8.GetBytes(ListRecordings());
                         else if(route=="/export"){
                             var query=System.Web.HttpUtility.ParseQueryString(uri.Query);string file=query["file"]??"";

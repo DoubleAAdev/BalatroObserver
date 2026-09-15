@@ -35,3 +35,6 @@ __pycache__/
 
 # Recorder fixtures, exported test logs and browser captures
 /action-recorder/work/
+
+# Local replay interoperability captures
+/replay-fixtures/

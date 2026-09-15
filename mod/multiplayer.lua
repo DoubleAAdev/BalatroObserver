@@ -93,6 +93,10 @@ return function(scalar, description, array)
         local mode_names={gamemode_mp_attrition='Attrition',gamemode_mp_showdown='Showdown',gamemode_mp_survival='Survival'}
         local out={active=true,pvp=pvp,mode=mode_names[mode] or mode,ruleset=scalar(config.ruleset)}
         local enemy=table_or_empty(game.enemy)
+        if not config.enemy_location_disabled then
+            out.nemesis_location=scalar(enemy.location)
+            out.nemesis_location_blind=scalar(enemy.location_blind)
+        end
         if not config.disable_live_and_timer_hud then
             out.lives=scalar(game.lives);out.nemesis_lives=scalar(enemy.lives)
         end

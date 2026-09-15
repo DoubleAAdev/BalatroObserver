@@ -65,11 +65,21 @@ return function(rec,JSON)
             local blocked=current and current.blocked
             current=previous
             if not results[1] then error(results[2],0) end
-            if event and results[2]~=false and not blocked then rec.safe(rec.record,event) end
+            if event and results[2]~=false and not blocked then
+                if token=='ready_blind' then event.value=((MP or {}).GAME or {}).ready_blind and '1' or '0' end
+                rec.safe(rec.record,event)
+            end
             return unpack(results,2,results.n)
         end
     end
+    local ready_installed=false
+    function M.install_ready()
+        if not ready_installed and G and G.FUNCS and type(G.FUNCS.mp_toggle_ready)=='function' then
+            wrap(G.FUNCS,'mp_toggle_ready','ready_blind');ready_installed=true
+        end
+    end
     function M.install()
+        M.install_ready()
         for name,token in pairs({play_cards_from_highlighted='play',discard_cards_from_highlighted='discard',buy_from_shop='buy',use_card='use',reroll_shop='reroll',skip_booster='pack_skip',select_blind='select_blind',skip_blind='skip_blind'}) do wrap(G.FUNCS,name,token) end
         wrap(Card,'sell_card','sell')
         -- Observe the game's own use check once, rather than invoking it a second time.
@@ -103,7 +113,7 @@ return function(rec,JSON)
                         end
                         if complete and changed then
                             local event=rec.capture('reorder')
-                            if event then event.area=name;event.order=permutation;event.cards=rec.area(area);rec.record(event) end
+                            if event then event.area=name;event.sort=(area.config or {}).sort;event.order=permutation;event.cards=rec.area(area);rec.record(event) end
                         end
                     end
                 end

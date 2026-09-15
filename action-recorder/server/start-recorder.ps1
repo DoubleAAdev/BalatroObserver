@@ -13,7 +13,7 @@ function Get-RecorderStatus {
     try {
         $health=Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 2
         if ($health.app -eq 'BalatroActionRecorder') {
-            if ($health.version -eq '0.4.1' -and (-not $GamePid -or $health.gamePid -eq $GamePid)) {return 'ready'}
+            if ($health.version -eq '2.0.0' -and (-not $GamePid -or $health.gamePid -eq $GamePid)) {return 'ready'}
             return 'outdated'
         }
     } catch {}

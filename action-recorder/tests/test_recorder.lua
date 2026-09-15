@@ -13,14 +13,14 @@ G.FUNCS.use_card=function(e) if Card.check_use(e.config.ref_table) then return e
 for _,name in ipairs({'reroll_shop','skip_booster','select_blind','skip_blind'}) do G.FUNCS[name]=function() end end
 G.GAME.pseudorandom={seed='REPLAY42',secret='SECRET_RANDOM'}
 G.GAME.selected_back={effect={center={key='b_red'}}};G.GAME.stake=2
-SMODS={Mods={Multiplayer={version='0.5.5'},BalatroObserver={version='1.12.0'}}}
+SMODS={Mods={Multiplayer={version='0.5.5'},BalatroObserver={version='2.0.0'}}}
 MP={LOBBY={code='SECRET_LOBBY',config={ruleset='ruleset_mp_standard',gamemode='gamemode_mp_attrition',cocktail='111H',stake=2}},MOD_STRING='Multiplayer-0.5.5'}
-local rec=dofile('mod/recorder.lua')(JSON,'0.1.0')
+local rec=dofile('mod/recorder.lua')(JSON,'2.0.0')
 local hooks=dofile('mod/hooks.lua')(rec,JSON);hooks.install();rec.begin(false)
 local path=rec.path
 assert(files[path]:find('"seed":"REPLAY42"') and files[path]:find('"deck":"b_red"'))
 assert(files[path]:find('"stake":2') and files[path]:find('"cocktail":"111H"'))
-assert(files[path]:find('"mod_version":"0.1.0"'))
+assert(files[path]:find('"mod_version":"2.0.0"'))
 local function actions() local n=0;for _ in files[path]:gmatch('"action":') do n=n+1 end;return n end
 local function packed(...)return{n=select('#',...),...}end
 local returns=packed(G.FUNCS.play_cards_from_highlighted('unchanged'))
@@ -78,4 +78,10 @@ local out=assert(io.open('work/test-recording.jsonl','wb'));out:write(before);ou
 love.filesystem.append=function(p,t)files[p]=(files[p] or '')..t;return true end
 rec.ok=true;G.STAGE=0;rec.begin(false);assert(rec.path==nil)
 G.STAGE=1;rec.begin(false);assert(rec.path and rec.path~=path)
+-- Multiplayer loads after Observer; Ready is installed once on a later update.
+local ready_calls=0
+G.FUNCS.mp_toggle_ready=function() ready_calls=ready_calls+1;MP.GAME={ready_blind=true};return 8 end
+hooks.install_ready();hooks.install_ready()
+assert(G.FUNCS.mp_toggle_ready()==8 and ready_calls==1)
+assert(files[rec.path]:find('"type":"ready_blind"') and files[rec.path]:find('"value":"1"'))
 print('PASS: all action tokens, identities, dictionary reuse, targets, callback returns, rejection, drag debounce, privacy, segments, closed recordings and disk failure')

@@ -18,6 +18,7 @@ function Get-ReleaseFiles([string]$Root) {
         'assets/calculator/balatro-sim.js', 'assets/calculator/joker-ids.json', 'assets/calculator/joker-ids.js'
     )
     $files += @('action-recorder/init.lua', 'action-recorder/start-recorder.cmd', 'action-recorder/README.md', 'action-recorder/LICENSE')
+    # Includes the v2 Multiplayer receive-trace adapter in action-recorder/mod/network.lua.
     foreach ($folder in @('mod', 'server', 'viewer')) {
         $files += @(Get-ChildItem -LiteralPath (Join-Path $Root ('action-recorder/' + $folder)) -File | ForEach-Object { 'action-recorder/' + $folder + '/' + $_.Name })
     }
@@ -32,6 +33,10 @@ function Get-ReleaseFiles([string]$Root) {
 # The viewer page must report the same version as the manifest before anything is installed or packaged.
 function Assert-ViewerVersion([string]$Root, [string]$Version) {
     $viewer = Get-Content -LiteralPath (Join-Path $Root 'viewer/observer.html') -Raw
+    $recorder = Get-Content -LiteralPath (Join-Path $Root 'action-recorder/viewer/index.html') -Raw
+    if (-not $recorder.Contains('name="recorder-version" content="' + $Version + '"')) {
+        throw 'Recorder and release versions differ. Update both before installing or packaging.'
+    }
     if (-not $viewer.Contains('name="observer-version" content="' + $Version + '"')) {
         throw 'Viewer and manifest versions differ. Update both before installing or packaging.'
     }

@@ -1,6 +1,6 @@
 -- Append-only recording: one write per action, no 200 ms snapshot stream.
--- The export server assembles journal records into a single compact JSON document.
-return function(JSON, version)
+-- The export server includes exact replay records alongside readable text.
+return function(JSON, version, multiplayer_adapter)
     local M = {ok=true}
     local directory='balatro_action_recorder'
     local game, path, started, sequence, counter = nil,nil,0,0,0
@@ -10,10 +10,12 @@ return function(JSON, version)
     local pending_observation=false
     local observe_after=0
     local pending_hand
+    local last_opponent
     local function scalar(v)
         if type(v)=='string' or type(v)=='boolean' then return v end
         if type(v)=='number' and v==v and math.abs(v)~=math.huge then return v end
     end
+    local multiplayer=multiplayer_adapter and multiplayer_adapter(scalar,nil,JSON.array)
     local function fields(t, names)
         local out={}
         for _,name in ipairs(names) do out[name]=scalar((t or {})[name]) end
@@ -30,6 +32,7 @@ return function(JSON, version)
         out.hands_left=scalar(round.hands_left);out.discards_left=scalar(round.discards_left)
         out.hands_played=scalar(round.hands_played);out.discards_used=scalar(round.discards_used)
         for name,id in pairs(G.STATES or {}) do if G.STATE==id then out.phase=name;break end end
+        out.multiplayer=multiplayer and multiplayer.snapshot(G)
         return out
     end
     function M.card(c,index)
@@ -78,7 +81,7 @@ return function(JSON, version)
         game=G.GAME;started=love.timer.getTime();sequence=0
         catalog={};identities=setmetatable({},{__mode='k'});next_card=0;next_identity=0
         descriptions=setmetatable({},{__mode='k'})
-        pending_observation=false;pending_hand=nil
+        pending_observation=false;pending_hand=nil;last_opponent=nil
         assert(love.filesystem.createDirectory(directory))
         local id=tostring(os.time())..'-'..tostring(math.floor(started*1000000))..'-'..counter
         path=directory..'/run-'..id..'.jsonl'
@@ -87,15 +90,17 @@ return function(JSON, version)
             counter=counter+1;id=tostring(os.time())..'-'..tostring(math.floor(started*1000000))..'-'..counter
             path=directory..'/run-'..id..'.jsonl'
         end
-        local metadata={schema_version=1,recording={id=id,version=version,started_at=os.time(),partial=resumed==true,
+        local metadata={schema_version=2,recording={id=id,version=version,started_at=os.time(),partial=resumed==true,
             deck=scalar((((game.selected_back or {}).effect or {}).center or {}).key),stake=scalar(game.stake)},
             index_base=1}
         local setup=metadata.recording
         setup.seed=scalar((game.pseudorandom or {}).seed)
         setup.seeded=scalar(game.seeded)
+        setup.hand_sort=scalar(((G.hand or {}).config or {}).sort)
         setup.challenge=scalar(game.challenge)
         setup.mod_version=version
-        setup.game_version=scalar(VERSION)
+        setup.game_version=scalar(G.VERSION or VERSION)
+        setup.replay_format=2
         setup.mods=JSON.array()
         for id,mod in pairs((SMODS or {}).Mods or {}) do
             if type(mod)=='table' and not mod.disabled then
@@ -111,6 +116,9 @@ return function(JSON, version)
             for key,value in pairs(config) do
                 if type(key)=='string' then setup.multiplayer.lobby_config[key]=scalar(value) end
             end
+            setup.multiplayer.is_host=lobby.is_host==true
+            setup.multiplayer.player=scalar(lobby.username)
+            setup.multiplayer.opponent=scalar(((lobby.is_host and lobby.guest or lobby.host) or {}).username)
             setup.multiplayer.mod_version=scalar((((SMODS or {}).Mods or {}).Multiplayer or {}).version)
             setup.multiplayer.mod_hash=scalar((MP or {}).MOD_STRING)
             setup.multiplayer.smods_version=scalar((MP or {}).SMODS_VERSION)
@@ -159,7 +167,19 @@ return function(JSON, version)
         observe_after=love.timer.getTime()+0.3
     end
     -- Shared outcome, explicitly tied to the latest accepted action. Intermediate animations are omitted.
+    function M.network(fields)
+        if not running() or not path or game~=G.GAME then return end
+        append({network=fields,after_action=sequence})
+    end
     function M.observe()
+        if running() and path and game==G.GAME and multiplayer and not G.OVERLAY_MENU and not (G.SETTINGS or {}).paused then
+            local state=multiplayer.snapshot(G)
+            local encoded=state and JSON.encode(state)
+            if encoded and encoded~=last_opponent then
+                append({opponent=state,after_action=sequence})
+                last_opponent=encoded
+            end
+        end
         if love.timer.getTime()<observe_after or not pending_observation or not running() or game~=G.GAME or not G.STATE_COMPLETE or G.OVERLAY_MENU then return end
         local stable=false
         for _,name in ipairs({'SELECTING_HAND','SHOP','BLIND_SELECT','ROUND_EVAL','SMODS_BOOSTER_OPENED','TAROT_PACK','PLANET_PACK','SPECTRAL_PACK','STANDARD_PACK','BUFFOON_PACK','GAME_OVER'}) do

@@ -3,7 +3,7 @@ G={FUNCS={},STAGE=1,STAGES={RUN=1},STATES={SHOP=1},STATE=1,STATE_COMPLETE=true,G
 Card={}
 love={timer={getTime=function() return 1 end},filesystem={createDirectory=function() return true end,write=function(p,t) files[p]=t;return true end,append=function(p,t)files[p]=(files[p] or '')..t;return true end,getInfo=function(p)return files[p] and {} end}}
 Game={start_run=function(self,args) G.GAME={current_round={},round_resets={}};return nil,9 end,update=function(self,dt)return 'updated',nil,dt end}
-SMODS={current_mod={id='BalatroObserver',version='1.3.0',path='.'},load_file=function(name)return loadfile((name:gsub("^action%-recorder/","")))end}
+SMODS={current_mod={id='BalatroObserver',version='1.3.0',path='.'},load_file=function(name)return loadfile(name=='mod/multiplayer.lua' and '../mod/multiplayer.lua' or (name:gsub("^action%-recorder/","")))end}
 BalatroObserver={}
 dofile('../mod/launcher.lua')(function() return true end,SMODS.current_mod)
 dofile('init.lua')(SMODS.current_mod,dofile('mod/json.lua'))

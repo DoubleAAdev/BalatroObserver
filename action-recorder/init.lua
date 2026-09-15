@@ -1,6 +1,8 @@
 return function(mod, JSON)
     local function load(name) return assert(SMODS.load_file('action-recorder/'..name,mod.id))() end
-    local recorder=load('mod/recorder.lua')(JSON,mod.version)
+    local adapter=assert(SMODS.load_file('mod/multiplayer.lua',mod.id))()
+    local recorder=load('mod/recorder.lua')(JSON,mod.version,adapter)
+    load('mod/network.lua')(recorder)
     local hooks=load('mod/hooks.lua')(recorder,JSON)
     BalatroActionRecorder=recorder
     recorder.reset_orders=hooks.reset
@@ -22,6 +24,7 @@ return function(mod, JSON)
     function Game:update(dt)
         local function pack(...) return {n=select('#',...),...} end
         local results=pack(original_update(self,dt))
+        recorder.safe(hooks.install_ready)
         recorder.safe(hooks.reorders)
         recorder.safe(recorder.observe)
         if recorder.poll_launch then pcall(recorder.poll_launch) end

@@ -1,3 +1,10 @@
+# 2.0.0
+
+- Export structured replay records alongside action history for Balatro Replayer.
+- Capture Multiplayer Ready, public opponent updates and supported PvP messages; add opponent location to the dashboard.
+- Align Observer and Recorder versions, health checks and launchers at 2.0.0.
+- Preserve visible-card privacy, exact purchase choices and hand sorting.
+
 # 1.12.0
 
 - Record seed, deck, stake, challenge, loaded versions and Multiplayer setup at run start.
