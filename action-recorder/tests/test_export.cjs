@@ -40,7 +40,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   assert.ok(!exported.includes("Replay header:"));
   assert.ok(!exported.includes("Replay record:"));
   await fs.writeFile(path.join(root,'work','exported-v2.txt'),exported);
-  assert.equal((await(await fetch(base+'/health')).json()).version,'2.0.1');
+  assert.equal((await(await fetch(base+'/health')).json()).version,'2.0.2');
   for(const token of ['play','discard','buy','sell','reroll','use','pack_pick','pack_skip','reorder','select_blind','skip_blind'])assert.ok(exported.includes('. '+token));
   const pendingJournal=journal+JSON.stringify({cards:{},action:{n:14,type:'play',hand_before:[]}})+'\n';
   await fs.writeFile(path.join(dir,filename),pendingJournal);

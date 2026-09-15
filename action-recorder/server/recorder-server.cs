@@ -9,7 +9,7 @@ using System.Web.Script.Serialization;
 
 // Independent read-only localhost export server; never opens arbitrary client-supplied paths.
 public static class ActionRecorderServer {
-    static string root, directory;
+    static string root, directory, version;
     static int gamePid;
     static readonly HashSet<string> tokens=new HashSet<string>{"play","discard","buy","sell","reroll","use","pack_pick","pack_skip","reorder","select_blind","skip_blind","set_ante_key","ready_blind","net_asteroid"};
     static JavaScriptSerializer Json(){return new JavaScriptSerializer{MaxJsonLength=134217728,RecursionLimit=64};}
@@ -151,6 +151,7 @@ public static class ActionRecorderServer {
             ThreadPool.QueueUserWorkItem(delegate { using(game) { game.WaitForExit(); Environment.Exit(0); } });
         }
         root=releaseRoot;directory=stateDirectory;
+        version=Field(Json().Deserialize<Dictionary<string,object>>(File.ReadAllText(Path.Combine(root,"..","BalatroObserver.json"))),"version");
         var listener=new TcpListener(IPAddress.Loopback,port);listener.Start();
         try{while(true){var client=listener.AcceptTcpClient();ThreadPool.QueueUserWorkItem(_=>Serve(client));}}
         finally{listener.Stop();}
@@ -181,7 +182,7 @@ public static class ActionRecorderServer {
                     else if(first.Length!=3 || first[0]!="GET"){code=405;body=Encoding.UTF8.GetBytes("{\"error\":\"GET required\"}");}
                     else{
                         var uri=new Uri("http://127.0.0.1"+first[1]);string route=uri.AbsolutePath;
-                        if(route=="/health")body=Encoding.UTF8.GetBytes(Json().Serialize(new{app="BalatroActionRecorder",version="2.0.1",gamePid=gamePid}));
+                        if(route=="/health")body=Encoding.UTF8.GetBytes(Json().Serialize(new{app="BalatroActionRecorder",version=version,gamePid=gamePid}));
                         else if(route=="/recordings")body=Encoding.UTF8.GetBytes(ListRecordings());
                         else if(route=="/export"){
                             var query=System.Web.HttpUtility.ParseQueryString(uri.Query);string file=query["file"]??"";

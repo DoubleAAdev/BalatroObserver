@@ -13,7 +13,7 @@ function Get-RecorderStatus {
     try {
         $health=Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 2
         if ($health.app -eq 'BalatroActionRecorder') {
-            if ($health.version -eq '2.0.0' -and (-not $GamePid -or $health.gamePid -eq $GamePid)) {return 'ready'}
+            if ($health.version -eq $expectedVersion -and (-not $GamePid -or $health.gamePid -eq $GamePid)) {return 'ready'}
             return 'outdated'
         }
     } catch {}
@@ -21,6 +21,7 @@ function Get-RecorderStatus {
 }
 try {
     if (-not $GamePid) { $GamePid = (Get-Process -Name Balatro -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Id) }
+    $expectedVersion=(Get-Content -LiteralPath (Join-Path (Split-Path -Parent $recorderRoot) 'BalatroObserver.json') -Raw | ConvertFrom-Json).version
     $status=Get-RecorderStatus
     if ($status -eq 'outdated') {
         $owners=@(Get-NetTCPConnection -LocalPort $Port -State Listen | Select-Object -ExpandProperty OwningProcess -Unique)

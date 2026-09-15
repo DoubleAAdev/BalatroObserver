@@ -1,5 +1,5 @@
-# Balatro Observer 2.0.1
+# Balatro Observer 2.0.2
 
-Action Recorder downloads readable .txt action histories without embedded replay records. Journals remain on disk. Replayer separately returns to its original Multiplayer Lovely-log workflow.
+Fix the Action Recorder button reporting failure when the server starts successfully. The launcher and server now read the same release version from the manifest.
 
-Restart Balatro and reopen the recorder after installation.
+Restart Balatro to load the updated mod.
