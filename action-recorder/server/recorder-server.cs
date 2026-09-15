@@ -81,7 +81,6 @@ public static class ActionRecorderServer {
         if(metadata==null)throw new InvalidDataException("Invalid recording metadata.");
         output.AppendLine("Balatro action log | "+Field(metadata,"id")+(Field(metadata,"partial")=="True"?" | resumed/partial run":""));
         output.AppendLine("Run setup: "+Json().Serialize(metadata));
-        output.AppendLine("Replay header: "+Json().Serialize(header));
         var pendingHands=new HashSet<int>();
         for(int i=1;i<lines.Length;i++){
             if(String.IsNullOrWhiteSpace(lines[i]))continue;
@@ -92,7 +91,6 @@ public static class ActionRecorderServer {
                 if(definitions==null)throw new InvalidDataException("Invalid card dictionary.");
                 foreach(var item in definitions){if(history.Cards.ContainsKey(item.Key))throw new InvalidDataException("Repeated card definition.");history.Cards.Add(item.Key,item.Value);}
             }
-            output.AppendLine("Replay record: "+Json().Serialize(record));
             if(record.ContainsKey("action")){
                 var action=record["action"] as Dictionary<string,object>;
                 if(action==null || !tokens.Contains(Field(action,"type")) || !action.ContainsKey("n") || Convert.ToInt32(action["n"])!=++count)throw new InvalidDataException("Invalid action sequence.");
@@ -183,7 +181,7 @@ public static class ActionRecorderServer {
                     else if(first.Length!=3 || first[0]!="GET"){code=405;body=Encoding.UTF8.GetBytes("{\"error\":\"GET required\"}");}
                     else{
                         var uri=new Uri("http://127.0.0.1"+first[1]);string route=uri.AbsolutePath;
-                        if(route=="/health")body=Encoding.UTF8.GetBytes(Json().Serialize(new{app="BalatroActionRecorder",version="2.0.0",gamePid=gamePid}));
+                        if(route=="/health")body=Encoding.UTF8.GetBytes(Json().Serialize(new{app="BalatroActionRecorder",version="2.0.1",gamePid=gamePid}));
                         else if(route=="/recordings")body=Encoding.UTF8.GetBytes(ListRecordings());
                         else if(route=="/export"){
                             var query=System.Web.HttpUtility.ParseQueryString(uri.Query);string file=query["file"]??"";

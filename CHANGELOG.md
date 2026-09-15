@@ -1,3 +1,7 @@
+# 2.0.1
+
+- Restore readable Action Recorder text exports without embedded replay JSON records. Use original Multiplayer Lovely logs with Replayer.
+
 # 2.0.0
 
 - Export structured replay records alongside action history for Balatro Replayer.

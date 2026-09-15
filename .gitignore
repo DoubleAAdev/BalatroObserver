@@ -38,3 +38,6 @@ __pycache__/
 
 # Local replay interoperability captures
 /replay-fixtures/
+
+# Local backup artifacts
+*.bak
