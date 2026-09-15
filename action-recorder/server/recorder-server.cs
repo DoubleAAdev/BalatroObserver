@@ -82,10 +82,24 @@ public static class ActionRecorderServer {
         output.AppendLine("Balatro action log | "+Field(metadata,"id")+(Field(metadata,"partial")=="True"?" | resumed/partial run":""));
         output.AppendLine("Run setup: "+Json().Serialize(metadata));
         var pendingHands=new HashSet<int>();
+        string pendingOpponent=null, opponentState=null;
+        var networkStates=new Dictionary<string,string>();
         for(int i=1;i<lines.Length;i++){
             if(String.IsNullOrWhiteSpace(lines[i]))continue;
             var record=Json().DeserializeObject(lines[i]) as Dictionary<string,object>;
             if(record==null)throw new InvalidDataException("Invalid journal record.");
+            if(record.ContainsKey("opponent")){
+                var opponent=record["opponent"] as Dictionary<string,object>;
+                if(opponent==null)throw new InvalidDataException("Invalid opponent state.");
+                var state=new SortedDictionary<string,object>(opponent);
+                state.Remove("nemesis_score");
+                string key=Field(record,"after_action")+":"+Json().Serialize(state);
+                if(pendingOpponent!=null && key!=opponentState)output.AppendLine(pendingOpponent);
+                opponentState=key;
+                pendingOpponent="   Multiplayer after action "+Field(record,"after_action")+": "+Json().Serialize(opponent);
+                continue;
+            }
+            if(pendingOpponent!=null){output.AppendLine(pendingOpponent);pendingOpponent=null;}
             if(record.ContainsKey("cards")){
                 var definitions=record["cards"] as Dictionary<string,object>;
                 if(definitions==null)throw new InvalidDataException("Invalid card dictionary.");
@@ -121,12 +135,18 @@ public static class ActionRecorderServer {
                     output.AppendLine("   after action "+after+" | hand: "+(hand==""?"[]":hand)+" | "+Field(observation,"hand_boundary"));
                 }
                 foreach(var area in areas){string changes=history.List(area.Value,true);if(changes!="")output.AppendLine("   after action "+Field(observation,"after_action")+" | changed ["+Clean(area.Key)+"]: "+changes);}
-            }else if(record.ContainsKey("opponent")){
-                output.AppendLine("   Multiplayer after action "+Field(record,"after_action")+": "+Json().Serialize(record["opponent"]));
             }else if(record.ContainsKey("network")){
-                output.AppendLine("   Multiplayer event: "+Json().Serialize(record["network"]));
+                var network=record["network"] as Dictionary<string,object>;
+                if(network==null)throw new InvalidDataException("Invalid network event.");
+                string name=Field(network,"action"), encoded=Json().Serialize(new SortedDictionary<string,object>(network)), previous;
+                if(name=="enemyInfo" || name=="enemyLocation" || name=="playerInfo"){
+                    if(networkStates.TryGetValue(name,out previous) && previous==encoded)continue;
+                    networkStates[name]=encoded;
+                }
+                output.AppendLine("   Multiplayer event: "+Json().Serialize(network));
             }else throw new InvalidDataException("Unknown journal record.");
         }
+        if(pendingOpponent!=null)output.AppendLine(pendingOpponent);
         foreach(int action in pendingHands)output.AppendLine("   after action "+action+" | hand: unavailable (outcome not recorded yet)");
         if(last!=text.Length-1)output.AppendLine("Note: incomplete final journal entry ignored.");
         return output.ToString();

@@ -1,3 +1,7 @@
+# 2.0.3
+
+- Collapse consecutive opponent score animation frames and suppress unchanged multiplayer status messages in text exports. Preserve actions, hand snapshots and repeated gameplay events.
+
 # 2.0.2
 
 - Fix Action Recorder launch failures after updates by reading the server and launcher version from the release manifest.

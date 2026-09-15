@@ -33,7 +33,7 @@ __pycache__/
 # Internal action journals and recorder status (downloads are text)
 /balatro_action_recorder/
 
-# Recorder fixtures, exported test logs and browser captures
+# Recorder fixtures, export regression outputs and browser captures
 /action-recorder/work/
 
 # Local replay interoperability captures
