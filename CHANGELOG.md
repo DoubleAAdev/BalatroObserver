@@ -1,3 +1,178 @@
+# 2.0.3
+
+- Collapse consecutive opponent score animation frames and suppress unchanged multiplayer status messages in text exports. Preserve actions, hand snapshots and repeated gameplay events.
+
+# 2.0.2
+
+- Fix Action Recorder launch failures after updates by reading the server and launcher version from the release manifest.
+
+# 2.0.1
+
+- Restore readable Action Recorder text exports without embedded replay JSON records. Use original Multiplayer Lovely logs with Replayer.
+
+# 2.0.0
+
+- Export structured replay records alongside action history for Balatro Replayer.
+- Capture Multiplayer Ready, public opponent updates and supported PvP messages; add opponent location to the dashboard.
+- Align Observer and Recorder versions, health checks and launchers at 2.0.0.
+- Preserve visible-card privacy, exact purchase choices and hand sorting.
+
+# 1.12.0
+
+- Record seed, deck, stake, challenge, loaded versions and Multiplayer setup at run start.
+- Export complete visible hands before and after plays/discards, tied to each action; keep face-down identities hidden and mark pending outcomes unavailable.
+- Explain the current Balatro Replayer Lovely-log requirement in the recorder page and exports; older journals remain readable.
+- Keep recorder fixtures and browser artifacts ignored.
+
+# 1.11.0
+
+- Move the Replayer to its own mod, [Balatro Replayer](https://github.com/DoubleAAdev/BalatroReplayer). It is unchanged from 1.10.0 and still records through Observer's Action Recorder, so keep Observer installed; its buttons are now in **Mods > Balatro Replayer > Config**. Installing this version removes the replayer files from Observer's mod folder.
+
+# 1.10.0
+
+- Execute the log's actions and nothing else. The actions are filtered out of the log the way the player's filter script does it - every MP_RLOG line that is not a Client line, except set_ante_key - and executed in order, each once. Nothing is skipped, repeated, reordered or added any more, and nothing is decided by comparing money or scores: the replay stops at the first action it cannot execute and says why. The "On a difference" button, the money and score checks and the skipping and resuming are gone.
+- List what will be executed. Loading a log writes the chosen run's actions to balatro_replayer/actions.txt in the filter script's layout.
+- End a run at its END line. The filter script stops at the first "LONG DT", but Balatro prints that for any slow frame: in lovely-2026.09.12-14.24.31.log one comes before the first game starts, which leaves nothing, and another in the middle of the second.
+- Leave set_ante_key alone. Multiplayer rolls it as a throwaway key so the ante cannot be raised twice at once; its value changes no card, so the game's own is kept.
+- Write nothing into the Lovely log. The replayer's status lines, delivery notes and copied Client lines are gone, and the actions a replay executes are kept out of Multiplayer's replay log, so a replay no longer leaves behind a log that reads like another game. Progress is in the config tab and status.json.
+
+# 1.9.3
+
+- Stop the replay where a round stops lining up, instead of skipping through it. When a round ends in the log but not in the game (the blind was not beaten here) or the other way round, every later input belongs to a round that no longer matches: the shop the log buys in is never opened, and the hands it plays next belong to a round the game has not started. The replay now says which way round it went and how far the recording is faithful, rather than skipping the shop and then playing the following round's hands inside the unfinished one.
+- Stop comparing spentLastShop. It reports Multiplayer's own shop counter, which does not survive the emulated lobby - every shop of a replay reports 0 - and nothing reads the value back. It was producing a difference at every shop and burying the real ones. The ante, the furthest blind and every PvP hand score are still compared.
+- Name a log that a replay wrote. A replay writes its own inputs into the current Lovely log, so the newest logs in the folder are replays rather than games, and being the same seed and deck they all open the same way. Loading one now reads "run 1/1 - 355 inputs, seed 3TSESKHM (recorded by a replay, not a game)".
+
+# 1.9.2
+
+- Stop the Observer and Action Recorder background servers when the Balatro process that launched them exits, including crashes and forced closes.
+- Replace an existing server with one tied to the current game when needed; recordings are retained.
+
+# 1.9.1
+
+- Skip a round the log and the game disagree on in one step. When a round ends earlier or later in the replay than it did in the log, the game sits on a screen the log's next inputs can never be answered from; the replay now recognises that within ten seconds and skips straight to the first input that screen can serve, instead of waiting forty-five seconds for each one in turn and looking frozen.
+- Reconcile dollars over a window of inputs instead of demanding them of the input they sit under. The game credits a joker's dollars a second or two after the input that earned them, and the log, written by a player who paused between clicks, files them with that input; the replay was reporting the same dollars twice, as missing from one input and unexpected on the next. Money that never arrives, or that the log never records, is still reported, named with the input and log line it belongs to.
+
+# 1.9.0
+
+- Play the whole log through. A difference between the log and what the game does no longer ends the replay by default: it is counted, written to the Balatro log and to the status file, and the replay carries on, so Action Recorder still gets a recording of the entire run. A new config button switches back to stopping at the first difference.
+- Resume at the right place. When the game performs an input the log has further down, the replay jumps there and counts what was missed instead of fighting the log line by line.
+- Check the money before an input as well as after, once no cash out or shop exit is pending, so a round whose last hand paid differently is reported on that hand.
+
+# 1.8.2
+
+- Check the money. Every dollar the game moves is now compared against the dollars the log recorded for the same input, so a run that has drifted in a way the positional log cannot show stops at the input where it happened instead of several actions later. Money moved by the cash out and the shop exit, which no log records, is held aside so it is not blamed on the wrong input.
+- Check the game's own progress reports: the score of every PvP hand, the ante, what was spent in each shop, and how far the run has come are compared with the log.
+- Tell a drag from a sort button. A reorder that lifts one card and drops it elsewhere is applied as the drag it was; only a permutation of the whole area is applied as a sort, because a sort also changes how every later hand is dealt.
+- Keep writing the trace line for the messages a replay does not send, so a replay's log can be compared directly with the log it came from.
+
+# 1.8.1
+
+- Replay "Buy & Use". Multiplayer logs it with the same line as a plain buy, so the replay now works out which one happened: money moving right after the purchase (a Hermit or Temperance used at once), no free consumable slot, a consumable the shop cannot use, and otherwise whether the first later use or sale of that consumable slot names the bought card. A purchase the log shows no payment for is replayed as the refused click it was.
+- Log the decision and its evidence for every consumable purchase in the Balatro log.
+
+# 1.8.0
+
+- Rewrite the Replayer from scratch. A replay now joins a copy of the recorded Multiplayer lobby instead of practice mode: Multiplayer's own jokers, rulesets and PvP handling only exist inside a lobby, which is why the earlier replayer never got the same first shop.
+- Deliver the opponent's and server's recorded messages back to Multiplayer's handlers in log order, so opponent scores, PvP results, lives, the start of each PvP blind and received asteroids come out as they did. Nothing is sent to the server.
+- Check every input against the log twice: the card, cost or blind named by the mirrored `Client sent message` line before acting, and the `MP_RLOG:` line the game writes afterwards, word for word. Any difference stops the replay with both lines and leaves the run open.
+- Perform inputs through the game's own can_* checks and button callbacks, infer the unlogged cash-out and shop-exit transitions, detect hand sorts, and put the logged ante key back so the new log reads like the original.
+- Report progress and failures in the config tab, the Balatro log and `balatro_replayer/status.json`; the final status names the Action Recorder file to export.
+
+# 1.7.0
+
+- Cross-reference the log against the live game: every buy, sell, use and pack pick now looks up the card Multiplayer named and plays it wherever it actually sits, instead of trusting the slot it sat in during the original run.
+- Match a card by display name or centre key, since modded Multiplayer cards are logged by key.
+- Fall back to the logged slot when the run no longer holds that card, and report how many cards were found somewhere else.
+
+# 1.6.9
+
+- Stop spending six seconds on each action the run cannot perform. A refusal repeated from an unchanged game state is dropped after a few passes instead of a full dozen, which is what made a drifted shop look frozen.
+- Keep the longer budget for a transition the driver itself started, such as cashing out or leaving the shop.
+
+# 1.6.8
+
+- Drive the replay from `MP_RLOG:` lines only. Multiplayer's mirrored human-readable stream is no longer read at all.
+- Resolve what every `use` slot refers to before playback from the action stream alone: hand targets mean a consumable, and a pack pick or skip answering the use means a booster was opened.
+- Settle the remaining `use` slots at runtime by which areas actually hold that slot and what the game will accept, instead of relying on a card name.
+
+# 1.6.7
+
+- Play the whole log through: an action the replayed run cannot perform is now skipped and counted instead of ending the session. Only a dead recorder stops playback.
+- Give up on an action the idle game keeps refusing after a few passes rather than holding it for the full stall timeout.
+- Resolve every action in the log before the run starts, so nothing the log itself could reveal interrupts playback half way through.
+- Report skipped actions and drifted cards in the final status.
+
+# 1.6.6
+
+- Fix the replay crashing on the first card action after leaving a shop: a removed CardArea stays in G with its cards table set to nil, and the shop and pack areas were being indexed directly.
+- Keep a boss blind's forced card selection instead of adding it a second time and reading the doubled highlight back as a rejected selection.
+
+# 1.6.5
+
+- Replay every logged action instead of stopping when a card comes out different. The mirrored card name is now a hint, not a requirement.
+- Resolve which area a `use` slot refers to from the kind of card the log names, so a drifted shop or pack still replays the right slot in the right area.
+- Capture card names for buys and sells as well, and report each difference and a final count rather than abandoning the run.
+
+# 1.6.4
+
+- Fix the replay refusing to start with "New run seed differs from the log": Multiplayer's The Order prefixes the run seed with `*`, so the started run never equalled the manifest seed.
+- Follow the manifest's recorded The Order setting instead of letting practice mode force it on; it changes the seed and every random pool, so a log recorded without it was being replayed as a different run.
+- Name the game state and the missing precondition on a stall, and report a new hold-up in the config panel and the Balatro log while the driver waits.
+- Report both values when the started run's seed or deck differs from the log.
+
+# 1.6.3
+
+- Fix Replayer never pressing in-game buttons: a UIBox keeps its elements on UIRoot and nests other boxes under config.object, so blind selection, blind skipping, booster skipping and cash-out all stalled until the run timed out.
+- Press the blind column the run is actually on instead of whichever Small/Big/Boss panel was found first.
+- Cash out through a synthetic event so a skipped-cash-out keybind helper cannot suppress the inferred transition.
+- Accept a manifest deck written either as a centre key or as its display name, which differ between the host and guest sides of a lobby.
+- Accept any finite ante key, skip action-less manifests left by abandoned lobbies, and keep only the first mirrored card name for an action.
+- Report the action and game state on a stall, log Replayer status to the Balatro log, and finish a completed run before the stall timer.
+- Close the Action Recorder file when a recording cannot start, instead of appending the next action to the previous run.
+
+# 1.6.2
+
+- Fix Replayer startup and settings restoration passing an unintended center key to Multiplayer's ruleset loader.
+
+# 1.6.1
+
+- Open a native Windows file picker from Replayer's Load Log button.
+- Create a fresh run on Start and wait for the matching seed, deck and recorder before input.
+- Apply the manifest's Cocktail combination through Multiplayer's offline configuration and restore prior settings afterward.
+
+# 1.6.0
+
+- Add Replayer config controls for importing Multiplayer logs and replaying local inputs through Action Recorder.
+- Apply recorded seed, deck, stake and Multiplayer gameplay settings using the installed ghost engine.
+- Validate action sequences and stop on ambiguous or unavailable inputs; isolate replay sessions from Multiplayer network sends.
+- Record ante-key, readiness and asteroid events alongside normal replay actions.
+
+# 1.5.0
+
+- Add confirmed removal of runs from the recorder page, retaining journals on disk for recovery.
+
+# 1.4.1
+
+- Format action cards and targets as arrays of (card, index) tuples, without internal card IDs.
+
+# 1.4.0
+
+- Export readable text with one line per action and the cards involved.
+- Report property changes without repeating unchanged details or full inventories.
+- Stop capturing unrelated choices and unchanged after-action card lists.
+- Support text export of existing recorder journals.
+
+# 1.3.1
+
+- Use readable card identities in exported actions, including discards.
+- Shorten the card dictionary by omitting empty and default properties, including for existing journals.
+
+# 1.3.0
+
+- Integrate Action Recorder and its export config button into Observer.
+- Capture compact action histories with visible card positions and identities.
+- Bundle the export page and Windows server; preserve existing recorder journals.
+
 # Changelog
 
 ## 1.2.0 — Multiplayer observation support

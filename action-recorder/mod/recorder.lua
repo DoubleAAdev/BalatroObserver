@@ -1,0 +1,221 @@
+-- Append-only recording: one write per action, no 200 ms snapshot stream.
+-- The export server includes exact replay records alongside readable text.
+return function(JSON, version, multiplayer_adapter)
+    local M = {ok=true}
+    local directory='balatro_action_recorder'
+    local game, path, started, sequence, counter = nil,nil,0,0,0
+    local catalog, identities, next_card, next_identity = {},{},0,0
+    local areas={'hand','jokers','consumeables','shop_jokers','shop_vouchers','shop_booster','pack_cards'}
+    local descriptions=setmetatable({},{__mode='k'})
+    local pending_observation=false
+    local observe_after=0
+    local pending_hand
+    local last_opponent
+    local function scalar(v)
+        if type(v)=='string' or type(v)=='boolean' then return v end
+        if type(v)=='number' and v==v and math.abs(v)~=math.huge then return v end
+    end
+    local multiplayer=multiplayer_adapter and multiplayer_adapter(scalar,nil,JSON.array)
+    local function fields(t, names)
+        local out={}
+        for _,name in ipairs(names) do out[name]=scalar((t or {})[name]) end
+        return out
+    end
+    local function running()
+        return G and G.GAME and G.STAGE and G.STAGE==((G.STAGES or {}).RUN)
+    end
+    local function context()
+        local out=fields(G.GAME,{'dollars','chips','round'})
+        local round=G.GAME.current_round or {}
+        out.ante=scalar((G.GAME.round_resets or {}).ante)
+        out.blind=scalar(((((G.GAME.blind or {}).config or {}).blind or {}).key))
+        out.hands_left=scalar(round.hands_left);out.discards_left=scalar(round.discards_left)
+        out.hands_played=scalar(round.hands_played);out.discards_used=scalar(round.discards_used)
+        for name,id in pairs(G.STATES or {}) do if G.STATE==id then out.phase=name;break end end
+        out.multiplayer=multiplayer and multiplayer.snapshot(G)
+        return out
+    end
+    function M.card(c,index)
+        if c.facing~='front' then return {index=index,hidden=true} end
+        local center=(c.config or {}).center or {}
+        local a=c.ability or {}
+        local d={key=scalar(center.key),set=scalar(a.set or center.set),name=scalar(a.name or center.name)}
+        if center.key~='m_stone' then
+            d.rank=scalar((c.base or {}).value);d.suit=scalar((c.base or {}).suit)
+        end
+        d.edition=fields(c.edition,{'foil','holo','polychrome','negative','mp_phantom'})
+        if (c.edition or {}).type=='mp_phantom' then d.edition.mp_phantom=true end
+        d.seal=scalar(c.seal);d.debuff=c.debuff==true or nil
+        d.stickers=fields(a,{'eternal','perishable','rental','perish_tally'})
+        d.perma_bonus=scalar(a.perma_bonus)
+        return {index=index,descriptor=d,object=c}
+    end
+    function M.area(a, selected)
+        local list=JSON.array()
+        local highlighted={}
+        for _,c in ipairs((a or {}).highlighted or {}) do highlighted[c]=true end
+        for i,c in ipairs((a or {}).cards or {}) do
+            if not selected or highlighted[c] or c.highlighted then list[#list+1]=M.card(c,i) end
+        end
+        return list
+    end
+    function M.location(c)
+        for _,name in ipairs(areas) do
+            for i,item in ipairs((G[name] or {}).cards or {}) do if item==c then return name,i end end
+        end
+    end
+    function M.capture(token)
+        if not running() or (G.SETTINGS or {}).paused or G.OVERLAY_MENU then return end
+        M.finish_hand('before_next_action')
+        return {type=token,context=context()}
+    end
+    local function append(record)
+        assert(path,'No recording file')
+        assert(love.filesystem.append(path,JSON.encode(record)..'\n'))
+    end
+    function M.begin(resumed)
+        -- Drop the previous run's file too: a caller that cannot start a
+        -- recording must not go on appending to the run before it.
+        if not running() then path=nil;M.path=nil;return end
+        counter=counter+1
+        game=G.GAME;started=love.timer.getTime();sequence=0
+        catalog={};identities=setmetatable({},{__mode='k'});next_card=0;next_identity=0
+        descriptions=setmetatable({},{__mode='k'})
+        pending_observation=false;pending_hand=nil;last_opponent=nil
+        assert(love.filesystem.createDirectory(directory))
+        local id=tostring(os.time())..'-'..tostring(math.floor(started*1000000))..'-'..counter
+        path=directory..'/run-'..id..'.jsonl'
+        -- A fresh game process can have the same clock tick; never overwrite an existing recording.
+        while love.filesystem.getInfo and love.filesystem.getInfo(path) do
+            counter=counter+1;id=tostring(os.time())..'-'..tostring(math.floor(started*1000000))..'-'..counter
+            path=directory..'/run-'..id..'.jsonl'
+        end
+        local metadata={schema_version=2,recording={id=id,version=version,started_at=os.time(),partial=resumed==true,
+            deck=scalar((((game.selected_back or {}).effect or {}).center or {}).key),stake=scalar(game.stake)},
+            index_base=1}
+        local setup=metadata.recording
+        setup.seed=scalar((game.pseudorandom or {}).seed)
+        setup.seeded=scalar(game.seeded)
+        setup.hand_sort=scalar(((G.hand or {}).config or {}).sort)
+        setup.challenge=scalar(game.challenge)
+        setup.mod_version=version
+        setup.game_version=scalar(G.VERSION or VERSION)
+        setup.replay_format=2
+        setup.mods=JSON.array()
+        for id,mod in pairs((SMODS or {}).Mods or {}) do
+            if type(mod)=='table' and not mod.disabled then
+                setup.mods[#setup.mods+1]={id=scalar(id),version=scalar(mod.version)}
+            end
+        end
+        table.sort(setup.mods,function(a,b) return tostring(a.id)<tostring(b.id) end)
+        local lobby=(MP or {}).LOBBY or {}
+        if lobby.code then
+            local config=lobby.config or {}
+            setup.multiplayer=fields(config,{'ruleset','gamemode','back','sleeve','challenge','modifier_layers','different_seeds'})
+            setup.multiplayer.lobby_config={}
+            for key,value in pairs(config) do
+                if type(key)=='string' then setup.multiplayer.lobby_config[key]=scalar(value) end
+            end
+            setup.multiplayer.is_host=lobby.is_host==true
+            setup.multiplayer.player=scalar(lobby.username)
+            setup.multiplayer.opponent=scalar(((lobby.is_host and lobby.guest or lobby.host) or {}).username)
+            setup.multiplayer.mod_version=scalar((((SMODS or {}).Mods or {}).Multiplayer or {}).version)
+            setup.multiplayer.mod_hash=scalar((MP or {}).MOD_STRING)
+            setup.multiplayer.smods_version=scalar((MP or {}).SMODS_VERSION)
+        end
+        assert(love.filesystem.write(path,JSON.encode(metadata)..'\n'))
+        M.path=path;M.ok=true;M.action_count=0
+        love.filesystem.write(directory..'/status.json',JSON.encode({ok=true,recording=id}))
+    end
+    -- Descriptors are interned once; instance IDs distinguish duplicate physical cards.
+    -- Neither descriptor nor instance IDs are emitted for face-down cards.
+    local function refs(list,definitions)
+        local out=JSON.array()
+        for _,entry in ipairs(list or {}) do
+            if entry.hidden then out[#out+1]={index=entry.index,hidden=true}
+            else
+                local encoded=JSON.encode(entry.descriptor)
+                local id=catalog[encoded]
+                if not id then next_card=next_card+1;id=tostring(next_card);catalog[encoded]=id;definitions[id]=entry.descriptor end
+                local instance=identities[entry.object]
+                if not instance then next_identity=next_identity+1;instance=next_identity;identities[entry.object]=instance end
+                descriptions[entry.object]=encoded
+                out[#out+1]={index=entry.index,card=id,instance=instance}
+            end
+        end
+        return out
+    end
+    -- Snapshot the whole visible hand once the action settles, or immediately
+    -- before another input. Never let a later action replace a pending hand.
+    function M.finish_hand(reason)
+        if not pending_hand or game~=(G or {}).GAME or not path then return end
+        local definitions={}
+        local hand=refs(M.area(G.hand),definitions)
+        append({cards=definitions,observation={after_action=pending_hand,areas={},hand_after=hand,hand_boundary=reason,context=context()}})
+        pending_hand=nil
+    end
+    function M.record(event)
+        if not event then return end
+        if game~=G.GAME or not path then M.begin(true) end
+        local definitions={}
+        for _,key in ipairs({'cards','targets','hand_before'}) do if event[key] then event[key]=refs(event[key],definitions) end end
+        sequence=sequence+1;event.n=sequence;event.ms=math.floor((love.timer.getTime()-started)*1000+.5)
+        append({cards=definitions,action=event})
+        M.action_count=sequence
+        if event.hand_before then pending_hand=sequence end
+        pending_observation=true
+        observe_after=love.timer.getTime()+0.3
+    end
+    -- Shared outcome, explicitly tied to the latest accepted action. Intermediate animations are omitted.
+    function M.network(fields)
+        if not running() or not path or game~=G.GAME then return end
+        append({network=fields,after_action=sequence})
+    end
+    function M.observe()
+        if running() and path and game==G.GAME and multiplayer and not G.OVERLAY_MENU and not (G.SETTINGS or {}).paused then
+            local state=multiplayer.snapshot(G)
+            local encoded=state and JSON.encode(state)
+            if encoded and encoded~=last_opponent then
+                append({opponent=state,after_action=sequence})
+                last_opponent=encoded
+            end
+        end
+        if love.timer.getTime()<observe_after or not pending_observation or not running() or game~=G.GAME or not G.STATE_COMPLETE or G.OVERLAY_MENU then return end
+        local stable=false
+        for _,name in ipairs({'SELECTING_HAND','SHOP','BLIND_SELECT','ROUND_EVAL','SMODS_BOOSTER_OPENED','TAROT_PACK','PLANET_PACK','SPECTRAL_PACK','STANDARD_PACK','BUFFOON_PACK','GAME_OVER'}) do
+            if (G.STATES or {})[name] and G.STATE==G.STATES[name] then stable=true end
+        end
+        local locks=((G.CONTROLLER or {}).locks or {})
+        if not stable or locks.shop_reroll or locks.selling_card or locks.use or (G.SETTINGS or {}).paused then return end
+        M.finish_hand('settled')
+        local definitions,visible={},{}
+        local pack_phase=false
+        for _,name in ipairs({'SMODS_BOOSTER_OPENED','TAROT_PACK','PLANET_PACK','SPECTRAL_PACK','STANDARD_PACK','BUFFOON_PACK'}) do
+            if (G.STATES or {})[name] and G.STATE==G.STATES[name] then pack_phase=true end
+        end
+        for _,name in ipairs(areas) do
+            local shop=name:match('^shop_');local pack=name=='pack_cards'
+            local include=(not shop and not pack) or (shop and G.STATE==G.STATES.SHOP) or (pack and pack_phase)
+            if include and G[name] then
+                local changed=JSON.array()
+                for _,entry in ipairs(M.area(G[name])) do
+                    if not entry.hidden and descriptions[entry.object] and descriptions[entry.object]~=JSON.encode(entry.descriptor) then changed[#changed+1]=entry end
+                end
+                if #changed>0 then visible[name]=refs(changed,definitions) end
+            end
+        end
+        if next(visible) then append({cards=definitions,observation={after_action=sequence,areas=visible}}) end
+        pending_observation=false
+    end
+    function M.safe(fn,...)
+        if not M.ok then return end -- A partial failed append must never be followed by more journal records.
+        local ok,result=pcall(fn,...)
+        if not ok then
+            M.ok=false
+            pcall(love.filesystem.write,directory..'/status.json',JSON.encode({ok=false,message='Recording stopped after an error. Restart Balatro to start a new recording segment.'}))
+            return
+        end
+        return result
+    end
+    return M
+end

@@ -220,7 +220,7 @@ function blindPanels(s){
 function multiplayerPanel(s){
  const mp=s.multiplayer;if(!mp?.active)return;
  const p=panel('Multiplayer',mp.pvp?'PvP blind':'Between PvP blinds');p.id='multiplayer-panel';
- for(const [label,v] of [['Mode',mp.mode],['Ruleset',mp.ruleset],['Your lives',mp.lives],['Nemesis lives',mp.nemesis_lives],['Nemesis hands',mp.nemesis_hands],['Nemesis score',mp.nemesis_score]])if(v!==undefined)p.append(el('p',label+': '+value(v),'hint'));
+ for(const [label,v] of [['Mode',mp.mode],['Ruleset',mp.ruleset],['Your lives',mp.lives],['Nemesis lives',mp.nemesis_lives],['Nemesis location',mp.nemesis_location],['Nemesis blind',mp.nemesis_location_blind],['Nemesis hands',mp.nemesis_hands],['Nemesis score',mp.nemesis_score]])if(v!==undefined)p.append(el('p',label+': '+value(v),'hint'));
 }
 function scorePanel(s){
  const p=panel('Selected hand score','Balatro Calculator');p.id='score-preview';

@@ -39,6 +39,11 @@ assert(state.consumables.cards[1].description=='Remove 1 level' and state.consum
 assert(#state.run.deck.components==1 and state.run.deck.components[1].name=='Violet Deck')
 assert(not JSON.encode(state):find('PRIVATE') and not JSON.encode(state):find('987654321'))
 G.GAME.current_round.hands_played=nil;assert(observer.snapshot(G).multiplayer.nemesis_score=='???')
+MP.GAME.enemy.location='Shop';MP.GAME.enemy.location_blind='bl_big'
+assert(observer.snapshot(G).multiplayer.nemesis_location=='Shop')
+MP.LOBBY.config.enemy_location_disabled=true
+assert(observer.snapshot(G).multiplayer.nemesis_location==nil)
+MP.LOBBY.config.enemy_location_disabled=false
 G.GAME.current_round.hands_played=1;MP.GAME.enemy.score_text='1.23e12'
 assert(observer.snapshot(G).multiplayer.nemesis_score=='1.23e12')
 G.GAME.blind={config={blind={key='bl_small'}},chips=300}

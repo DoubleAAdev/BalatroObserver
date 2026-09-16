@@ -11,10 +11,19 @@ using System.Web.Script.Serialization;
 // Compiled at runtime by start-viewer.ps1; releaseRoot is the mod folder holding the manifest, viewer/ and assets/.
 public static class ObserverServer {
     static string root, directory, version;
+    static int gamePid;
     static Dictionary<string, string[]> routes;
     static JavaScriptSerializer Json() { return new JavaScriptSerializer { MaxJsonLength = 16777216, RecursionLimit = 100 }; }
     static void Route(string url, string file, string type) { routes.Add(url, new [] { file, type }); }
-    public static void Run(string releaseRoot, string stateDirectory, int port) {
+    public static void Run(string releaseRoot, string stateDirectory, int port, int ownerPid=0) {
+        gamePid=ownerPid;
+        if(gamePid>0) {
+            System.Diagnostics.Process game;
+            try { game=System.Diagnostics.Process.GetProcessById(gamePid); var handle=game.Handle; }
+            catch(ArgumentException) { return; }
+            // Wait on this process handle, including crashes and forced exits, without a helper process.
+            ThreadPool.QueueUserWorkItem(delegate { using(game) { game.WaitForExit(); Environment.Exit(0); } });
+        }
         root = releaseRoot; directory = stateDirectory;
         version = (string)((Dictionary<string, object>)Json().DeserializeObject(File.ReadAllText(Path.Combine(root, "BalatroObserver.json"))))["version"];
         routes = new Dictionary<string, string[]>(StringComparer.Ordinal);
@@ -73,7 +82,7 @@ public static class ObserverServer {
                 if (first.Length != 3 || first[0] != "GET") { code = 405; body = Encoding.UTF8.GetBytes("Method not allowed"); }
                 else {
                     string url = Uri.UnescapeDataString(first[1].Split('?')[0]);
-                    if (url == "/health") { type = "application/json"; body = Encoding.UTF8.GetBytes(Json().Serialize(new {app="BalatroObserver", version=version, runtime="Windows PowerShell/.NET"})); }
+                    if (url == "/health") { type = "application/json"; body = Encoding.UTF8.GetBytes(Json().Serialize(new {app="BalatroObserver", version=version, runtime="Windows PowerShell/.NET", gamePid=gamePid})); }
                     else if (url == "/state") { type = "application/json"; body = Encoding.UTF8.GetBytes(State()); }
                     else if (routes.ContainsKey(url)) { type = routes[url][1]; body = File.ReadAllBytes(Path.Combine(root,routes[url][0])); }
                     else { code = 404; body = Encoding.UTF8.GetBytes("Not found"); }

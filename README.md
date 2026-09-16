@@ -117,3 +117,11 @@ The existing dashboard supports the seven decks and nine added jokers listed on 
 Overview shows the active mode/ruleset, visible lives and, during PvP, the HUD's opponent hands and score text. Hidden scores remain hidden; raw enemy score objects, opponent cards, networking, lobby codes and seeds are never exported. Cocktail shows only component stickers revealed by the game. No new multiplayer network connection is opened.
 
 The bundled vanilla calculator does not model Multiplayer rulesets, so it explains that limitation instead of reporting an incorrect estimate in active matches or with Multiplayer decks. Probability callbacks and unreviewed custom tooltip values remain `?`; the observer never calls them. Gameplay and vanilla observation behavior are unchanged. Restart Balatro after installation.
+
+## Action history
+
+On Windows, servers opened from the mod's config stop automatically when Balatro closes. Recorded runs remain on disk. Desktop launchers also attach to Balatro if it is running; launches without a game remain available for offline viewing.
+
+**Replaying a Multiplayer game** from its Lovely log, so Action Recorder can record it, is now its own mod: [Balatro Replayer](https://github.com/DoubleAAdev/BalatroReplayer). It was part of Observer up to 1.10.0.
+
+Open **Mods > Balatro Observer > Config > Open Action Recorder** to export readable action logs with card positions, identities, and brief property changes. See [recorder documentation](action-recorder/README.md). Disable any older standalone recorder and restart Balatro after updating.
