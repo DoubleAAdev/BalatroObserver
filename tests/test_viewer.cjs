@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const { newest, readState, createServer } = require('../server/viewer-server');
+const { newest, readState, createServer, defaultStateDirectory } = require('../server/viewer-server');
 const record = (sequence, available=true) => ({schema_version:1,session:'test',sequence,observed_at:Math.floor(Date.now()/1000),available,phase:'SHOP'});
 test('latest unavailable record supersedes playable observation', () => {
   assert.equal(newest([record(1),record(2,false)]).available,false);
@@ -11,6 +11,27 @@ test('latest unavailable record supersedes playable observation', () => {
 });
 test('session changes prioritize timestamp over previous sequence',()=>{
   assert.equal(newest([{...record(999),observed_at:1},{...record(1),session:'new',observed_at:2}]).session,'new');
+});
+test('default state directory follows each platform\'s LÖVE save location',()=>{
+  const platform=Object.getOwnPropertyDescriptor(process,'platform');
+  const env={...process.env};
+  try {
+    Object.defineProperty(process,'platform',{value:'win32'});
+    process.env.APPDATA='C:\\Users\\test\\AppData\\Roaming';
+    assert.equal(defaultStateDirectory(),path.join('C:\\Users\\test\\AppData\\Roaming','Balatro','balatro_observer'));
+
+    Object.defineProperty(process,'platform',{value:'darwin'});
+    assert.equal(defaultStateDirectory(),path.join(os.homedir(),'Library','Application Support','Balatro','balatro_observer'));
+
+    Object.defineProperty(process,'platform',{value:'linux'});
+    delete process.env.XDG_DATA_HOME;
+    assert.equal(defaultStateDirectory(),path.join(os.homedir(),'.local','share','Balatro','balatro_observer'));
+    process.env.XDG_DATA_HOME='/custom/data';
+    assert.equal(defaultStateDirectory(),path.join('/custom/data','Balatro','balatro_observer'));
+  } finally {
+    Object.defineProperty(process,'platform',platform);
+    process.env=env;
+  }
 });
 test('file recovery, staleness and HTTP integration',async()=>{
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'observer-viewer-'));

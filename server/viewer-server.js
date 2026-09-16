@@ -2,6 +2,7 @@
 // Serves the same read-only routes as server/viewer-server.cs. Usage: node server/viewer-server.js [stateDirectory]
 const http = require('node:http');
 const fs = require('node:fs/promises');
+const os = require('node:os');
 const path = require('node:path');
 
 // The mod folder holds the manifest, viewer/, assets/ and credits; this file lives in server/.
@@ -71,8 +72,15 @@ function createServer(directory) {
   });
 }
 
+// Mirrors love.filesystem.getSaveDirectory() for identity 'Balatro' on each platform.
+function defaultStateDirectory() {
+  if (process.platform === 'win32') return path.join(process.env.APPDATA || '.', 'Balatro', 'balatro_observer');
+  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'Balatro', 'balatro_observer');
+  return path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'Balatro', 'balatro_observer');
+}
+
 if (require.main === module) {
-  const directory = path.resolve(process.argv[2] || path.join(process.env.APPDATA || '.', 'Balatro', 'balatro_observer'));
+  const directory = path.resolve(process.argv[2] || defaultStateDirectory());
   const port = Number(process.env.PORT || 8765);
   const server = createServer(directory);
   server.on('error', err => { console.error(err.message); process.exitCode = 1; });
@@ -82,4 +90,4 @@ if (require.main === module) {
     console.log('Reading: ' + directory);
   });
 }
-module.exports = { newest, readState, createServer, root, version };
+module.exports = { newest, readState, createServer, defaultStateDirectory, root, version };
