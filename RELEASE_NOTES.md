@@ -1,5 +1,5 @@
-# Balatro Observer 2.0.3
+# Balatro Observer 2.0.4
 
-Remove redundant multiplayer status lines and score animation frames from Action Recorder text exports, including existing recordings. Preserve numbered actions, hand snapshots, status transitions and repeated gameplay events.
+Fix the dashboard never showing data on macOS and Linux: the optional Node viewer server defaulted its state directory to `%APPDATA%`, which doesn't exist outside Windows, so it silently read from a nonexistent folder instead of LÖVE's real save directory. It now resolves the correct save location on each platform.
 
 Restart Balatro to load the updated mod.

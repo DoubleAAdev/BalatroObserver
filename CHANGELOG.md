@@ -1,3 +1,7 @@
+# 2.0.4
+
+- Fix the Node viewer server always missing state on macOS and Linux: it defaulted the snapshot directory to `%APPDATA%`, a Windows-only variable, instead of LÖVE's actual save directory on each platform.
+
 # 2.0.3
 
 - Collapse consecutive opponent score animation frames and suppress unchanged multiplayer status messages in text exports. Preserve actions, hand snapshots and repeated gameplay events.
